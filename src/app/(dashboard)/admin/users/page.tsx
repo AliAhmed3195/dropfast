@@ -17,6 +17,8 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',

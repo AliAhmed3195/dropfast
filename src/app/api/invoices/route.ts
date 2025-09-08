@@ -61,11 +61,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Update order with invoice reference
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { invoiceId: invoice.id },
-    });
+    // Invoice is already linked to order through the orderId field in Invoice model
 
     return NextResponse.json({
       message: 'Invoice created successfully',
