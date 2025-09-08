@@ -10,7 +10,7 @@ export interface User {
 
 export async function createSession(user: User) {
   const sessionData = {
-    userId: user.id,
+    id: user.id,
     email: user.email,
     name: user.name,
     role: user.role,

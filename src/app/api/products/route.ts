@@ -11,7 +11,7 @@ export async function GET() {
 
     const products = await prisma.product.findMany({
       where: {
-        supplierId: session.id,
+        supplierId: session.userId || session.id,
         storeId: null, // Only show original products, not vendor-created copies
       },
       include: {
@@ -42,6 +42,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
+    console.log('Session in products API:', session);
     if (!session || session.role !== 'SUPPLIER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
       priceModifier: parseFloat(variant.priceModifier) || 0,
     }));
 
+    console.log('Creating product with supplierId:', session.userId || session.id);
     let product;
     try {
       // Try to create product with variants
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
           price: parseFloat(price),
           image,
           category,
-          supplierId: session.id,
+          supplierId: session.userId || session.id,
           storeId: null, // Explicitly set to null for original products
           isActive: true, // Explicitly set to true
           variants: variantsData.length > 0 ? variantsData : null, // Store as JSON
@@ -82,6 +84,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       // If variants column doesn't exist, create without variants
       console.log('Variants column not available, creating product without variants');
+      console.log('Fallback - Creating product with supplierId:', session.userId || session.id);
       product = await prisma.product.create({
         data: {
           name,
@@ -89,7 +92,7 @@ export async function POST(request: NextRequest) {
           price: parseFloat(price),
           image,
           category,
-          supplierId: session.id,
+          supplierId: session.userId || session.id,
           storeId: null,
           isActive: true,
         },
