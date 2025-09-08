@@ -33,7 +33,7 @@ export async function GET(
     }
 
     // Check permissions
-    if (session.role === 'VENDOR' && invoice.store.ownerId !== session.userId) {
+    if (session.role === 'VENDOR' && invoice.store.ownerId !== session.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

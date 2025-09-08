@@ -11,7 +11,7 @@ export async function GET() {
 
     const products = await prisma.product.findMany({
       where: {
-        supplierId: session.userId,
+        supplierId: session.id,
         storeId: null, // Only show original products, not vendor-created copies
       },
       include: {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
           price: parseFloat(price),
           image,
           category,
-          supplierId: session.userId,
+          supplierId: session.id,
           storeId: null, // Explicitly set to null for original products
           isActive: true, // Explicitly set to true
           variants: variantsData.length > 0 ? variantsData : null, // Store as JSON
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
           price: parseFloat(price),
           image,
           category,
-          supplierId: session.userId,
+          supplierId: session.id,
           storeId: null,
           isActive: true,
         },

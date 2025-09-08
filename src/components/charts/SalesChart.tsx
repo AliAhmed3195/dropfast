@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
 
 const data = [
@@ -11,15 +10,6 @@ const data = [
   { name: 'May', sales: 4890, orders: 30 },
   { name: 'Jun', sales: 6390, orders: 35 },
 ];
-
-// Dynamically import Recharts components to avoid SSR issues
-const LineChart = dynamic(() => import('recharts').then(mod => ({ default: mod.LineChart })), { ssr: false });
-const Line = dynamic(() => import('recharts').then(mod => ({ default: mod.Line })), { ssr: false });
-const XAxis = dynamic(() => import('recharts').then(mod => ({ default: mod.XAxis })), { ssr: false });
-const YAxis = dynamic(() => import('recharts').then(mod => ({ default: mod.YAxis })), { ssr: false });
-const CartesianGrid = dynamic(() => import('recharts').then(mod => ({ default: mod.CartesianGrid })), { ssr: false });
-const Tooltip = dynamic(() => import('recharts').then(mod => ({ default: mod.Tooltip })), { ssr: false });
-const ResponsiveContainer = dynamic(() => import('recharts').then(mod => ({ default: mod.ResponsiveContainer })), { ssr: false });
 
 export function SalesChart() {
   const [isClient, setIsClient] = useState(false);
@@ -37,15 +27,25 @@ export function SalesChart() {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip />
-        <Line type="monotone" dataKey="sales" stroke="#8884d8" strokeWidth={2} />
-      </LineChart>
-    </ResponsiveContainer>
+    <div className="w-full h-[200px] bg-white rounded-lg p-4">
+      <div className="text-sm font-medium text-gray-700 mb-4">Sales Overview</div>
+      <div className="space-y-2">
+        {data.map((item, index) => (
+          <div key={index} className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">{item.name}</span>
+            <div className="flex items-center space-x-2">
+              <div className="w-16 bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-500 h-2 rounded-full" 
+                  style={{ width: `${(item.sales / 7000) * 100}%` }}
+                ></div>
+              </div>
+              <span className="text-sm font-medium text-gray-900">${item.sales.toLocaleString()}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -65,14 +65,24 @@ export function OrdersChart() {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip />
-        <Line type="monotone" dataKey="orders" stroke="#82ca9d" strokeWidth={2} />
-      </LineChart>
-    </ResponsiveContainer>
+    <div className="w-full h-[200px] bg-white rounded-lg p-4">
+      <div className="text-sm font-medium text-gray-700 mb-4">Orders Overview</div>
+      <div className="space-y-2">
+        {data.map((item, index) => (
+          <div key={index} className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">{item.name}</span>
+            <div className="flex items-center space-x-2">
+              <div className="w-16 bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-green-500 h-2 rounded-full" 
+                  style={{ width: `${(item.orders / 40) * 100}%` }}
+                ></div>
+              </div>
+              <span className="text-sm font-medium text-gray-900">{item.orders}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

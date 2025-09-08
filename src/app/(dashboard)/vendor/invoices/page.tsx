@@ -124,7 +124,13 @@ export default function VendorInvoicesPage() {
               </div>
             </div>
             <div className="p-4">
-              <InvoiceTemplate invoice={selectedInvoice} template={selectedInvoice.store.template as any} />
+              <InvoiceTemplate 
+                invoice={{
+                  ...selectedInvoice,
+                  template: selectedInvoice.store.template
+                }} 
+                template={selectedInvoice.store.template as 'default' | 'modern' | 'minimal' | 'professional'} 
+              />
             </div>
           </div>
         </div>

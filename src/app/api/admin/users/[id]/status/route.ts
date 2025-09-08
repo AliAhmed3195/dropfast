@@ -16,7 +16,7 @@ export async function PATCH(
     const { isActive } = await request.json();
 
     // Prevent admin from deactivating themselves
-    if (userId === session.userId && !isActive) {
+    if (userId === session.id && !isActive) {
       return NextResponse.json(
         { error: 'Cannot deactivate your own account' },
         { status: 400 }

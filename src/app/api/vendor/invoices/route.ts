@@ -13,7 +13,7 @@ export async function GET() {
     const invoices = await prisma.invoice.findMany({
       where: {
         store: {
-          ownerId: session.userId
+          ownerId: session.id
         }
       },
       include: {

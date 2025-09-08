@@ -13,7 +13,7 @@ export async function GET() {
     const orders = await prisma.order.findMany({
       where: {
         product: {
-          supplierId: session.userId,
+          supplierId: session.id,
         },
       },
       include: {

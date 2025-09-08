@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const store = await prisma.store.findFirst({
       where: {
         id: storeId,
-        ownerId: session.userId,
+        ownerId: session.id,
       },
     });
 

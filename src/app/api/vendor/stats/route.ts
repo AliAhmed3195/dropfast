@@ -16,19 +16,19 @@ export async function GET() {
       totalOrders,
     ] = await Promise.all([
       prisma.store.count({
-        where: { ownerId: session.userId },
+        where: { ownerId: session.id },
       }),
       prisma.product.count({
         where: { 
           store: {
-            ownerId: session.userId,
+            ownerId: session.id,
           },
         },
       }),
       prisma.order.aggregate({
         where: {
           store: {
-            ownerId: session.userId,
+            ownerId: session.id,
           },
           status: 'PAID',
         },
@@ -39,7 +39,7 @@ export async function GET() {
       prisma.order.count({
         where: {
           store: {
-            ownerId: session.userId,
+            ownerId: session.id,
           },
         },
       }),

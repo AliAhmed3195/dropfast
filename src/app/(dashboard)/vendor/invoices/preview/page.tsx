@@ -150,11 +150,20 @@ export default function InvoicePreviewPage() {
             
             <div className="border border-gray-200 rounded-lg overflow-hidden">
               <InvoiceRenderer
-                template={selectedTemplate}
-                invoice={mockInvoice}
-                order={mockOrder}
-                store={selectedStore}
-                customer={mockCustomer}
+                templateName={selectedTemplate}
+                invoiceData={{
+                  id: mockInvoice.id,
+                  subtotal: mockInvoice.subtotal,
+                  tax: mockInvoice.tax,
+                  total: mockInvoice.total,
+                  date: mockInvoice.createdAt,
+                  orderId: mockOrder.id,
+                  items: [{
+                    name: mockOrder.product.name,
+                    quantity: mockOrder.quantity,
+                    price: mockOrder.productPrice
+                  }]
+                }}
               />
             </div>
           </Card>

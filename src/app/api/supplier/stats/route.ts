@@ -16,18 +16,18 @@ export async function GET() {
       totalOrders,
     ] = await Promise.all([
       prisma.product.count({
-        where: { supplierId: session.userId },
+        where: { supplierId: session.id },
       }),
       prisma.product.count({
         where: { 
-          supplierId: session.userId,
+          supplierId: session.id,
           isActive: true,
         },
       }),
       prisma.order.aggregate({
         where: {
           product: {
-            supplierId: session.userId,
+            supplierId: session.id,
           },
           status: 'PAID',
         },
@@ -38,7 +38,7 @@ export async function GET() {
       prisma.order.count({
         where: {
           product: {
-            supplierId: session.userId,
+            supplierId: session.id,
           },
         },
       }),

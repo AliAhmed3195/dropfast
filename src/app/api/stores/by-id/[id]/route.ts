@@ -54,7 +54,7 @@ export async function PUT(
       where: { id },
     });
 
-    if (!existingStore || existingStore.ownerId !== session.userId) {
+    if (!existingStore || existingStore.ownerId !== session.id) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
@@ -90,7 +90,7 @@ export async function DELETE(
       where: { id },
     });
 
-    if (!existingStore || existingStore.ownerId !== session.userId) {
+    if (!existingStore || existingStore.ownerId !== session.id) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 

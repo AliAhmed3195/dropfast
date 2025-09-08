@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         description,
         slug,
         template,
-        ownerId: session.userId,
+        ownerId: session.id,
         isActive: true,
       },
     });
