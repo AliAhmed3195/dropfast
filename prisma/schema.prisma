@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  isActive  Boolean  @default(true)
+  stores    Store[]
+  products  Product[] @relation("SupplierProducts")
+  orders    Order[]
+  invoices  Invoice[]
+  createdAt DateTime @default(now())
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  template    String   @default("default")
+  isActive    Boolean  @default(true)
+  owner       User     @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  products    Product[]
+  orders      Order[]
+  invoices    Invoice[]
+  // Store branding for invoices
+  logo        String?
+  address     String?
+  phone       String?
+  email       String?
+  taxNumber   String?
+  invoiceTemplate String @default("default")
+  createdAt   DateTime @default(now())
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  image       String?
+  category    String?
+  isActive    Boolean  @default(true)
+  markup      Float    @default(0) // Vendor markup percentage
+  supplier    User     @relation("SupplierProducts", fields: [supplierId], references: [id])
+  supplierId  String
+  store       Store?   @relation(fields: [storeId], references: [id])
+  storeId     String?
+  orders      Order[]
+  hostedLink  String?  @unique // Generated hosted link for checkout
+  variants    Json?    // Store variants as JSON
+  createdAt   DateTime @default(now())
+}
+
+
+model Order {
+  id            String   @id @default(cuid())
+  product       Product  @relation(fields: [productId], references: [id])
+  productId     String
+  store         Store    @relation(fields: [storeId], references: [id])
+  storeId       String
+  customer      User     @relation(fields: [customerId], references: [id])
+  customerId    String
+  quantity      Int      @default(1)
+  productPrice  Float    // Original supplier price
+  markupAmount  Float    // Vendor markup amount
+  totalAmount   Float    // Final amount paid by customer
+  selectedVariants String? // JSON string of selected variants
+  status        OrderStatus @default(PENDING)
+  paymentId     String?  // Payment gateway transaction ID
+  invoice       Invoice?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique
+  order         Order    @relation(fields: [orderId], references: [id])
+  orderId       String   @unique
+  store         Store    @relation(fields: [storeId], references: [id])
+  storeId       String
+  customer      User     @relation(fields: [customerId], references: [id])
+  customerId    String
+  subtotal      Float
+  tax           Float    @default(0)
+  total         Float
+  status        InvoiceStatus @default(PENDING)
+  template      String   @default("default")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum Role {
+  ADMIN
+  SUPPLIER
+  VENDOR
+}
