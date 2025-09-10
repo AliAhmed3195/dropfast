@@ -1,8 +1,20 @@
-import sgMail from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
 import { generateSimpleInvoiceTemplate } from './email-template';
 
-// Initialize SendGrid
-sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
+// Initialize SMTP transporter for Gmail
+let smtpTransporter: any = null;
+
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  smtpTransporter = nodemailer.createTransporter({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
 
 export interface EmailData {
   to: string;
@@ -12,20 +24,36 @@ export interface EmailData {
 }
 
 export async function sendEmail(emailData: EmailData) {
+  // Check if email is enabled
+  if (process.env.EMAIL_ENABLED !== 'true') {
+    console.log('Email is disabled. Skipping email send.');
+    return { success: true, messageId: 'disabled' };
+  }
+
+  // Check if SMTP is configured
+  if (!smtpTransporter) {
+    console.error('SMTP not configured. Please check your .env file.');
+    return { success: false, error: 'SMTP not configured' };
+  }
+
   try {
-    const msg = {
+    const fromEmail = process.env.EMAIL_FROM || 'aliahmed3195@gmail.com';
+    const fromName = process.env.EMAIL_FROM_NAME || 'FastDrop';
+    const from = `${fromName} <${fromEmail}>`;
+
+    const mailOptions = {
+      from: from,
       to: emailData.to,
-      from: process.env.EMAIL_FROM || 'aliahmed123@gmail.com',
       subject: emailData.subject,
       html: emailData.html,
       text: emailData.text,
     };
 
-    const result = await sgMail.send(msg);
-    console.log('Email sent successfully via SendGrid:', result[0].statusCode);
-    return { success: true, messageId: result[0].headers['x-message-id'] };
+    const result = await smtpTransporter.sendMail(mailOptions);
+    console.log('Email sent successfully via SMTP:', result.messageId);
+    return { success: true, messageId: result.messageId };
   } catch (error) {
-    console.error('Error sending email via SendGrid:', error);
+    console.error('Error sending email via SMTP:', error);
     return { success: false, error: error };
   }
 }
