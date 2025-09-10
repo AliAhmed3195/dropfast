@@ -106,7 +106,9 @@ export function generateCustomerInvoiceEmail(customerName: string, orderData: an
 
   // Generate HTML template based on store template
   let templateHtml;
-  const templateType = storeData?.template || 'default';
+  const templateType = storeData?.invoiceTemplate || storeData?.template || 'default';
+  console.log('Selected template type:', templateType);
+  console.log('Store data:', { invoiceTemplate: storeData?.invoiceTemplate, template: storeData?.template });
   
   if (templateType === 'modern') {
     templateHtml = generateModernInvoiceTemplate(templateInvoiceData, storeData);

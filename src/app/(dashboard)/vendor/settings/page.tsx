@@ -28,6 +28,9 @@ export default function VendorSettingsPage() {
   const [selectedStore, setSelectedStore] = useState<StoreSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStores();
@@ -40,6 +43,7 @@ export default function VendorSettingsPage() {
       setStores(data.stores || []);
       if (data.stores?.length > 0) {
         setSelectedStore(data.stores[0]);
+        setPreview(data.stores[0].logo || null);
       }
     } catch (error) {
       console.error('Error fetching stores:', error);
@@ -93,6 +97,106 @@ export default function VendorSettingsPage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
+      setSelectedFile(file);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleLogoUpload = async () => {
+    if (!selectedFile || !selectedStore) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const logoUrl = data.url;
+
+        // Update store with new logo
+        const updateResponse = await fetch(`/api/stores/by-id/${selectedStore.id}/settings`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ logo: logoUrl }),
+        });
+
+        if (updateResponse.ok) {
+          alert('Logo uploaded successfully!');
+          handleInputChange('logo', logoUrl);
+          setSelectedFile(null);
+        } else {
+          const error = await updateResponse.json();
+          alert(error.error || 'Failed to update store logo');
+        }
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to upload logo');
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      alert('Failed to upload logo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeLogo = async () => {
+    if (!selectedStore) return;
+
+    if (!confirm('Are you sure you want to remove the logo?')) return;
+
+    try {
+      const response = await fetch(`/api/stores/by-id/${selectedStore.id}/settings`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ logo: null }),
+      });
+
+      if (response.ok) {
+        alert('Logo removed successfully!');
+        handleInputChange('logo', '');
+        setPreview(null);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to remove logo');
+      }
+    } catch (error) {
+      console.error('Error removing logo:', error);
+      alert('Failed to remove logo');
+    }
+  };
+
   if (loading) {
     return <div className="p-6">Loading...</div>;
   }
@@ -133,7 +237,11 @@ export default function VendorSettingsPage() {
               {stores.map((store) => (
                 <button
                   key={store.id}
-                  onClick={() => setSelectedStore(store)}
+                  onClick={() => {
+                    setSelectedStore(store);
+                    setPreview(store.logo || null);
+                    setSelectedFile(null);
+                  }}
                   className={`w-full text-left p-3 rounded-md border ${
                     selectedStore?.id === store.id
                       ? 'border-indigo-500 bg-indigo-50'
@@ -160,30 +268,69 @@ export default function VendorSettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Store Logo
                   </label>
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="url"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      value={selectedStore.logo || ''}
-                      onChange={(e) => handleInputChange('logo', e.target.value)}
-                      placeholder="https://example.com/logo.png"
-                    />
-                    <a
-                      href="/vendor/logo-upload"
-                      className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm whitespace-nowrap"
-                    >
-                      Upload Logo
-                    </a>
-                  </div>
-                  {selectedStore.logo && (
-                    <div className="mt-2">
-                      <img
-                        src={selectedStore.logo}
-                        alt="Store logo"
-                        className="h-16 w-16 object-contain border rounded"
-                      />
+                  
+                  {/* Current Logo Preview */}
+                  {preview && (
+                    <div className="mb-4">
+                      <h3 className="text-sm font-medium text-gray-700 mb-2">Current Logo:</h3>
+                      <div className="border rounded-lg p-4 bg-gray-50 inline-block">
+                        <img
+                          src={preview}
+                          alt="Current logo"
+                          className="max-h-24 mx-auto object-contain"
+                        />
+                      </div>
+                      <button
+                        onClick={removeLogo}
+                        className="mt-2 text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Remove Logo
+                      </button>
                     </div>
                   )}
+
+                  {/* File Upload */}
+                  <div className="space-y-3">
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Supported formats: JPG, PNG, GIF. Max size: 5MB
+                      </p>
+                    </div>
+
+                    {/* Upload Button */}
+                    {selectedFile && (
+                      <button
+                        onClick={handleLogoUpload}
+                        disabled={uploading}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        {uploading ? 'Uploading...' : 'Upload Logo'}
+                      </button>
+                    )}
+
+                    {/* Manual URL Input */}
+                    <div className="pt-2 border-t">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Or enter logo URL manually:
+                      </label>
+                      <input
+                        type="url"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        value={selectedStore.logo || ''}
+                        onChange={(e) => {
+                          handleInputChange('logo', e.target.value);
+                          setPreview(e.target.value);
+                        }}
+                        placeholder="https://example.com/logo.png"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Address */}

@@ -82,13 +82,11 @@ export default function DashboardLayout({
   if (user.role === 'VENDOR') {
     navigation.push(
       { name: 'Create Store', href: '/vendor/create-store', current: pathname === '/vendor/create-store' },
-      { name: 'Create Hosted Link', href: '/vendor/create-hosted-link', current: pathname === '/vendor/create-hosted-link' },
       { name: 'Stores', href: '/vendor/stores', current: pathname === '/vendor/stores' },
       { name: 'Import Products', href: '/vendor/import', current: pathname === '/vendor/import' },
       { name: 'Orders', href: '/vendor/orders', current: pathname === '/vendor/orders' },
       { name: 'Invoices', href: '/vendor/invoices', current: pathname === '/vendor/invoices' },
       { name: 'Invoice Templates', href: '/vendor/invoice-templates', current: pathname === '/vendor/invoice-templates' },
-      { name: 'Logo Upload', href: '/vendor/logo-upload', current: pathname === '/vendor/logo-upload' },
       { name: 'Settings', href: '/vendor/settings', current: pathname === '/vendor/settings' }
     );
   }

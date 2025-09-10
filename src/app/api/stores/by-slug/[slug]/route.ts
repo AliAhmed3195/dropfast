@@ -37,6 +37,7 @@ export async function GET(
     }
 
     console.log('Store found:', store.name);
+    console.log('Store logo:', store.logo);
     console.log('Products count:', store.products.length);
     console.log('Products:', store.products.map(p => ({ id: p.id, name: p.name, storeId: p.storeId })));
 

@@ -28,6 +28,7 @@ export default function VendorImportPage() {
   const [loading, setLoading] = useState(true);
   const [selectedStore, setSelectedStore] = useState('');
   const [markupPercentage, setMarkupPercentage] = useState(20);
+  const [productMargins, setProductMargins] = useState<{[key: string]: number}>({});
 
   useEffect(() => {
     fetchData();
@@ -62,6 +63,9 @@ export default function VendorImportPage() {
       return;
     }
 
+    // Use individual product margin if set, otherwise use global markup
+    const productMargin = productMargins[productId] !== undefined ? productMargins[productId] : markupPercentage;
+
     try {
       const response = await fetch('/api/products/import', {
         method: 'POST',
@@ -71,7 +75,7 @@ export default function VendorImportPage() {
         body: JSON.stringify({
           productId,
           storeId: selectedStore,
-          markup: markupPercentage,
+          markup: productMargin,
           generateHostedLink: true, // Always generate hosted link for vendors
         }),
       });
@@ -90,8 +94,16 @@ export default function VendorImportPage() {
     }
   };
 
-  const calculateFinalPrice = (basePrice: number) => {
-    return basePrice + (basePrice * markupPercentage / 100);
+  const calculateFinalPrice = (basePrice: number, productId?: string) => {
+    const margin = productId && productMargins[productId] !== undefined ? productMargins[productId] : markupPercentage;
+    return basePrice + (basePrice * margin / 100);
+  };
+
+  const handleProductMarginChange = (productId: string, margin: number) => {
+    setProductMargins(prev => ({
+      ...prev,
+      [productId]: margin
+    }));
   };
 
   const generateStandaloneHostedLink = async (productId: string) => {
@@ -109,7 +121,7 @@ export default function VendorImportPage() {
         body: JSON.stringify({
           productId,
           storeId: selectedStore,
-          markup: markupPercentage,
+          markup: productMargins[productId] !== undefined ? productMargins[productId] : markupPercentage,
         }),
       });
 
@@ -141,7 +153,7 @@ export default function VendorImportPage() {
 
       <Card className="mb-6">
         <h2 className="text-lg font-semibold mb-4">Import Settings</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Store
@@ -160,7 +172,7 @@ export default function VendorImportPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Markup Percentage (%)
+              Global Markup Percentage (%)
             </label>
             <input
               type="number"
@@ -171,6 +183,19 @@ export default function VendorImportPage() {
               onChange={(e) => setMarkupPercentage(Number(e.target.value))}
             />
           </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => setProductMargins({})}
+              className="w-full bg-gray-500 text-white px-3 py-2 rounded-md hover:bg-gray-600 text-sm"
+            >
+              Reset All to Global
+            </button>
+          </div>
+        </div>
+        <div className="mt-3 text-sm text-gray-600">
+          <p>• Global markup applies to all products by default</p>
+          <p>• Set individual margins for specific products below</p>
+          <p>• Individual margins override global markup</p>
         </div>
       </Card>
 
@@ -197,11 +222,43 @@ export default function VendorImportPage() {
               <p className="text-sm">
                 <span className="font-medium">Base Price:</span> ${product.price}
               </p>
+              
+              {/* Individual Margin Input */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-gray-600">
+                    Margin % (leave empty for global: {markupPercentage}%)
+                  </label>
+                  {productMargins[product.id] !== undefined && (
+                    <button
+                      onClick={() => {
+                        const newMargins = { ...productMargins };
+                        delete newMargins[product.id];
+                        setProductMargins(newMargins);
+                      }}
+                      className="text-xs text-indigo-600 hover:text-indigo-800"
+                    >
+                      Reset to Global
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                  value={productMargins[product.id] || ''}
+                  onChange={(e) => handleProductMarginChange(product.id, Number(e.target.value))}
+                  placeholder={`${markupPercentage}%`}
+                />
+              </div>
+
               <p className="text-sm">
-                <span className="font-medium">Your Price:</span> ${calculateFinalPrice(product.price).toFixed(2)}
+                <span className="font-medium">Your Price:</span> ${calculateFinalPrice(product.price, product.id).toFixed(2)}
               </p>
               <p className="text-sm text-green-600">
-                <span className="font-medium">Profit:</span> ${(calculateFinalPrice(product.price) - product.price).toFixed(2)}
+                <span className="font-medium">Profit:</span> ${(calculateFinalPrice(product.price, product.id) - product.price).toFixed(2)}
               </p>
             </div>
 
