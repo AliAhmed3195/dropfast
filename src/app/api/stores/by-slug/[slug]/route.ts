@@ -36,6 +36,10 @@ export async function GET(
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
+    console.log('Store found:', store.name);
+    console.log('Products count:', store.products.length);
+    console.log('Products:', store.products.map(p => ({ id: p.id, name: p.name, storeId: p.storeId })));
+
     return NextResponse.json({ store });
   } catch (error) {
     console.error('Error fetching store by slug:', error);

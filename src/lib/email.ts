@@ -1,11 +1,16 @@
 import nodemailer from 'nodemailer';
-import { generateSimpleInvoiceTemplate } from './email-template';
+import { 
+  generateSimpleInvoiceTemplate,
+  generateModernInvoiceTemplate,
+  generateMinimalInvoiceTemplate,
+  generateProfessionalInvoiceTemplate
+} from './email-template';
 
 // Initialize SMTP transporter for Gmail
 let smtpTransporter: any = null;
 
 if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  smtpTransporter = nodemailer.createTransporter({
+  smtpTransporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
@@ -99,8 +104,19 @@ export function generateCustomerInvoiceEmail(customerName: string, orderData: an
     status: 'PAID'
   };
 
-  // Generate simple HTML template
-  const templateHtml = generateSimpleInvoiceTemplate(templateInvoiceData, storeData);
+  // Generate HTML template based on store template
+  let templateHtml;
+  const templateType = storeData?.template || 'default';
+  
+  if (templateType === 'modern') {
+    templateHtml = generateModernInvoiceTemplate(templateInvoiceData, storeData);
+  } else if (templateType === 'minimal') {
+    templateHtml = generateMinimalInvoiceTemplate(templateInvoiceData, storeData);
+  } else if (templateType === 'professional') {
+    templateHtml = generateProfessionalInvoiceTemplate(templateInvoiceData, storeData);
+  } else {
+    templateHtml = generateSimpleInvoiceTemplate(templateInvoiceData, storeData);
+  }
   
   return {
     subject: `Invoice #${invoiceData.invoiceNumber} - Your Order Confirmation from ${storeName}`,

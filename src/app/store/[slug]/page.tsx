@@ -43,8 +43,10 @@ export default function StorePage() {
     try {
       const response = await fetch(`/api/stores/by-slug/${slug}`);
       const data = await response.json();
+      console.log('Store data received:', data);
       setStore(data.store);
-      setProducts(data.products || []);
+      setProducts(data.store?.products || []);
+      console.log('Products set:', data.store?.products || []);
     } catch (error) {
       console.error('Error fetching store data:', error);
     } finally {

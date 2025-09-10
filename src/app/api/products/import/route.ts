@@ -61,13 +61,6 @@ export async function POST(request: NextRequest) {
 
     // Create imported product with markup
     const finalPrice = originalProduct.price + (originalProduct.price * markup / 100);
-    
-    let hostedLink = null;
-    if (generateHostedLink) {
-      // Generate unique hosted link for this vendor's store
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      hostedLink = `${baseUrl}/checkout/vendor/${storeId}/${originalProduct.id}`;
-    }
 
     const importedProduct = await prisma.product.create({
       data: {
@@ -79,9 +72,23 @@ export async function POST(request: NextRequest) {
         markup: markup,
         supplierId: originalProduct.supplierId,
         storeId: storeId,
-        hostedLink: hostedLink,
+        variants: originalProduct.variants, // Copy variants from original product
+        hostedLink: null, // Will be updated after creation
       },
     });
+
+    // Generate hosted link using the new product ID
+    let hostedLink = null;
+    if (generateHostedLink) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      hostedLink = `${baseUrl}/checkout/vendor/${storeId}/${importedProduct.id}`;
+      
+      // Update the product with the correct hosted link
+      await prisma.product.update({
+        where: { id: importedProduct.id },
+        data: { hostedLink: hostedLink }
+      });
+    }
 
     return NextResponse.json({ 
       message: 'Product imported successfully',

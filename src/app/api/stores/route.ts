@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, description, slug, template } = body;
+    const { name, description, slug, template, logo } = body;
 
     const store = await prisma.store.create({
       data: {
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         description,
         slug,
         template,
+        logo: logo || null,
         ownerId: session.id,
         isActive: true,
       },

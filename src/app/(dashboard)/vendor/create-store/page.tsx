@@ -8,10 +8,12 @@ export default function CreateStorePage() {
     name: '',
     description: '',
     slug: '',
-    template: 'default'
+    template: 'default',
+    logo: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [logoPreview, setLogoPreview] = useState('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -39,6 +41,48 @@ export default function CreateStorePage() {
     }));
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFormData(prev => ({
+          ...prev,
+          logo: data.url
+        }));
+        setLogoPreview(data.url);
+        setError('');
+      } else {
+        setError('Failed to upload logo');
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      setError('Failed to upload logo');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -61,8 +105,10 @@ export default function CreateStorePage() {
           name: '',
           description: '',
           slug: '',
-          template: 'default'
+          template: 'default',
+          logo: ''
         });
+        setLogoPreview('');
         // Redirect to stores page
         window.location.href = '/vendor/stores';
       } else {
@@ -146,6 +192,34 @@ export default function CreateStorePage() {
                 onChange={handleInputChange}
                 placeholder="Describe what your store sells..."
               />
+            </div>
+
+            {/* Store Logo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Store Logo
+              </label>
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                />
+                {logoPreview && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600 mb-2">Logo Preview:</p>
+                    <img
+                      src={logoPreview}
+                      alt="Logo preview"
+                      className="h-20 w-20 object-contain border border-gray-300 rounded-md"
+                    />
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Upload your store logo (PNG, JPG, GIF - Max 5MB). This will appear on invoices and store pages.
+              </p>
             </div>
 
             {/* Invoice Template */}
