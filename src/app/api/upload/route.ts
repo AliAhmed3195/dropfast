@@ -55,13 +55,21 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer);
 
     // Return the public URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002';
     const fileUrl = `${baseUrl}/uploads/${fileName}`;
+
+    console.log('File uploaded successfully:', {
+      fileName,
+      fileUrl,
+      originalName: file.name,
+      size: file.size,
+      type: file.type
+    });
 
     return NextResponse.json({
       message: 'File uploaded successfully',
       fileName,
-      fileUrl,
+      url: fileUrl, // Changed from fileUrl to url to match frontend expectation
     });
   } catch (error) {
     console.error('Error uploading file:', error);

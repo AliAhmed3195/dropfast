@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import { useCart } from '@/contexts/CartContext';
+import Link from 'next/link';
 
 interface Store {
   id: string;
@@ -11,6 +13,7 @@ interface Store {
   description: string;
   template: string;
   logo?: string;
+  banner?: string;
   address?: string;
   phone?: string;
   email?: string;
@@ -27,21 +30,175 @@ interface Product {
   image: string;
   category: string;
   hostedLink: string;
+  featured?: boolean;
+  bestSelling?: boolean;
+  newArrival?: boolean;
+  createdAt: string;
+  type?: string;
+  subCategory?: string;
+  sku?: string;
+  brandName?: string;
+  images?: Array<{
+    id: string;
+    url: string;
+    alt?: string;
+    isMain: boolean;
+    order: number;
+  }>;
+}
+
+// Product Card Component
+function ProductCard({ product, isFeatured = false, isBestSelling = false, isNewArrival = false }: { 
+  product: Product; 
+  isFeatured?: boolean; 
+  isBestSelling?: boolean; 
+  isNewArrival?: boolean; 
+}) {
+  return (
+    <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 group relative">
+      {/* Product Image */}
+      <div className="relative overflow-hidden rounded-t-lg">
+        {(() => {
+          // Get main image or first image
+          const mainImage = product.images?.find(img => img.isMain) || product.images?.[0] || { url: product.image };
+          
+          return mainImage?.url ? (
+            <img
+              src={mainImage.url}
+              alt={mainImage.alt || product.name}
+              className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+              <svg className="h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          );
+        })()}
+        
+        {/* Status Badges */}
+        <div className="absolute top-4 left-4 flex flex-col gap-2">
+          <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+            {product.category}
+          </span>
+          {isFeatured && (
+            <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+              ⭐ Featured
+            </span>
+          )}
+          {isBestSelling && (
+            <span className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+              🔥 Best Selling
+            </span>
+          )}
+          {isNewArrival && (
+            <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+              🆕 New
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Product Info */}
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
+        
+        {/* Additional Info */}
+        {(product.brandName || product.type) && (
+          <div className="mb-3 text-xs text-gray-500">
+            {product.brandName && <span className="block">Brand: {product.brandName}</span>}
+            {product.type && <span className="block">Type: {product.type}</span>}
+          </div>
+        )}
+        
+        {/* Price */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-2xl font-bold text-indigo-600">${product.price}</span>
+        </div>
+
+        {/* Buy Button */}
+        <a
+          href={`/product/${product.id}`}
+          className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-center block"
+        >
+          Buy Now
+        </a>
+      </div>
+    </div>
+  );
 }
 
 export default function StorePage() {
   const params = useParams();
   const slug = params.slug as string;
+  const { getTotalItems } = useCart();
   
   const [store, setStore] = useState<Store | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
+  const [newArrivalProducts, setNewArrivalProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    category: '',
+    type: '',
+    priceRange: '',
+    sortBy: 'newest'
+  });
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (slug) {
       fetchStoreData();
     }
   }, [slug]);
+
+  // Filter products based on current filters
+  useEffect(() => {
+    let filtered = products;
+
+    if (filters.category) {
+      filtered = filtered.filter(product =>
+        product.category?.toLowerCase().includes(filters.category.toLowerCase())
+      );
+    }
+
+    if (filters.type) {
+      filtered = filtered.filter(product =>
+        product.type?.toLowerCase().includes(filters.type.toLowerCase())
+      );
+    }
+
+    if (filters.priceRange) {
+      const [min, max] = filters.priceRange.split('-').map(Number);
+      if (max) {
+        filtered = filtered.filter(product => product.price >= min && product.price <= max);
+      } else {
+        filtered = filtered.filter(product => product.price >= min);
+      }
+    }
+
+    // Sort products
+    switch (filters.sortBy) {
+      case 'price-low':
+        filtered = filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-high':
+        filtered = filtered.sort((a, b) => b.price - a.price);
+        break;
+      case 'name':
+        filtered = filtered.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'newest':
+      default:
+        filtered = filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        break;
+    }
+
+    setFilteredProducts(filtered);
+  }, [products, filters]);
 
   const fetchStoreData = async () => {
     try {
@@ -50,8 +207,28 @@ export default function StorePage() {
       console.log('Store data received:', data);
       console.log('Store logo:', data.store?.logo);
       setStore(data.store);
-      setProducts(data.store?.products || []);
-      console.log('Products set:', data.store?.products || []);
+      
+      const allProducts = data.store?.products || [];
+      setProducts(allProducts);
+      
+      // Separate products by status
+      const featured = allProducts.filter(product => product.featured);
+      const bestSelling = allProducts.filter(product => product.bestSelling);
+      const newArrival = allProducts.filter(product => {
+        const createdAt = new Date(product.createdAt);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        return createdAt >= thirtyDaysAgo;
+      });
+      
+      setFeaturedProducts(featured);
+      setBestSellingProducts(bestSelling);
+      setNewArrivalProducts(newArrival);
+      
+      console.log('Store data received:', data);
+      console.log('Store banner:', data.store?.banner);
+      console.log('Store logo:', data.store?.logo);
+      console.log('Products set:', allProducts);
     } catch (error) {
       console.error('Error fetching store data:', error);
     } finally {
@@ -97,38 +274,76 @@ export default function StorePage() {
 
             {/* Cart Icon */}
             <div className="flex items-center space-x-4">
-              <button className="p-2 text-gray-700 hover:text-gray-900">
+              <Link href="/cart" className="relative p-2 text-gray-700 hover:text-gray-900">
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-              </button>
-            </div>
+                {getTotalItems() > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {getTotalItems()}
+                  </span>
+                )}
+              </Link>
           </div>
         </div>
+      </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">{store.name}</h1>
-            <p className="text-xl md:text-2xl mb-8 text-indigo-100">{store.description}</p>
-            <div className="flex justify-center space-x-4">
-              <a
-                href="#products"
-                className="bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-              >
-                Shop Now
-              </a>
-              <a
-                href="#about"
-                className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-indigo-600 transition-colors"
-              >
-                Learn More
-              </a>
+      {/* Hero Section with Banner */}
+      <section className="relative">
+        {store.banner ? (
+          <div className="relative h-96 md:h-[500px] overflow-hidden">
+            <img
+              src={store.banner}
+              alt={`${store.name} banner`}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center text-white">
+                <h1 className="text-4xl md:text-6xl font-bold mb-6">{store.name}</h1>
+                <p className="text-xl md:text-2xl mb-8 text-gray-200">{store.description}</p>
+                <div className="flex justify-center space-x-4">
+                  <a
+                    href="#products"
+                    className="bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                  >
+                    Shop Now
+                  </a>
+                  <a
+                    href="#about"
+                    className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-indigo-600 transition-colors"
+                  >
+                    Learn More
+                  </a>
+                </div>
+              </div>
+            </div>
+                  </div>
+        ) : (
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+              <div className="text-center">
+                <h1 className="text-4xl md:text-6xl font-bold mb-6">{store.name}</h1>
+                <p className="text-xl md:text-2xl mb-8 text-indigo-100">{store.description}</p>
+                <div className="flex justify-center space-x-4">
+                  <a
+                    href="#products"
+                    className="bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                  >
+                    Shop Now
+                  </a>
+                  <a
+                    href="#about"
+                    className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-indigo-600 transition-colors"
+                  >
+                    Learn More
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </section>
 
       {/* Products Section */}
@@ -138,66 +353,154 @@ export default function StorePage() {
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Our Products</h2>
             <p className="text-lg text-gray-600">Discover our amazing collection</p>
           </div>
-          
-          {products.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {products.map((product) => (
-                <div key={product.id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 group">
-                  {/* Product Image */}
-                  <div className="relative overflow-hidden rounded-t-lg">
-                    {product.image ? (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
-                        <svg className="h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
-                    {/* Category Badge */}
-                    <div className="absolute top-4 left-4">
-                      <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                        {product.category}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Product Info */}
-                  <div className="p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
-                    
-                    {/* Price */}
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-2xl font-bold text-indigo-600">${product.price}</span>
-                    </div>
-
-                    {/* Buy Button */}
-                    <a
-                      href={product.hostedLink}
-                      className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-center block"
-                    >
-                      Buy Now
-                    </a>
-                  </div>
-                </div>
-              ))}
+        
+          {/* Filters Section */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={filters.category}
+                  onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                >
+                  <option value="">All Categories</option>
+                  {Array.from(new Set(products.map(p => p.category))).map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={filters.type}
+                  onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                >
+                  <option value="">All Types</option>
+                  {Array.from(new Set(products.map(p => p.type).filter(Boolean))).map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Price Range</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={filters.priceRange}
+                  onChange={(e) => setFilters({ ...filters, priceRange: e.target.value })}
+                >
+                  <option value="">All Prices</option>
+                  <option value="0-25">$0 - $25</option>
+                  <option value="25-50">$25 - $50</option>
+                  <option value="50-100">$50 - $100</option>
+                  <option value="100-200">$100 - $200</option>
+                  <option value="200">$200+</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={filters.sortBy}
+                  onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                  <option value="name">Name A-Z</option>
+                </select>
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-16">
-              <div className="max-w-md mx-auto">
-                <svg className="h-24 w-24 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No Products Yet</h3>
-                <p className="text-gray-600">This store doesn't have any products available at the moment.</p>
+            <div className="mt-4 flex justify-between items-center">
+              <p className="text-sm text-gray-600">
+                Showing {filteredProducts.length} of {products.length} products
+              </p>
+              <button
+                onClick={() => setFilters({ category: '', type: '', priceRange: '', sortBy: 'newest' })}
+                className="text-sm text-indigo-600 hover:text-indigo-800"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
+          {/* Featured Products Section */}
+          {featuredProducts.length > 0 && (
+            <div className="mb-12">
+              <div className="flex items-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">⭐ Featured Products</h3>
+                <span className="ml-3 px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
+                  {featuredProducts.length} products
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {featuredProducts.map((product) => (
+                  <ProductCard key={`featured-${product.id}`} product={product} isFeatured={true} />
+                ))}
               </div>
             </div>
           )}
+
+          {/* Best Selling Products Section */}
+          {bestSellingProducts.length > 0 && (
+            <div className="mb-12">
+              <div className="flex items-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">🔥 Best Selling</h3>
+                <span className="ml-3 px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
+                  {bestSellingProducts.length} products
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {bestSellingProducts.map((product) => (
+                  <ProductCard key={`bestselling-${product.id}`} product={product} isBestSelling={true} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* New Arrivals Section */}
+          {newArrivalProducts.length > 0 && (
+            <div className="mb-12">
+              <div className="flex items-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">🆕 New Arrivals</h3>
+                <span className="ml-3 px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
+                  {newArrivalProducts.length} products
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {newArrivalProducts.map((product) => (
+                  <ProductCard key={`newarrival-${product.id}`} product={product} isNewArrival={true} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* All Products Section */}
+          <div className="mb-8">
+            <div className="flex items-center mb-6">
+              <h3 className="text-2xl font-bold text-gray-900">All Products</h3>
+              <span className="ml-3 px-3 py-1 bg-gray-100 text-gray-800 text-sm font-medium rounded-full">
+                {filteredProducts.length} products
+              </span>
+            </div>
+            
+            {filteredProducts.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+              <div className="text-center py-12">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No products found</h3>
+                <p className="mt-1 text-sm text-gray-500">Try adjusting your filters to see more products.</p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -289,8 +592,8 @@ export default function StorePage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Address</h3>
                 <p className="text-gray-600">{store.address}</p>
               </div>
-            )}
-          </div>
+        )}
+      </div>
         </div>
       </section>
 
@@ -333,7 +636,7 @@ export default function StorePage() {
                 <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Returns</a></li>
               </ul>
             </div>
-          </div>
+      </div>
 
           <div className="border-t border-gray-800 mt-8 pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center">

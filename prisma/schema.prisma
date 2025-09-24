@@ -35,6 +35,7 @@ model Store {
   invoices    Invoice[]
   // Store branding for invoices
   logo        String?
+  banner      String?
   address     String?
   phone       String?
   email       String?
@@ -48,9 +49,10 @@ model Product {
   name        String
   description String?
   price       Float
-  image       String?
+  image       String?  // Main/primary image (for backward compatibility)
   category    String?
   isActive    Boolean  @default(true)
+  featured    Boolean  @default(false) // Featured product flag
   markup      Float    @default(0) // Vendor markup percentage
   supplier    User     @relation("SupplierProducts", fields: [supplierId], references: [id])
   supplierId  String
@@ -59,7 +61,37 @@ model Product {
   orders      Order[]
   hostedLink  String?  @unique // Generated hosted link for checkout
   variants    Json?    // Store variants as JSON
+  // New fields for enhanced product management
+  sku         String?  // Stock Keeping Unit
+  brandName   String?  // Brand name of the product
+  minQuantity Int?     // Minimum quantity for purchasing
+  suggestedAmount Float? // Suggested selling price for vendors
+  // SEO fields
+  metaTitle       String? // Meta title for SEO
+  metaDescription String? // Meta description for SEO
+  metaTags        String? // Meta tags for SEO (comma-separated)
+  // Product categorization
+  type        String?  // Product type (e.g., Electronics, Clothing)
+  subCategory String?  // Sub category (e.g., Smartphones, T-Shirts)
+  // Inventory tracking
+  totalQuantity   Int @default(0) // Total quantity in stock
+  availableQuantity Int @default(0) // Available quantity for sale
+  // Shipping information
+  shippingInfo Json? // Store shipping information as JSON
+  // Product images relationship
+  images      ProductImage[]
   createdAt   DateTime @default(now())
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  url       String   // Image URL
+  alt       String?  // Alt text for accessibility
+  isMain    Boolean  @default(false) // Main/primary image flag
+  order     Int      @default(0) // Display order
+  createdAt DateTime @default(now())
 }
 
 

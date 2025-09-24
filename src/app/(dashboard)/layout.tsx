@@ -81,9 +81,8 @@ export default function DashboardLayout({
 
   if (user.role === 'VENDOR') {
     navigation.push(
-      { name: 'Create Store', href: '/vendor/create-store', current: pathname === '/vendor/create-store' },
       { name: 'Stores', href: '/vendor/stores', current: pathname === '/vendor/stores' },
-      { name: 'Import Products', href: '/vendor/import', current: pathname === '/vendor/import' },
+      { name: 'Products', href: '/vendor/import', current: pathname === '/vendor/import' },
       { name: 'Orders', href: '/vendor/orders', current: pathname === '/vendor/orders' },
       { name: 'Invoices', href: '/vendor/invoices', current: pathname === '/vendor/invoices' },
       { name: 'Invoice Templates', href: '/vendor/invoice-templates', current: pathname === '/vendor/invoice-templates' },

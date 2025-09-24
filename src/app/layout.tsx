@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '../styles/globals.css';
+import { CartProvider } from '@/contexts/CartContext';
 
 export const metadata: Metadata = {
   title: 'FastDrop - E-commerce Platform',
@@ -21,9 +22,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans">
-        <div id="root">
-          {children}
-        </div>
+        <CartProvider>
+          <div id="root">
+            {children}
+          </div>
+        </CartProvider>
       </body>
     </html>
   );

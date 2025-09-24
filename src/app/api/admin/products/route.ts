@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all products with supplier and store information
+    // Get all products with supplier, store information, and sales data
     const products = await prisma.product.findMany({
       include: {
         supplier: {
@@ -30,13 +30,26 @@ export async function GET() {
             },
           },
         },
+        orders: {
+          select: {
+            id: true,
+            quantity: true,
+            createdAt: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
 
-    return NextResponse.json({ products });
+    // Calculate total sales for each product
+    const productsWithSales = products.map(product => ({
+      ...product,
+      totalSales: product.orders.reduce((total, order) => total + order.quantity, 0),
+    }));
+
+    return NextResponse.json({ products: productsWithSales });
   } catch (error) {
     console.error('Error fetching admin products:', error);
     return NextResponse.json(
