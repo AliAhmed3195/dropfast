@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
+import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Product {
   id: string;
@@ -118,8 +119,8 @@ export default function SupplierProductsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setNewProduct({ ...newProduct, image: data.fileUrl });
-        return data.fileUrl;
+        setNewProduct({ ...newProduct, image: data.url });
+        return data.url;
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to upload image');
@@ -456,8 +457,8 @@ export default function SupplierProductsPage() {
                     <p className="text-sm font-medium text-gray-700 mb-2">Main Image (1)</p>
                     <div className="grid grid-cols-4 gap-2">
                       <div className="relative group">
-                        <img
-                          src={newProduct.image}
+                    <img
+                      src={newProduct.image}
                           alt="Main product"
                           className="w-20 h-20 object-cover rounded-md border-2 border-indigo-500"
                         />
@@ -483,6 +484,7 @@ export default function SupplierProductsPage() {
                 <div className="text-xs text-gray-500">
                   Supported formats: JPEG, PNG, WebP (Max 5MB)
                 </div>
+             
               </div>
             </div>
 
@@ -709,7 +711,7 @@ export default function SupplierProductsPage() {
                   </label>
                   <input
                     type="text"
-                    maxLength="60"
+                    maxLength={60}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                     placeholder="SEO optimized title (max 60 characters)"
                     value={newProduct.metaTitle}
@@ -724,7 +726,7 @@ export default function SupplierProductsPage() {
                   </label>
                   <textarea
                     rows={3}
-                    maxLength="160"
+                    maxLength={160}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                     placeholder="SEO optimized description (max 160 characters)"
                     value={newProduct.metaDescription}
@@ -992,23 +994,12 @@ export default function SupplierProductsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {products.map((product) => (
           <Card key={product.id}>
-            {(product.images && product.images.length > 0) ? (
-              <img
-                src={product.images.find(img => img.isMain)?.url || product.images[0].url}
-                alt={product.images.find(img => img.isMain)?.alt || product.name}
-                className="w-full h-32 object-cover rounded-md mb-3"
-              />
-            ) : product.image ? (
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-32 object-cover rounded-md mb-3"
-              />
-            ) : (
-              <div className="w-full h-32 bg-gray-200 rounded-md mb-3 flex items-center justify-center">
-                <span className="text-gray-500 text-sm">No Image</span>
-              </div>
-            )}
+            <ProductImageSlider
+              images={product.images || []}
+              fallbackImage={product.image}
+              productName={product.name}
+              className="w-full h-32 object-cover rounded-md mb-3"
+            />
             <h3 className="text-base font-semibold mb-2 line-clamp-2">{product.name}</h3>
             <p className="text-gray-600 text-xs mb-2 line-clamp-2">{product.description}</p>
             <p className="text-base font-bold text-indigo-600 mb-2">${product.price}</p>

@@ -38,6 +38,13 @@ export async function GET(request: NextRequest) {
             name: true,
             ownerId: true
           }
+        },
+        images: {
+          orderBy: [
+            { isMain: 'desc' },
+            { order: 'asc' },
+            { createdAt: 'asc' }
+          ]
         }
       },
       orderBy: {

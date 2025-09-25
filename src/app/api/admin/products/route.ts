@@ -37,6 +37,13 @@ export async function GET() {
             createdAt: true,
           },
         },
+        images: {
+          orderBy: [
+            { isMain: 'desc' },
+            { order: 'asc' },
+            { createdAt: 'asc' }
+          ]
+        },
       },
       orderBy: {
         createdAt: 'desc',

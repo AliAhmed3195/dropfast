@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
+import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Product {
   id: string;
@@ -20,6 +21,13 @@ interface Product {
     id: string;
     quantity: number;
     createdAt: string;
+  }>;
+  images?: Array<{
+    id: string;
+    url: string;
+    alt?: string;
+    isMain: boolean;
+    order: number;
   }>;
   supplier: {
     id: string;
@@ -361,13 +369,14 @@ export default function AdminProductsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      {product.image && (
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-12 h-12 object-cover rounded-md mr-3"
+                      <div className="w-12 h-12 mr-3">
+                        <ProductImageSlider
+                          images={product.images || []}
+                          fallbackImage={product.image}
+                          productName={product.name}
+                          className="w-12 h-12 object-cover rounded-md"
                         />
-                      )}
+                      </div>
                       <div>
                         <div className="text-sm font-medium text-gray-900">{product.name}</div>
                         <div className="text-sm text-gray-500 line-clamp-2 max-w-xs">{product.description}</div>
@@ -701,9 +710,14 @@ export default function AdminProductsPage() {
                     {products.filter(p => p.featured).map((product) => (
                       <div key={product.id} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                         <div className="flex items-center space-x-3">
-                          {product.image && (
-                            <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded" />
-                          )}
+                          <div className="w-10 h-10">
+                            <ProductImageSlider
+                              images={product.images || []}
+                              fallbackImage={product.image}
+                              productName={product.name}
+                              className="w-10 h-10 object-cover rounded"
+                            />
+                          </div>
                           <div>
                             <p className="font-medium text-gray-900">{product.name}</p>
                             <p className="text-sm text-gray-600">{product.supplier.name}</p>
@@ -732,9 +746,14 @@ export default function AdminProductsPage() {
                     {products.filter(p => !p.featured).map((product) => (
                       <div key={product.id} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <div className="flex items-center space-x-3">
-                          {product.image && (
-                            <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded" />
-                          )}
+                          <div className="w-10 h-10">
+                            <ProductImageSlider
+                              images={product.images || []}
+                              fallbackImage={product.image}
+                              productName={product.name}
+                              className="w-10 h-10 object-cover rounded"
+                            />
+                          </div>
                           <div>
                             <p className="font-medium text-gray-900">{product.name}</p>
                             <p className="text-sm text-gray-600">{product.supplier.name}</p>

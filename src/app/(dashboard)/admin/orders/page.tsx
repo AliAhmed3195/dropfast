@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
+import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Order {
   id: string;
@@ -14,6 +15,13 @@ interface Order {
   product: {
     name: string;
     image: string;
+    images?: Array<{
+      id: string;
+      url: string;
+      alt?: string;
+      isMain: boolean;
+      order: number;
+    }>;
     supplier: {
       name: string;
     };
@@ -190,13 +198,14 @@ export default function AdminOrdersPage() {
                 <tr key={order.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      {order.product.image && (
-                        <img
-                          src={order.product.image}
-                          alt={order.product.name}
-                          className="w-12 h-12 object-cover rounded-md mr-3"
+                      <div className="w-12 h-12 mr-3">
+                        <ProductImageSlider
+                          images={order.product.images || []}
+                          fallbackImage={order.product.image}
+                          productName={order.product.name}
+                          className="w-12 h-12 object-cover rounded-md"
                         />
-                      )}
+                      </div>
                       <div>
                         <div className="text-sm font-medium text-gray-900">{order.product.name}</div>
                         <div className="text-sm text-gray-500">Qty: {order.quantity}</div>
@@ -338,13 +347,14 @@ export default function AdminOrdersPage() {
               <div className="mt-6">
                 <h3 className="text-lg font-semibold mb-4">Product Information</h3>
                 <div className="flex items-start space-x-4">
-                  {selectedOrder.product.image && (
-                    <img
-                      src={selectedOrder.product.image}
-                      alt={selectedOrder.product.name}
+                  <div className="w-24 h-24">
+                    <ProductImageSlider
+                      images={selectedOrder.product.images || []}
+                      fallbackImage={selectedOrder.product.image}
+                      productName={selectedOrder.product.name}
                       className="w-24 h-24 object-cover rounded-md"
                     />
-                  )}
+                  </div>
                   <div>
                     <h4 className="font-semibold text-gray-900">{selectedOrder.product.name}</h4>
                     <div className="mt-2 space-y-1">

@@ -14,6 +14,13 @@ export async function GET() {
             name: true,
           },
         },
+        images: {
+          orderBy: [
+            { isMain: 'desc' },
+            { order: 'asc' },
+            { createdAt: 'asc' }
+          ]
+        },
       },
       orderBy: {
         createdAt: 'desc',

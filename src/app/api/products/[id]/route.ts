@@ -8,16 +8,60 @@ export async function GET(
 ) {
   try {
     const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const productId = params.id;
 
+    // If no session (public access), allow access to active products in stores
+    if (!session) {
+      const product = await prisma.product.findFirst({
+        where: { 
+          id: productId,
+          isActive: true,
+          storeId: { not: null } // Only products that are in stores
+        },
+        include: {
+          supplier: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          store: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+            },
+          },
+          images: {
+            orderBy: [
+              { isMain: 'desc' },
+              { order: 'asc' },
+              { createdAt: 'asc' }
+            ]
+          },
+        },
+      });
+
+      if (!product) {
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+      }
+
+      return NextResponse.json({ product });
+    }
+
+    // If session exists, check if user can access this product
     const product = await prisma.product.findFirst({
       where: { 
         id: productId,
-        supplierId: session.id // Only allow supplier to access their own products
+        OR: [
+          { supplierId: session.id }, // Supplier can access their own products
+          { 
+            isActive: true,
+            storeId: { not: null } // Anyone can access active products in stores
+          }
+        ]
       },
       include: {
         supplier: {

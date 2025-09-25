@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Product {
   id: string;
@@ -12,6 +13,13 @@ interface Product {
   image: string;
   category: string;
   hostedLink: string;
+  images?: Array<{
+    id: string;
+    url: string;
+    alt?: string;
+    isMain: boolean;
+    order: number;
+  }>;
   supplier: {
     name: string;
   };
@@ -92,13 +100,14 @@ export default function StoreProductsPage() {
           {products.map((product) => (
             <Card key={product.id}>
               <div className="p-6">
-                {product.image && (
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-48 object-cover rounded-md mb-4"
+                <div className="w-full h-48 mb-4">
+                  <ProductImageSlider
+                    images={product.images || []}
+                    fallbackImage={product.image}
+                    productName={product.name}
+                    className="w-full h-48 object-cover rounded-md"
                   />
-                )}
+                </div>
                 
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {product.name}
