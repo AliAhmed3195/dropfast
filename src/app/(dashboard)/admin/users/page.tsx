@@ -9,6 +9,7 @@ interface User {
   email: string;
   role: 'ADMIN' | 'SUPPLIER' | 'VENDOR';
   isActive: boolean;
+  preferredCurrency: string;
   createdAt: string;
 }
 
@@ -24,6 +25,7 @@ export default function AdminUsersPage() {
     email: '',
     password: '',
     role: 'SUPPLIER' as 'ADMIN' | 'SUPPLIER' | 'VENDOR',
+    preferredCurrency: 'USD',
   });
 
   useEffect(() => {
@@ -220,6 +222,30 @@ export default function AdminUsersPage() {
                 </select>
               </div>
             </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Preferred Currency
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                value={newUser.preferredCurrency}
+                onChange={(e) => setNewUser({ ...newUser, preferredCurrency: e.target.value })}
+              >
+                <option value="USD">USD - US Dollar</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="GBP">GBP - British Pound</option>
+                <option value="INR">INR - Indian Rupee</option>
+                <option value="PKR">PKR - Pakistani Rupee</option>
+                <option value="MYR">MYR - Malaysian Ringgit</option>
+                <option value="CAD">CAD - Canadian Dollar</option>
+                <option value="AUD">AUD - Australian Dollar</option>
+                <option value="JPY">JPY - Japanese Yen</option>
+                <option value="CNY">CNY - Chinese Yuan</option>
+                <option value="AED">AED - UAE Dirham</option>
+                <option value="SAR">SAR - Saudi Riyal</option>
+              </select>
+            </div>
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -331,6 +357,9 @@ export default function AdminUsersPage() {
                   Role
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Currency
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -363,6 +392,9 @@ export default function AdminUsersPage() {
                     }`}>
                       {user.role}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-gray-900">{user.preferredCurrency}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${

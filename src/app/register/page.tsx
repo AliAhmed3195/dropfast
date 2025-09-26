@@ -10,6 +10,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     role: 'VENDOR' as 'ADMIN' | 'SUPPLIER' | 'VENDOR',
+    preferredCurrency: 'USD',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,6 +38,7 @@ export default function RegisterPage() {
           email: formData.email,
           password: formData.password,
           role: formData.role,
+          preferredCurrency: formData.preferredCurrency,
         }),
       });
 
@@ -143,6 +145,33 @@ export default function RegisterPage() {
                   <option value="VENDOR" className="bg-gray-800 text-white">Vendor (Store Owner)</option>
                   <option value="SUPPLIER" className="bg-gray-800 text-white">Supplier (Product Provider)</option>
                   <option value="ADMIN" className="bg-gray-800 text-white">Admin</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="preferredCurrency" className="block text-sm font-medium text-white mb-2">
+                  Preferred Currency
+                </label>
+                <select
+                  id="preferredCurrency"
+                  name="preferredCurrency"
+                  required
+                  className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all duration-200"
+                  value={formData.preferredCurrency}
+                  onChange={handleChange}
+                >
+                  <option value="USD" className="bg-gray-800 text-white">USD - US Dollar</option>
+                  <option value="EUR" className="bg-gray-800 text-white">EUR - Euro</option>
+                  <option value="GBP" className="bg-gray-800 text-white">GBP - British Pound</option>
+                  <option value="INR" className="bg-gray-800 text-white">INR - Indian Rupee</option>
+                  <option value="PKR" className="bg-gray-800 text-white">PKR - Pakistani Rupee</option>
+                  <option value="MYR" className="bg-gray-800 text-white">MYR - Malaysian Ringgit</option>
+                  <option value="CAD" className="bg-gray-800 text-white">CAD - Canadian Dollar</option>
+                  <option value="AUD" className="bg-gray-800 text-white">AUD - Australian Dollar</option>
+                  <option value="JPY" className="bg-gray-800 text-white">JPY - Japanese Yen</option>
+                  <option value="CNY" className="bg-gray-800 text-white">CNY - Chinese Yuan</option>
+                  <option value="AED" className="bg-gray-800 text-white">AED - UAE Dirham</option>
+                  <option value="SAR" className="bg-gray-800 text-white">SAR - Saudi Riyal</option>
                 </select>
               </div>
               

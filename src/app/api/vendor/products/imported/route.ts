@@ -9,42 +9,65 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all products that belong to this vendor (either in their stores or My Products)
-    const products = await prisma.product.findMany({
+    // Get all StoreProducts that belong to this vendor's stores
+    const storeProducts = await prisma.storeProduct.findMany({
       where: {
-        OR: [
-          // Products in vendor's stores
-          {
-            store: {
-              ownerId: session.id
-            }
-          },
-          // Products in My Products (storeId is null but supplierId matches)
-          {
-            storeId: null,
-            supplier: {
-              id: {
-                not: session.id // Not the vendor's own products
-              }
-            }
-          }
-        ]
+        store: {
+          ownerId: session.id
+        }
       },
       include: {
-        supplier: true,
+        product: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
+            },
+            subcategory: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
+            },
+            tags: {
+              include: {
+                tag: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    color: true
+                  }
+                }
+              }
+            },
+            images: {
+              orderBy: [
+                { isMain: 'desc' },
+                { order: 'asc' },
+                { createdAt: 'asc' }
+              ]
+            }
+          }
+        },
         store: {
           select: {
             id: true,
             name: true,
-            ownerId: true
+            currency: true,
+            isActive: true
           }
-        },
-        images: {
-          orderBy: [
-            { isMain: 'desc' },
-            { order: 'asc' },
-            { createdAt: 'asc' }
-          ]
         }
       },
       orderBy: {
@@ -52,7 +75,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ products });
+    return NextResponse.json({ products: storeProducts });
   } catch (error) {
     console.error('Error fetching imported products:', error);
     return NextResponse.json(

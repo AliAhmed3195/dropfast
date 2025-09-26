@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer);
 
     // Return the public URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const fileUrl = `${baseUrl}/uploads/${fileName}`;
 
     console.log('File uploaded successfully:', {

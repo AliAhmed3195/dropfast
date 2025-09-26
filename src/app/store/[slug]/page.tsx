@@ -29,7 +29,14 @@ interface Product {
   description: string;
   price: number;
   image: string;
-  category: string;
+  category?: {
+    name: string;
+    slug: string;
+  };
+  subcategory?: {
+    name: string;
+    slug: string;
+  };
   hostedLink: string;
   featured?: boolean;
   bestSelling?: boolean;
@@ -39,6 +46,23 @@ interface Product {
   subCategory?: string;
   sku?: string;
   brandName?: string;
+  storeProductId: string;
+  lockedUSDPrice: number;
+  lockedLocalPrice: number;
+  localCurrency: string;
+  markup: number;
+  finalPrice: number;
+  displayPrice: number;
+  displayCurrency: string;
+  exchangeRate: number;
+  isActive: boolean;
+  updatedAt: string;
+  tags?: Array<{
+    tag: {
+      name: string;
+      color?: string;
+    };
+  }>;
   images?: Array<{
     id: string;
     url: string;
@@ -55,6 +79,20 @@ function ProductCard({ product, isFeatured = false, isBestSelling = false, isNew
   isBestSelling?: boolean; 
   isNewArrival?: boolean; 
 }) {
+  const getCurrencySymbol = (currency: string) => {
+    const symbols: { [key: string]: string } = {
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'CAD': 'C$',
+      'AUD': 'A$',
+      'JPY': '¥',
+      'PKR': '₨',
+      'INR': '₹',
+    };
+    return symbols[currency] || currency;
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 group relative">
       {/* Product Image */}
@@ -69,7 +107,7 @@ function ProductCard({ product, isFeatured = false, isBestSelling = false, isNew
         {/* Status Badges */}
         <div className="absolute top-4 left-4 flex flex-col gap-2">
           <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-            {product.category}
+            {product.category?.name || 'N/A'}
           </span>
           {isFeatured && (
             <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-medium">
@@ -104,7 +142,16 @@ function ProductCard({ product, isFeatured = false, isBestSelling = false, isNew
         
         {/* Price */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-2xl font-bold text-indigo-600">${product.price}</span>
+          <div className="text-right">
+            <span className="text-2xl font-bold text-indigo-600">
+              {getCurrencySymbol(product.displayCurrency)}{product.displayPrice.toFixed(2)}
+            </span>
+            {product.displayCurrency !== product.localCurrency && (
+              <div className="text-xs text-gray-500 mt-1">
+                Store: {getCurrencySymbol(product.localCurrency)}{product.finalPrice.toFixed(2)}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Buy Button */}
@@ -130,6 +177,8 @@ export default function StorePage() {
   const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
   const [newArrivalProducts, setNewArrivalProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [customerCurrency, setCustomerCurrency] = useState('USD');
+  const [currencyInfo, setCurrencyInfo] = useState<any>(null);
   const [filters, setFilters] = useState({
     category: '',
     type: '',
@@ -150,7 +199,7 @@ export default function StorePage() {
 
     if (filters.category) {
       filtered = filtered.filter(product =>
-        product.category?.toLowerCase().includes(filters.category.toLowerCase())
+        product.category?.name?.toLowerCase().includes(filters.category.toLowerCase())
       );
     }
 
@@ -163,19 +212,19 @@ export default function StorePage() {
     if (filters.priceRange) {
       const [min, max] = filters.priceRange.split('-').map(Number);
       if (max) {
-        filtered = filtered.filter(product => product.price >= min && product.price <= max);
+        filtered = filtered.filter(product => product.displayPrice >= min && product.displayPrice <= max);
       } else {
-        filtered = filtered.filter(product => product.price >= min);
+        filtered = filtered.filter(product => product.displayPrice >= min);
       }
     }
 
     // Sort products
     switch (filters.sortBy) {
       case 'price-low':
-        filtered = filtered.sort((a, b) => a.price - b.price);
+        filtered = filtered.sort((a, b) => a.displayPrice - b.displayPrice);
         break;
       case 'price-high':
-        filtered = filtered.sort((a, b) => b.price - a.price);
+        filtered = filtered.sort((a, b) => b.displayPrice - a.displayPrice);
         break;
       case 'name':
         filtered = filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -191,11 +240,29 @@ export default function StorePage() {
 
   const fetchStoreData = async () => {
     try {
-      const response = await fetch(`/api/stores/by-slug/${slug}`);
+      // First, detect customer currency
+      let detectedCurrency = 'USD';
+      try {
+        const locationResponse = await fetch('/api/customer/location');
+        if (locationResponse.ok) {
+          const locationData = await locationResponse.json();
+          detectedCurrency = locationData.suggestedCurrency || 'USD';
+        }
+      } catch (error) {
+        console.log('Currency detection failed, using USD as default');
+      }
+      
+      setCustomerCurrency(detectedCurrency);
+      
+      // Fetch store data with currency parameter
+      const response = await fetch(`/api/stores/by-slug/${slug}?currency=${detectedCurrency}`);
       const data = await response.json();
       console.log('Store data received:', data);
       console.log('Store logo:', data.store?.logo);
+      console.log('Currency info:', data.currencyInfo);
+      
       setStore(data.store);
+      setCurrencyInfo(data.currencyInfo);
       
       const allProducts = data.store?.products || [];
       setProducts(allProducts);

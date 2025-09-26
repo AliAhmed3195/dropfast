@@ -14,11 +14,15 @@ model User {
   name      String
   role      Role
   isActive  Boolean  @default(true)
+  preferredCurrency String @default("USD")
   stores    Store[]
   products  Product[] @relation("SupplierProducts")
   orders    Order[]
   invoices  Invoice[]
+  supplierPayouts Payout[] @relation("SupplierPayouts")
+  vendorPayouts   Payout[] @relation("VendorPayouts")
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @default(now())
 }
 
 model Store {
@@ -33,6 +37,7 @@ model Store {
   products    Product[]
   orders      Order[]
   invoices    Invoice[]
+  storeProducts StoreProduct[]
   // Store branding for invoices
   logo        String?
   banner      String?
@@ -41,7 +46,10 @@ model Store {
   email       String?
   taxNumber   String?
   invoiceTemplate String @default("default")
+  // Multi-currency support
+  currency    String   @default("USD")
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt @default(now())
 }
 
 model Product {
@@ -50,7 +58,6 @@ model Product {
   description String?
   price       Float
   image       String?  // Main/primary image (for backward compatibility)
-  category    String?
   isActive    Boolean  @default(true)
   featured    Boolean  @default(false) // Featured product flag
   markup      Float    @default(0) // Vendor markup percentage
@@ -59,6 +66,7 @@ model Product {
   store       Store?   @relation(fields: [storeId], references: [id])
   storeId     String?
   orders      Order[]
+  storeProducts StoreProduct[]
   hostedLink  String?  @unique // Generated hosted link for checkout
   variants    Json?    // Store variants as JSON
   // New fields for enhanced product management
@@ -70,9 +78,12 @@ model Product {
   metaTitle       String? // Meta title for SEO
   metaDescription String? // Meta description for SEO
   metaTags        String? // Meta tags for SEO (comma-separated)
-  // Product categorization
-  type        String?  // Product type (e.g., Electronics, Clothing)
-  subCategory String?  // Sub category (e.g., Smartphones, T-Shirts)
+  // Product categorization - NEW CATALOG SYSTEM
+  category    Category? @relation(fields: [categoryId], references: [id])
+  categoryId  String?
+  subcategory Subcategory? @relation(fields: [subcategoryId], references: [id])
+  subcategoryId String?
+  tags        ProductTag[] // Many-to-many relationship with tags
   // Inventory tracking
   totalQuantity   Int @default(0) // Total quantity in stock
   availableQuantity Int @default(0) // Available quantity for sale
@@ -80,7 +91,12 @@ model Product {
   shippingInfo Json? // Store shipping information as JSON
   // Product images relationship
   images      ProductImage[]
+  // Multi-currency support
+  currency    String   @default("USD")
+  lockedUSDPrice Float? // Locked USD price at creation
+  exchangeRateAtCreation Float? // Exchange rate used at creation
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt @default(now())
 }
 
 model ProductImage {
@@ -92,6 +108,59 @@ model ProductImage {
   isMain    Boolean  @default(false) // Main/primary image flag
   order     Int      @default(0) // Display order
   createdAt DateTime @default(now())
+}
+
+model Category {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  slug         String        @unique
+  description  String?
+  image        String?       // Category image/icon
+  isActive     Boolean       @default(true)
+  order        Int           @default(0) // Display order
+  subcategories Subcategory[]
+  products     Product[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt @default(now())
+}
+
+model Subcategory {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String
+  description String?
+  image       String?   // Subcategory image/icon
+  isActive    Boolean   @default(true)
+  order       Int       @default(0) // Display order
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId  String
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt @default(now())
+
+  @@unique([categoryId, slug])
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  color     String?   // Tag color for UI
+  isActive  Boolean   @default(true)
+  products  ProductTag[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt @default(now())
+}
+
+model ProductTag {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId     String
+  createdAt DateTime @default(now())
+
+  @@unique([productId, tagId])
 }
 
 
@@ -111,6 +180,18 @@ model Order {
   status        OrderStatus @default(PENDING)
   paymentId     String?  // Payment gateway transaction ID
   invoice       Invoice?
+  payout        Payout?
+  // Multi-currency support
+  storeProductId String?
+  storeProduct   StoreProduct? @relation(fields: [storeProductId], references: [id])
+  lockedUSDPrice Float?
+  lockedLocalPrice Float?
+  displayPrice  Float?
+  displayCurrency String?
+  settlementCurrency String @default("USD")
+  shippingAddress Json?
+  billingAddress Json?
+  notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -149,8 +230,55 @@ enum OrderStatus {
   CANCELLED
 }
 
+model StoreProduct {
+  id                    String   @id @default(cuid())
+  productId             String
+  storeId               String
+  lockedUSDPrice        Float    // Locked USD price (base for all calculations)
+  lockedLocalPrice      Float    // Locked local price in store currency
+  localCurrency         String   // Store currency
+  exchangeRateAtImport  Float    // Exchange rate at import time
+  markup                Float    @default(0) // Vendor markup percentage
+  finalPrice            Float    // Final price after markup
+  isActive              Boolean  @default(true)
+  product               Product  @relation(fields: [productId], references: [id])
+  store                 Store    @relation(fields: [storeId], references: [id])
+  orders                Order[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([productId, storeId])
+  @@map("store_products")
+}
+
+model Payout {
+  id            String   @id @default(cuid())
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id])
+  supplierId    String
+  supplier      User     @relation("SupplierPayouts", fields: [supplierId], references: [id])
+  vendorId      String
+  vendor        User     @relation("VendorPayouts", fields: [vendorId], references: [id])
+  supplierAmount Float   // Amount to pay supplier (in USD)
+  vendorAmount  Float    // Amount to pay vendor (in USD)
+  platformFee   Float    // Platform fee (in USD)
+  status        PayoutStatus @default(PENDING)
+  stripeTransferId String? // Stripe transfer ID
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 enum Role {
   ADMIN
   SUPPLIER
   VENDOR
+  CUSTOMER
 }

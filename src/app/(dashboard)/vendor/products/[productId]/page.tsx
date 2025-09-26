@@ -9,10 +9,25 @@ interface Product {
   name: string;
   description: string;
   price: number;
+  currency: string;
+  lockedUSDPrice?: number;
+  exchangeRateAtCreation?: number;
   image: string;
-  category: string;
-  type?: string;
-  subCategory?: string;
+  category?: {
+    id: string;
+    name: string;
+  };
+  subcategory?: {
+    id: string;
+    name: string;
+  };
+  tags: Array<{
+    tag: {
+      id: string;
+      name: string;
+      color?: string;
+    };
+  }>;
   sku?: string;
   brandName?: string;
   minQuantity?: number;
@@ -23,16 +38,32 @@ interface Product {
   totalQuantity: number;
   availableQuantity: number;
   shippingInfo?: any;
+  featured?: boolean;
   supplier: {
+    id: string;
     name: string;
+    email: string;
   };
   markup: number;
+  images: Array<{
+    id: string;
+    url: string;
+    alt?: string;
+    isMain: boolean;
+    order: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Store {
   id: string;
   name: string;
   slug: string;
+}
+
+interface CurrencyRate {
+  [key: string]: number;
 }
 
 export default function ProductDetailPage() {
@@ -48,6 +79,9 @@ export default function ProductDetailPage() {
   const [productMargin, setProductMargin] = useState<number | ''>('');
   const [activeTab, setActiveTab] = useState('overview');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [userCurrency, setUserCurrency] = useState('USD');
+  const [exchangeRates, setExchangeRates] = useState<CurrencyRate>({});
+  const [converting, setConverting] = useState(false);
   const [destination, setDestination] = useState<'myProducts' | 'store'>('myProducts');
   const [actionLoading, setActionLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -58,13 +92,18 @@ export default function ProductDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [productResponse, storesResponse] = await Promise.all([
+      const [productResponse, storesResponse, userResponse] = await Promise.all([
         fetch(`/api/products/available`),
         fetch('/api/stores'),
+        fetch('/api/auth/me'),
       ]);
 
       const productData = await productResponse.json();
       const storesData = await storesResponse.json();
+      const userData = await userResponse.json();
+
+      // Set user currency
+      setUserCurrency(userData.preferredCurrency || 'USD');
 
       const foundProduct = productData.products?.find((p: Product) => p.id === productId);
       if (foundProduct) {
@@ -91,6 +130,55 @@ export default function ProductDetailPage() {
   const handleMarginChange = (margin: number) => {
     setProductMargin(margin);
   };
+
+  const fetchExchangeRates = async () => {
+    if (userCurrency === 'USD') return;
+    
+    try {
+      setConverting(true);
+      const response = await fetch(`/api/currency/convert?from=USD&to=${userCurrency}&amount=1`);
+      if (response.ok) {
+        const data = await response.json();
+        setExchangeRates({ [userCurrency]: data.rate });
+      }
+    } catch (error) {
+      console.error('Error fetching exchange rates:', error);
+    } finally {
+      setConverting(false);
+    }
+  };
+
+  const convertPrice = (usdPrice: number | null, originalPrice?: number) => {
+    const priceToUse = usdPrice || originalPrice || 0;
+    if (userCurrency === 'USD') return priceToUse;
+    const rate = exchangeRates[userCurrency];
+    if (!rate) return priceToUse;
+    return Math.round(priceToUse * rate * 100) / 100;
+  };
+
+  const getCurrencySymbol = (currency: string) => {
+    const symbols: { [key: string]: string } = {
+      USD: '$',
+      EUR: '€',
+      GBP: '£',
+      PKR: '₨',
+      CAD: 'C$',
+      AUD: 'A$',
+      JPY: '¥',
+      INR: '₹',
+    };
+    return symbols[currency] || currency;
+  };
+
+  const formatPrice = (price: number, currency: string) => {
+    return `${getCurrencySymbol(currency)}${price.toFixed(2)}`;
+  };
+
+  useEffect(() => {
+    if (userCurrency && userCurrency !== 'USD') {
+      fetchExchangeRates();
+    }
+  }, [userCurrency]);
 
   const handleAddProduct = async () => {
     if (destination === 'store' && !selectedStore) {
@@ -456,20 +544,38 @@ export default function ProductDetailPage() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                          <p className="text-lg font-semibold text-gray-900">{product.category}</p>
+                          <p className="text-lg font-semibold text-gray-900">{product.category?.name || 'N/A'}</p>
                         </div>
                       </div>
 
-                      {product.type && (
+                      {(product.tags && product.tags.length > 0) && (
                         <div className="grid grid-cols-2 gap-4 mb-6">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                            <p className="text-lg font-semibold text-gray-900">{product.type}</p>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                            <div className="flex flex-wrap gap-2">
+                              {product.tags.slice(0, 3).map((tag, index) => (
+                                <span
+                                  key={index}
+                                  className="px-2 py-1 rounded-full text-sm"
+                                  style={{
+                                    backgroundColor: tag.tag.color ? `${tag.tag.color}20` : '#f3f4f6',
+                                    color: tag.tag.color || '#374151',
+                                  }}
+                                >
+                                  {tag.tag.name}
+                                </span>
+                              ))}
+                              {product.tags.length > 3 && (
+                                <span className="text-sm text-gray-500">
+                                  +{product.tags.length - 3} more
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          {product.subCategory && (
+                          {product.subcategory && (
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
-                              <p className="text-lg font-semibold text-gray-900">{product.subCategory}</p>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Subcategory</label>
+                              <p className="text-lg font-semibold text-gray-900">{product.subcategory.name}</p>
                             </div>
                           )}
                         </div>
@@ -500,21 +606,52 @@ export default function ProductDetailPage() {
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 gap-4 mb-4">
                           <div className="bg-white p-4 rounded-lg border">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Base Price</label>
-                            <p className="text-2xl font-bold text-indigo-600">${product.price}</p>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {product.lockedUSDPrice ? 'Original Price (USD)' : 'Price (USD)'}
+                            </label>
+                            <p className="text-2xl font-bold text-gray-900">
+                              {product.lockedUSDPrice 
+                                ? formatPrice(product.lockedUSDPrice, 'USD')
+                                : formatPrice(product.price, 'USD')
+                              }
+                            </p>
                           </div>
+                          <div className="bg-white p-4 rounded-lg border">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Your Currency</label>
+                            <p className="text-2xl font-bold text-indigo-600">
+                              {formatPrice(convertPrice(product.lockedUSDPrice, product.price), userCurrency)}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {product.lockedUSDPrice 
+                                ? `Rate: ${exchangeRates[userCurrency]?.toFixed(4) || 'Loading...'}`
+                                : 'Using original price'
+                              }
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
                           <div className="bg-white p-4 rounded-lg border">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Your Selling Price</label>
                             <p className="text-2xl font-bold text-green-600">
-                              ${calculateFinalPrice(product.price, productMargin as number).toFixed(2)}
+                              {formatPrice(
+                                convertPrice(product.lockedUSDPrice, product.price) * 
+                                (1 + (productMargin as number || markupPercentage) / 100), 
+                                userCurrency
+                              )}
                             </p>
                           </div>
                           <div className="bg-white p-4 rounded-lg border">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Your Profit</label>
                             <p className="text-2xl font-bold text-blue-600">
-                              ${(calculateFinalPrice(product.price, productMargin as number) - product.price).toFixed(2)}
+                              {formatPrice(
+                                convertPrice(product.lockedUSDPrice, product.price) * 
+                                (1 + (productMargin as number || markupPercentage) / 100) - 
+                                convertPrice(product.lockedUSDPrice, product.price), 
+                                userCurrency
+                              )}
                             </p>
                           </div>
                         </div>

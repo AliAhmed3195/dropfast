@@ -12,6 +12,7 @@ interface Store {
   logo?: string;
   banner?: string;
   isActive: boolean;
+  currency: string;
   createdAt: string;
 }
 
@@ -32,8 +33,10 @@ export default function VendorStoresPage() {
     slug: '',
     template: 'default',
     logo: '',
-    banner: ''
+    banner: '',
+    currency: 'USD'
   });
+  const [userCurrency, setUserCurrency] = useState('USD');
   const [logoPreview, setLogoPreview] = useState('');
   const [bannerPreview, setBannerPreview] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -43,7 +46,39 @@ export default function VendorStoresPage() {
 
   useEffect(() => {
     fetchStores();
+    fetchUserCurrency();
   }, []);
+
+  const fetchUserCurrency = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const user = await response.json();
+        setUserCurrency(user.preferredCurrency || 'USD');
+        setNewStore(prev => ({ ...prev, currency: user.preferredCurrency || 'USD' }));
+      }
+    } catch (error) {
+      console.error('Error fetching user currency:', error);
+    }
+  };
+
+  const getCurrencyName = (currency: string) => {
+    const currencyNames: { [key: string]: string } = {
+      'USD': 'US Dollar',
+      'EUR': 'Euro',
+      'GBP': 'British Pound',
+      'INR': 'Indian Rupee',
+      'PKR': 'Pakistani Rupee',
+      'MYR': 'Malaysian Ringgit',
+      'CAD': 'Canadian Dollar',
+      'AUD': 'Australian Dollar',
+      'JPY': 'Japanese Yen',
+      'CNY': 'Chinese Yuan',
+      'AED': 'UAE Dirham',
+      'SAR': 'Saudi Riyal',
+    };
+    return currencyNames[currency] || currency;
+  };
 
   const generateSlug = (name: string) => {
     return name
@@ -158,6 +193,7 @@ export default function VendorStoresPage() {
     try {
       const response = await fetch('/api/stores');
       const data = await response.json();
+      console.log('Fetched stores for vendor:', data.stores);
       setStores(data.stores || []);
     } catch (error) {
       console.error('Error fetching stores:', error);
@@ -291,21 +327,36 @@ export default function VendorStoresPage() {
                 onChange={(e) => setNewStore({ ...newStore, description: e.target.value })}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Template
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                value={newStore.template}
-                onChange={(e) => setNewStore({ ...newStore, template: e.target.value })}
-              >
-                {STORE_TEMPLATES.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} - {template.description}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Template
+                </label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={newStore.template}
+                  onChange={(e) => setNewStore({ ...newStore, template: e.target.value })}
+                >
+                  {STORE_TEMPLATES.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name} - {template.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Store Currency
+                </label>
+                <select
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100 cursor-not-allowed"
+                  value={newStore.currency}
+                >
+                  <option value={userCurrency}>{userCurrency} - {getCurrencyName(userCurrency)}</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Your currency is locked to {userCurrency}</p>
+              </div>
             </div>
 
             {/* Store Logo */}
@@ -416,6 +467,7 @@ export default function VendorStoresPage() {
                 )}
                 <div>
                   <h3 className="text-lg font-semibold">{store.name}</h3>
+                  <p className="text-sm text-gray-600">Currency: {store.currency}</p>
                   {store.banner && (
                     <p className="text-xs text-green-600">✓ Banner uploaded</p>
                   )}

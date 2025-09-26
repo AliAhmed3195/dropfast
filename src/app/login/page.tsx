@@ -25,8 +25,10 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
+      console.log('Login response:', response.status, data);
 
       if (response.ok) {
+        console.log('Login successful, redirecting to:', data.user.role);
         // Redirect based on role
         if (data.user.role === 'ADMIN') {
           router.push('/admin');
@@ -36,6 +38,7 @@ export default function LoginPage() {
           router.push('/vendor');
         }
       } else {
+        console.log('Login failed:', data.error);
         setError(data.error || 'Login failed');
       }
     } catch (error) {

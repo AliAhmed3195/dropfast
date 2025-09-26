@@ -17,6 +17,7 @@ export async function GET() {
         email: true,
         role: true,
         isActive: true,
+        preferredCurrency: true,
         createdAt: true,
       },
       orderBy: {
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, email, password, role } = await request.json();
+    const { name, email, password, role, preferredCurrency = 'USD' } = await request.json();
 
     if (!name || !email || !password || !role) {
       return NextResponse.json(
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
         email,
         password: hashedPassword,
         role,
+        preferredCurrency,
         isActive: true,
       },
       select: {
@@ -80,6 +82,7 @@ export async function POST(request: NextRequest) {
         email: true,
         role: true,
         isActive: true,
+        preferredCurrency: true,
         createdAt: true,
       },
     });

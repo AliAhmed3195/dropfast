@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { currencyService } from '@/lib/currency-conversion';
 
 export async function GET() {
   try {
@@ -16,6 +17,19 @@ export async function GET() {
       },
       include: {
         store: true,
+        category: {
+          select: { id: true, name: true, slug: true }
+        },
+        subcategory: {
+          select: { id: true, name: true, slug: true }
+        },
+        tags: {
+          include: {
+            tag: {
+              select: { id: true, name: true, slug: true, color: true }
+            }
+          }
+        },
         images: {
           orderBy: [
             { isMain: 'desc' },
@@ -60,7 +74,9 @@ export async function POST(request: NextRequest) {
       price, 
       image, 
       images = [],
-      category, 
+      categoryId, 
+      subcategoryId,
+      tagIds = [],
       sku,
       brandName,
       minQuantity,
@@ -68,17 +84,38 @@ export async function POST(request: NextRequest) {
       metaTitle,
       metaDescription,
       metaTags,
-      type,
-      subCategory,
       totalQuantity,
       availableQuantity,
       shippingInfo,
-      variants = [] 
+      variants = [],
+      currency = 'USD' // Add currency field
     } = await request.json();
 
-    if (!name || !description || !price || !category) {
+    if (!name || !description || !price || !categoryId) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Convert price to USD and lock it
+    let lockedUSDPrice: number;
+    let exchangeRateAtCreation: number;
+    
+    try {
+      if (currency === 'USD') {
+        lockedUSDPrice = parseFloat(price);
+        exchangeRateAtCreation = 1;
+      } else {
+        lockedUSDPrice = await currencyService.convertToUSD(parseFloat(price), currency);
+        exchangeRateAtCreation = await currencyService.getRate(currency, 'USD');
+      }
+      
+      console.log(`Currency conversion: ${currency} ${price} -> USD ${lockedUSDPrice.toFixed(2)} (rate: ${exchangeRateAtCreation})`);
+    } catch (error) {
+      console.error('Currency conversion error:', error);
+      return NextResponse.json(
+        { error: 'Currency conversion failed' },
         { status: 400 }
       );
     }
@@ -101,7 +138,8 @@ export async function POST(request: NextRequest) {
           description,
           price: parseFloat(price),
           image,
-          category,
+          categoryId: categoryId || null,
+          subcategoryId: subcategoryId || null,
           sku: sku || null,
           brandName: brandName || null,
           minQuantity: minQuantity || null,
@@ -109,8 +147,6 @@ export async function POST(request: NextRequest) {
           metaTitle: metaTitle || null,
           metaDescription: metaDescription || null,
           metaTags: metaTags || null,
-          type: type || null,
-          subCategory: subCategory || null,
           totalQuantity: totalQuantity || 0,
           availableQuantity: availableQuantity || 0,
           shippingInfo: shippingInfo || null,
@@ -118,6 +154,10 @@ export async function POST(request: NextRequest) {
           storeId: null, // Explicitly set to null for original products
           isActive: true, // Explicitly set to true
           variants: variantsData.length > 0 ? variantsData : null, // Store as JSON
+          // Multi-currency support
+          currency,
+          lockedUSDPrice,
+          exchangeRateAtCreation,
         },
       });
 
@@ -133,6 +173,18 @@ export async function POST(request: NextRequest) {
 
         await prisma.productImage.createMany({
           data: imageData
+        });
+      }
+
+      // Add tags if provided
+      if (tagIds.length > 0) {
+        const tagData = tagIds.map((tagId: string) => ({
+          productId: product.id,
+          tagId: tagId
+        }));
+
+        await prisma.productTag.createMany({
+          data: tagData
         });
       }
     } catch (error) {
@@ -162,6 +214,10 @@ export async function POST(request: NextRequest) {
           supplierId: session.userId || session.id,
           storeId: null,
           isActive: true,
+          // Multi-currency support
+          currency,
+          lockedUSDPrice,
+          exchangeRateAtCreation,
         },
       });
 

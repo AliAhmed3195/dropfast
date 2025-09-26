@@ -17,7 +17,7 @@ export async function verifyPassword(password: string, hashedPassword: string): 
   return bcrypt.compare(password, hashedPassword);
 }
 
-export async function createUser(email: string, password: string, name: string, role: 'ADMIN' | 'SUPPLIER' | 'VENDOR') {
+export async function createUser(email: string, password: string, name: string, role: 'ADMIN' | 'SUPPLIER' | 'VENDOR', preferredCurrency: string = 'USD') {
   const hashedPassword = await hashPassword(password);
   
   return prisma.user.create({
@@ -26,6 +26,7 @@ export async function createUser(email: string, password: string, name: string, 
       password: hashedPassword,
       name,
       role,
+      preferredCurrency,
       isActive: true,
     },
     select: {
@@ -33,6 +34,7 @@ export async function createUser(email: string, password: string, name: string, 
       email: true,
       name: true,
       role: true,
+      preferredCurrency: true,
       isActive: true,
     },
   });

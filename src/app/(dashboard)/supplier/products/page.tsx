@@ -10,7 +10,6 @@ interface Product {
   description: string;
   price: number;
   image: string;
-  category: string;
   isActive: boolean;
   sku?: string;
   brandName?: string;
@@ -19,8 +18,6 @@ interface Product {
   metaTitle?: string;
   metaDescription?: string;
   metaTags?: string;
-  type?: string;
-  subCategory?: string;
   totalQuantity: number;
   availableQuantity: number;
   shippingInfo?: any;
@@ -37,20 +34,68 @@ interface Product {
     isMain: boolean;
     order: number;
   }>;
+  // New catalog system
+  category?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  subcategory?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  tags?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    color?: string;
+  }>;
+  // Multi-currency support
+  currency: string;
+  lockedUSDPrice?: number;
+  exchangeRateAtCreation?: number;
   createdAt: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  subcategories: Subcategory[];
+}
+
+interface Subcategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  categoryId: string;
+}
+
+interface Tag {
+  id: string;
+  name: string;
+  slug: string;
+  color?: string;
 }
 
 export default function SupplierProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [userCurrency, setUserCurrency] = useState('USD');
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
     price: '',
     image: '',
     images: [] as string[], // Multiple images
-    category: '',
     sku: '',
     brandName: '',
     minQuantity: '',
@@ -58,10 +103,12 @@ export default function SupplierProductsPage() {
     metaTitle: '',
     metaDescription: '',
     metaTags: '',
-    type: '',
-    subCategory: '',
     totalQuantity: '',
     availableQuantity: '',
+    currency: 'USD', // Default currency
+    categoryId: '',
+    subcategoryId: '',
+    tagIds: [] as string[]
   });
   const [variants, setVariants] = useState<Array<{name: string, value: string, priceModifier: string}>>([]);
   const [uploading, setUploading] = useState(false);
@@ -91,7 +138,103 @@ export default function SupplierProductsPage() {
 
   useEffect(() => {
     fetchProducts();
+    fetchUserCurrency();
+    fetchCategories();
+    fetchTags();
   }, []);
+
+  // Persist form data to localStorage
+  useEffect(() => {
+    const savedFormData = localStorage.getItem('supplierProductForm');
+    if (savedFormData && !showAddForm) {
+      try {
+        const parsed = JSON.parse(savedFormData);
+        if (parsed.images && parsed.images.length > 0) {
+          setNewProduct(prev => ({ ...prev, ...parsed }));
+        }
+      } catch (error) {
+        console.error('Error parsing saved form data:', error);
+      }
+    }
+  }, [showAddForm]);
+
+  // Save form data to localStorage when it changes
+  useEffect(() => {
+    if (newProduct.images.length > 0 || newProduct.image) {
+      console.log('Saving form data:', { 
+        mainImage: newProduct.image, 
+        additionalImages: newProduct.images 
+      });
+      localStorage.setItem('supplierProductForm', JSON.stringify(newProduct));
+    }
+  }, [newProduct]);
+
+  const fetchUserCurrency = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const user = await response.json();
+        setUserCurrency(user.preferredCurrency || 'USD');
+        setNewProduct(prev => ({ ...prev, currency: user.preferredCurrency || 'USD' }));
+      }
+    } catch (error) {
+      console.error('Error fetching user currency:', error);
+    }
+  };
+
+  const getCurrencyName = (currency: string) => {
+    const currencyNames: { [key: string]: string } = {
+      'USD': 'US Dollar',
+      'EUR': 'Euro',
+      'GBP': 'British Pound',
+      'INR': 'Indian Rupee',
+      'PKR': 'Pakistani Rupee',
+      'MYR': 'Malaysian Ringgit',
+      'CAD': 'Canadian Dollar',
+      'AUD': 'Australian Dollar',
+      'JPY': 'Japanese Yen',
+      'CNY': 'Chinese Yuan',
+      'AED': 'UAE Dirham',
+      'SAR': 'Saudi Riyal',
+    };
+    return currencyNames[currency] || currency;
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories');
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchSubcategories = async (categoryId: string) => {
+    try {
+      const response = await fetch(`/api/subcategories?categoryId=${categoryId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSubcategories(data);
+      }
+    } catch (error) {
+      console.error('Error fetching subcategories:', error);
+    }
+  };
+
+  const fetchTags = async () => {
+    try {
+      const response = await fetch('/api/tags');
+      if (response.ok) {
+        const data = await response.json();
+        setTags(data);
+      }
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+    }
+  };
 
 
   const fetchProducts = async () => {
@@ -119,6 +262,7 @@ export default function SupplierProductsPage() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Main image uploaded successfully:', data.url);
         setNewProduct({ ...newProduct, image: data.url });
         return data.url;
       } else {
@@ -139,7 +283,14 @@ export default function SupplierProductsPage() {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      await handleFileUpload(file);
+      console.log('Selected file:', file.name, file.type, file.size);
+      
+      // Upload the file first
+      const uploadedUrl = await handleFileUpload(file);
+      if (uploadedUrl) {
+        // Set the uploaded URL directly
+        setNewProduct(prev => ({ ...prev, image: uploadedUrl }));
+      }
     }
   };
 
@@ -161,16 +312,25 @@ export default function SupplierProductsPage() {
           
           if (response.ok) {
             const data = await response.json();
+            console.log('Additional image uploaded successfully:', data.url);
             return data.url;
           }
           throw new Error('Upload failed');
         });
 
         const uploadedUrls = await Promise.all(uploadPromises);
-        setNewProduct(prev => ({
-          ...prev,
-          images: [...prev.images, ...uploadedUrls]
-        }));
+        console.log('All additional images uploaded:', uploadedUrls);
+        
+        // Add uploaded URLs to images array
+        setNewProduct(prev => {
+          const newImages = [...prev.images, ...uploadedUrls];
+          console.log('Updated images array:', newImages);
+          return {
+            ...prev,
+            images: newImages
+          };
+        });
+        
         setSelectedFiles([]); // Clear selected files after upload
       } catch (error) {
         console.error('Error uploading files:', error);
@@ -237,13 +397,15 @@ export default function SupplierProductsPage() {
       });
 
       if (response.ok) {
+        // Clear localStorage
+        localStorage.removeItem('supplierProductForm');
+        
         setNewProduct({
           name: '',
           description: '',
           price: '',
           image: '',
           images: [],
-          category: '',
           sku: '',
           brandName: '',
           minQuantity: '',
@@ -251,11 +413,14 @@ export default function SupplierProductsPage() {
           metaTitle: '',
           metaDescription: '',
           metaTags: '',
-          type: '',
-          subCategory: '',
           totalQuantity: '',
           availableQuantity: '',
+          currency: 'USD',
+          categoryId: '',
+          subcategoryId: '',
+          tagIds: []
         });
+        setSelectedTags([]);
         setShippingInfo({
           shipFrom: {
             country: '',
@@ -334,10 +499,10 @@ export default function SupplierProductsPage() {
                 onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price ($)
+                  Price
                 </label>
                 <input
                   type="number"
@@ -350,52 +515,111 @@ export default function SupplierProductsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Currency
+                </label>
+                <select
+                  required
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100 cursor-not-allowed"
+                  value={newProduct.currency}
+                >
+                  <option value={userCurrency}>{userCurrency} - {getCurrencyName(userCurrency)}</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Your currency is locked to {userCurrency}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Category
                 </label>
-                <input
-                  type="text"
+                <select
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  value={newProduct.category}
-                  onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                />
+                  value={newProduct.categoryId}
+                  onChange={(e) => {
+                    const categoryId = e.target.value;
+                    setNewProduct({ ...newProduct, categoryId, subcategoryId: '' });
+                    if (categoryId) {
+                      fetchSubcategories(categoryId);
+                    } else {
+                      setSubcategories([]);
+                    }
+                  }}
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            {/* Type and Sub Category */}
+            {/* Subcategory and Tags */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Product Type
+                  Subcategory
                 </label>
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  value={newProduct.type}
-                  onChange={(e) => setNewProduct({ ...newProduct, type: e.target.value })}
+                  value={newProduct.subcategoryId}
+                  onChange={(e) => setNewProduct({ ...newProduct, subcategoryId: e.target.value })}
+                  disabled={!newProduct.categoryId}
                 >
-                  <option value="">Select Type</option>
-                  <option value="Electronics">Electronics</option>
-                  <option value="Clothing">Clothing</option>
-                  <option value="Home & Garden">Home & Garden</option>
-                  <option value="Sports">Sports</option>
-                  <option value="Books">Books</option>
-                  <option value="Health & Beauty">Health & Beauty</option>
-                  <option value="Toys">Toys</option>
-                  <option value="Automotive">Automotive</option>
-                  <option value="Other">Other</option>
+                  <option value="">Select Subcategory</option>
+                  {subcategories.map((subcategory) => (
+                    <option key={subcategory.id} value={subcategory.id}>
+                      {subcategory.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Sub Category
+                  Tags
                 </label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g., Smartphones, T-Shirts"
-                  value={newProduct.subCategory}
-                  onChange={(e) => setNewProduct({ ...newProduct, subCategory: e.target.value })}
-                />
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-1">
+                    {selectedTags.map((tagId) => {
+                      const tag = tags.find(t => t.id === tagId);
+                      return tag ? (
+                        <span
+                          key={tagId}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white"
+                          style={{ backgroundColor: tag.color || '#6B7280' }}
+                        >
+                          {tag.name}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTags(prev => prev.filter(id => id !== tagId))}
+                            className="ml-1 text-white hover:text-gray-200"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    value=""
+                    onChange={(e) => {
+                      const tagId = e.target.value;
+                      if (tagId && !selectedTags.includes(tagId)) {
+                        setSelectedTags(prev => [...prev, tagId]);
+                        setNewProduct(prev => ({ ...prev, tagIds: [...prev.tagIds, tagId] }));
+                      }
+                    }}
+                  >
+                    <option value="">Add Tags</option>
+                    {tags.filter(tag => !selectedTags.includes(tag.id)).map((tag) => (
+                      <option key={tag.id} value={tag.id}>
+                        {tag.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -430,7 +654,7 @@ export default function SupplierProductsPage() {
                   onChange={(e) => setNewProduct({ ...newProduct, availableQuantity: e.target.value })}
                 />
                 <p className="text-xs text-gray-500 mt-1">Currently available for sale</p>
-              </div>
+            </div>
             </div>
 
             {/* Main Product Image */}
@@ -447,9 +671,9 @@ export default function SupplierProductsPage() {
                   disabled={uploading}
                 />
                 {uploading && (
-                  <div className="flex items-center text-sm text-blue-600">
+                  <div className="flex items-center text-sm text-blue-600 mb-3">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                    Uploading image...
+                    Uploading main image...
                   </div>
                 )}
                 {newProduct.image && (
@@ -461,7 +685,23 @@ export default function SupplierProductsPage() {
                       src={newProduct.image}
                           alt="Main product"
                           className="w-20 h-20 object-cover rounded-md border-2 border-indigo-500"
+                          onError={(e) => {
+                            console.error('Image failed to load:', newProduct.image);
+                            e.currentTarget.style.display = 'none';
+                            // Show fallback
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                          onLoad={() => {
+                            console.log('Main image loaded successfully:', newProduct.image);
+                          }}
                         />
+                        <div className="w-20 h-20 bg-gray-200 rounded-md border-2 border-indigo-500 flex items-center justify-center text-xs text-gray-500 hidden">
+                          <div className="text-center">
+                            <div className="text-red-500 mb-1">⚠️</div>
+                            <div>Image Error</div>
+                          </div>
+                        </div>
                         <div className="absolute top-1 left-1 bg-indigo-500 text-white text-xs px-1 rounded">
                           Main
                         </div>
@@ -520,7 +760,23 @@ export default function SupplierProductsPage() {
                             src={imageUrl}
                             alt={`Product ${index + 1}`}
                             className="w-20 h-20 object-cover rounded-md border"
+                            onError={(e) => {
+                              console.error('Image failed to load:', imageUrl);
+                              e.currentTarget.style.display = 'none';
+                              // Show fallback
+                              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                            onLoad={() => {
+                              console.log('Additional image loaded successfully:', imageUrl);
+                            }}
                           />
+                          <div className="w-20 h-20 bg-gray-200 rounded-md border flex items-center justify-center text-xs text-gray-500 hidden">
+                            <div className="text-center">
+                              <div className="text-red-500 mb-1">⚠️</div>
+                              <div>Error</div>
+                            </div>
+                          </div>
                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-md flex items-center justify-center">
                             <div className="opacity-0 group-hover:opacity-100 flex space-x-1">
                               <button
@@ -1002,8 +1258,20 @@ export default function SupplierProductsPage() {
             />
             <h3 className="text-base font-semibold mb-2 line-clamp-2">{product.name}</h3>
             <p className="text-gray-600 text-xs mb-2 line-clamp-2">{product.description}</p>
-            <p className="text-base font-bold text-indigo-600 mb-2">${product.price}</p>
-            <p className="text-xs text-gray-500 mb-2">Category: {product.category}</p>
+            <div className="mb-2">
+              <p className="text-base font-bold text-indigo-600">
+                {product.currency} {product.price}
+              </p>
+              {product.lockedUSDPrice && (
+                <p className="text-xs text-gray-500">
+                  Locked USD: ${product.lockedUSDPrice.toFixed(2)}
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              Category: {product.category?.name || 'N/A'}
+              {product.subcategory && ` > ${product.subcategory.name}`}
+            </p>
             
             {/* New Product Fields Display */}
             <div className="space-y-1 mb-3 text-xs text-gray-600">
@@ -1013,11 +1281,19 @@ export default function SupplierProductsPage() {
               {product.brandName && (
                 <p><span className="font-medium">Brand:</span> {product.brandName}</p>
               )}
-              {product.type && (
-                <p><span className="font-medium">Type:</span> {product.type}</p>
-              )}
-              {product.subCategory && (
-                <p><span className="font-medium">Sub Category:</span> {product.subCategory}</p>
+              {product.tags && product.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  <span className="font-medium">Tags:</span>
+                  {product.tags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white"
+                      style={{ backgroundColor: tag.color || '#6B7280' }}
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
               )}
               {product.minQuantity && (
                 <p><span className="font-medium">Min Qty:</span> {product.minQuantity}</p>

@@ -21,12 +21,15 @@ export default function DashboardLayout({
   const checkAuth = async () => {
     try {
       const response = await fetch('/api/auth/me');
+      console.log('Auth check response:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
-        setUser(data.user);
+        console.log('User data:', data);
+        setUser(data);
         
         // Redirect based on role and current path
-        const role = data.user.role;
+        const role = data.role;
         if (pathname === '/admin' && role !== 'ADMIN') {
           router.push(`/${role.toLowerCase()}`);
         } else if (pathname === '/supplier' && role !== 'SUPPLIER') {
@@ -35,9 +38,11 @@ export default function DashboardLayout({
           router.push(`/${role.toLowerCase()}`);
         }
       } else {
+        console.log('Auth failed, redirecting to login');
         router.push('/login');
       }
     } catch (error) {
+      console.error('Auth check error:', error);
       router.push('/login');
     } finally {
       setLoading(false);
@@ -82,7 +87,8 @@ export default function DashboardLayout({
   if (user.role === 'VENDOR') {
     navigation.push(
       { name: 'Stores', href: '/vendor/stores', current: pathname === '/vendor/stores' },
-      { name: 'Products', href: '/vendor/import', current: pathname === '/vendor/import' },
+      { name: 'Available Products', href: '/vendor/products', current: pathname === '/vendor/products' },
+      { name: 'Imported Products', href: '/vendor/imported-products', current: pathname === '/vendor/imported-products' },
       { name: 'Orders', href: '/vendor/orders', current: pathname === '/vendor/orders' },
       { name: 'Invoices', href: '/vendor/invoices', current: pathname === '/vendor/invoices' },
       { name: 'Invoice Templates', href: '/vendor/invoice-templates', current: pathname === '/vendor/invoice-templates' },
@@ -94,6 +100,8 @@ export default function DashboardLayout({
     navigation.push(
       { name: 'Users', href: '/admin/users', current: pathname === '/admin/users' },
       { name: 'Products', href: '/admin/products', current: pathname === '/admin/products' },
+      { name: 'Categories', href: '/admin/categories', current: pathname === '/admin/categories' },
+      { name: 'Tags', href: '/admin/tags', current: pathname === '/admin/tags' },
       { name: 'Orders', href: '/admin/orders', current: pathname === '/admin/orders' },
       { name: 'Invoice Templates', href: '/admin/invoice-templates', current: pathname === '/admin/invoice-templates' }
     );

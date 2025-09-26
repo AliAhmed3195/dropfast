@@ -100,7 +100,7 @@ export default function AdminDashboard() {
       <Card className="mb-6">
         <div className="p-4">
           <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <a
               href="/admin/users"
               className="bg-indigo-600 text-white px-4 py-3 rounded-md hover:bg-indigo-700 text-center transition-colors"
@@ -118,6 +118,42 @@ export default function AdminDashboard() {
               className="bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700 text-center transition-colors"
             >
               View Orders
+            </a>
+            <a
+              href="/admin/catalog"
+              className="bg-purple-600 text-white px-4 py-3 rounded-md hover:bg-purple-700 text-center transition-colors"
+            >
+              Initialize Catalog
+            </a>
+          </div>
+        </div>
+      </Card>
+
+      {/* Catalog Management */}
+      <Card className="mb-6">
+        <div className="p-4">
+          <h2 className="text-xl font-semibold mb-4">Catalog Management</h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            <a
+              href="/admin/categories"
+              className="bg-blue-100 text-blue-800 px-4 py-3 rounded-md hover:bg-blue-200 text-center transition-colors border border-blue-200"
+            >
+              <div className="font-medium">Categories</div>
+              <div className="text-sm opacity-75">Manage product categories</div>
+            </a>
+            <a
+              href="/admin/tags"
+              className="bg-purple-100 text-purple-800 px-4 py-3 rounded-md hover:bg-purple-200 text-center transition-colors border border-purple-200"
+            >
+              <div className="font-medium">Tags</div>
+              <div className="text-sm opacity-75">Manage product tags</div>
+            </a>
+            <a
+              href="/admin/catalog"
+              className="bg-green-100 text-green-800 px-4 py-3 rounded-md hover:bg-green-200 text-center transition-colors border border-green-200"
+            >
+              <div className="font-medium">Initialize Data</div>
+              <div className="text-sm opacity-75">Seed sample catalog</div>
             </a>
           </div>
         </div>

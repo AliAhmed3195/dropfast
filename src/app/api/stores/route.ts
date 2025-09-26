@@ -4,7 +4,27 @@ import { getSession } from '@/lib/session';
 
 export async function GET() {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Filter stores by the current user's role
+    let whereClause = {};
+    
+    if (session.role === 'VENDOR') {
+      // Vendors can only see their own stores
+      whereClause = { ownerId: session.id };
+    } else if (session.role === 'ADMIN') {
+      // Admins can see all stores
+      whereClause = {};
+    } else {
+      // Other roles cannot access stores
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const stores = await prisma.store.findMany({
+      where: whereClause,
       include: {
         products: true,
         owner: {
@@ -14,8 +34,13 @@ export async function GET() {
           },
         },
       },
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
 
+    console.log('Stores API - User:', session.id, 'Role:', session.role, 'Where clause:', whereClause, 'Stores found:', stores.length);
+    
     return NextResponse.json({ stores });
   } catch (error) {
     console.error('Error fetching stores:', error);
@@ -34,7 +59,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, description, slug, template, logo, banner } = body;
+    const { name, description, slug, template, logo, banner, currency = 'USD' } = body;
 
     console.log('Store creation request:', { name, description, slug, template, logo, banner });
 
@@ -46,6 +71,7 @@ export async function POST(request: Request) {
         template,
         logo: logo || null,
         banner: banner || null,
+        currency,
         ownerId: session.id,
         isActive: true,
       },

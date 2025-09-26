@@ -4,7 +4,7 @@ import { createSession } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, role } = await request.json();
+    const { name, email, password, role, preferredCurrency = 'USD' } = await request.json();
 
     if (!name || !email || !password || !role) {
       return NextResponse.json(
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await createUser(email, password, name, role);
+    const user = await createUser(email, password, name, role, preferredCurrency);
 
     // Create session
     await createSession(user);
