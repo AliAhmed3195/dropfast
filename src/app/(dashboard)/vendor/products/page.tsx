@@ -97,18 +97,59 @@ export default function VendorProductsPage() {
   };
 
   const fetchExchangeRates = async () => {
+    if (userCurrency === 'USD') return;
+    
     try {
       setConverting(true);
+      console.log('Fetching exchange rate for:', userCurrency);
       const response = await fetch(`/api/currency/convert?from=USD&to=${userCurrency}&amount=1`);
+      console.log('Exchange rate response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Exchange rate data:', data);
         setExchangeRates(prev => ({
           ...prev,
-          [userCurrency]: data.rate
+          [userCurrency]: data.exchangeRate
         }));
+      } else {
+        const errorText = await response.text();
+        console.error('Exchange rate API error:', errorText);
+        // Set a fallback rate
+        const fallbackRates: { [key: string]: number } = {
+          'EUR': 0.85,
+          'GBP': 0.73,
+          'PKR': 280.0,
+          'CAD': 1.35,
+          'AUD': 1.50,
+          'JPY': 150.0,
+          'INR': 83.0,
+        };
+        if (fallbackRates[userCurrency]) {
+          setExchangeRates(prev => ({
+            ...prev,
+            [userCurrency]: fallbackRates[userCurrency]
+          }));
+        }
       }
     } catch (error) {
       console.error('Error fetching exchange rates:', error);
+      // Set a fallback rate
+      const fallbackRates: { [key: string]: number } = {
+        'EUR': 0.85,
+        'GBP': 0.73,
+        'PKR': 280.0,
+        'CAD': 1.35,
+        'AUD': 1.50,
+        'JPY': 150.0,
+        'INR': 83.0,
+      };
+      if (fallbackRates[userCurrency]) {
+        setExchangeRates(prev => ({
+          ...prev,
+          [userCurrency]: fallbackRates[userCurrency]
+        }));
+      }
     } finally {
       setConverting(false);
     }
@@ -143,7 +184,21 @@ export default function VendorProductsPage() {
     const priceToUse = usdPrice || originalPrice || 0;
     if (userCurrency === 'USD') return priceToUse;
     const rate = exchangeRates[userCurrency];
-    if (!rate) return priceToUse;
+    if (!rate) {
+      console.log('No exchange rate available for:', userCurrency, 'using fallback');
+      // Use fallback rates if no rate is available
+      const fallbackRates: { [key: string]: number } = {
+        'EUR': 0.85,
+        'GBP': 0.73,
+        'PKR': 280.0,
+        'CAD': 1.35,
+        'AUD': 1.50,
+        'JPY': 150.0,
+        'INR': 83.0,
+      };
+      const fallbackRate = fallbackRates[userCurrency] || 1;
+      return Math.round(priceToUse * fallbackRate * 100) / 100;
+    }
     return Math.round(priceToUse * rate * 100) / 100;
   };
 
@@ -327,7 +382,7 @@ export default function VendorProductsPage() {
             const hasLockedUSDPrice = product.lockedUSDPrice !== null;
             
             return (
-              <div key={product.id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 group relative">
+              <div key={product.id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 group relative flex flex-col h-full">
                 {/* Product Image */}
                 <div className="relative overflow-hidden rounded-t-lg">
                   {product.images && product.images.length > 0 ? (
@@ -357,7 +412,7 @@ export default function VendorProductsPage() {
                 </div>
 
                 {/* Product Info */}
-                <div className="p-6">
+                <div className="p-6 flex flex-col flex-grow">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
                   <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
                   
@@ -389,15 +444,15 @@ export default function VendorProductsPage() {
                       </div>
                       <div className="text-xs text-gray-400">
                         {hasLockedUSDPrice 
-                          ? `Rate: ${exchangeRates[userCurrency]?.toFixed(4) || 'Loading...'}`
+                          ? `Rate: ${exchangeRates[userCurrency]?.toFixed(4) || 'Using fallback rate'}`
                           : 'Using original price'
                         }
                       </div>
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex space-x-2">
+                  {/* Action Buttons - This will be pushed to bottom */}
+                  <div className="flex space-x-2 mt-auto">
                     <button
                       onClick={() => router.push(`/vendor/products/${product.id}`)}
                       className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-center"
