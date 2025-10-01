@@ -1,74 +1,59 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession } from '@/lib/session';
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getSession();
-    const productId = params.id;
+    const { id } = params;
+    const url = new URL(request.url);
+    const customerCurrency = url.searchParams.get('currency') || 'USD';
 
-    // If no session (public access), allow access to active products in stores
-    if (!session) {
-      const product = await prisma.product.findFirst({
-        where: { 
-          id: productId,
-          isActive: true,
-          storeId: { not: null } // Only products that are in stores
-        },
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          store: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              logo: true,
-            },
-          },
-          images: {
-            orderBy: [
-              { isMain: 'desc' },
-              { order: 'asc' },
-              { createdAt: 'asc' }
-            ]
-          },
-        },
-      });
-
-      if (!product) {
-        return NextResponse.json({ error: 'Product not found' }, { status: 404 });
-      }
-
-      return NextResponse.json({ product });
-    }
-
-    // If session exists, check if user can access this product
-    const product = await prisma.product.findFirst({
-      where: { 
-        id: productId,
-        OR: [
-          { supplierId: session.id }, // Supplier can access their own products
-          { 
-            isActive: true,
-            storeId: { not: null } // Anyone can access active products in stores
-          }
-        ]
+    // First try to find as StoreProduct (imported product)
+    let storeProduct = await prisma.storeProduct.findFirst({
+      where: {
+        productId: id,
+        isActive: true,
       },
       include: {
-        supplier: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        product: {
+          include: {
+            supplier: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+            category: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
+            subcategory: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
+            tags: {
+              include: {
+                tag: {
+                  select: {
+                    name: true,
+                    color: true,
+                  },
+                },
+              },
+            },
+            images: {
+              orderBy: [
+                { isMain: 'desc' },
+                { order: 'asc' },
+                { createdAt: 'asc' },
+              ],
+            },
           },
         },
         store: {
@@ -77,92 +62,101 @@ export async function GET(
             name: true,
             slug: true,
             logo: true,
+            currency: true,
+          },
+        },
+      },
+    });
+
+    if (storeProduct) {
+      // This is an imported product, return with store context
+      const product = {
+        ...storeProduct.product,
+        storeProductId: storeProduct.id,
+        lockedUSDPrice: storeProduct.lockedUSDPrice,
+        lockedLocalPrice: storeProduct.lockedLocalPrice,
+        localCurrency: storeProduct.localCurrency,
+        markup: storeProduct.markup,
+        finalPrice: storeProduct.finalPrice,
+        displayPrice: storeProduct.finalPrice, // Will be converted on frontend
+        displayCurrency: storeProduct.localCurrency,
+        exchangeRate: 1,
+        isActive: storeProduct.isActive,
+        updatedAt: storeProduct.updatedAt,
+        store: storeProduct.store,
+      };
+
+      return NextResponse.json({ product });
+    }
+
+    // If not found as StoreProduct, try to find as original Product
+    const originalProduct = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        supplier: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        category: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+        subcategory: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+        tags: {
+          include: {
+            tag: {
+              select: {
+                name: true,
+                color: true,
+              },
+            },
           },
         },
         images: {
           orderBy: [
             { isMain: 'desc' },
             { order: 'asc' },
-            { createdAt: 'asc' }
-          ]
+            { createdAt: 'asc' },
+          ],
         },
       },
     });
 
-    if (!product) {
+    if (!originalProduct) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
+
+    // Return original product with default values
+    const product = {
+      ...originalProduct,
+      storeProductId: originalProduct.id,
+      lockedUSDPrice: originalProduct.lockedUSDPrice || originalProduct.price,
+      lockedLocalPrice: originalProduct.price,
+      localCurrency: originalProduct.currency || 'USD',
+      markup: 0,
+      finalPrice: originalProduct.price,
+      displayPrice: originalProduct.price,
+      displayCurrency: originalProduct.currency || 'USD',
+      exchangeRate: 1,
+      isActive: true,
+      updatedAt: originalProduct.updatedAt,
+      store: null, // No store context for original products
+    };
 
     return NextResponse.json({ product });
   } catch (error) {
     console.error('Error fetching product:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch product' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const session = await getSession();
-    if (!session || session.role !== 'SUPPLIER') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const productId = params.id;
-    const body = await request.json();
-
-    // Check if product exists and belongs to the supplier
-    const existingProduct = await prisma.product.findFirst({
-      where: {
-        id: productId,
-        supplierId: session.id
-      }
-    });
-
-    if (!existingProduct) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
-    }
-
-    // Define allowed fields for editing (excluding restricted fields)
-    const allowedFields = [
-      'name', 'description', 'category', 'metaTitle', 'metaDescription', 
-      'metaTags', 'type', 'subCategory', 'totalQuantity', 'availableQuantity', 
-      'shippingInfo', 'isActive'
-    ];
-
-    // Filter only allowed fields
-    const updateData: any = {};
-    allowedFields.forEach(field => {
-      if (body[field] !== undefined) {
-        updateData[field] = body[field];
-      }
-    });
-
-    // Update the product
-    const updatedProduct = await prisma.product.update({
-      where: { id: productId },
-      data: updateData,
-      include: {
-        images: {
-          orderBy: [
-            { isMain: 'desc' },
-            { order: 'asc' },
-            { createdAt: 'asc' }
-          ]
-        }
-      }
-    });
-
-    return NextResponse.json({ product: updatedProduct });
-  } catch (error) {
-    console.error('Error updating product:', error);
-    return NextResponse.json(
-      { error: 'Failed to update product' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

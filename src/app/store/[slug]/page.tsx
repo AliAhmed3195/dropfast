@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { useCart } from '@/contexts/CartContext';
 import ProductImageSlider from '@/components/ProductImageSlider';
 import Link from 'next/link';
+import { currencyDetection } from '@/lib/currency-detection';
 
 interface Store {
   id: string;
@@ -80,17 +81,7 @@ function ProductCard({ product, isFeatured = false, isBestSelling = false, isNew
   isNewArrival?: boolean; 
 }) {
   const getCurrencySymbol = (currency: string) => {
-    const symbols: { [key: string]: string } = {
-      'USD': '$',
-      'EUR': '€',
-      'GBP': '£',
-      'CAD': 'C$',
-      'AUD': 'A$',
-      'JPY': '¥',
-      'PKR': '₨',
-      'INR': '₹',
-    };
-    return symbols[currency] || currency;
+    return currencyDetection.getCurrencySymbol(currency);
   };
 
   return (
@@ -179,6 +170,8 @@ export default function StorePage() {
   const [loading, setLoading] = useState(true);
   const [customerCurrency, setCustomerCurrency] = useState('USD');
   const [currencyInfo, setCurrencyInfo] = useState<any>(null);
+  const [convertedProducts, setConvertedProducts] = useState<Product[]>([]);
+  const [converting, setConverting] = useState(false);
   const [filters, setFilters] = useState({
     category: '',
     type: '',
@@ -193,9 +186,18 @@ export default function StorePage() {
     }
   }, [slug]);
 
+  // Debug logging
+  useEffect(() => {
+    if (products.length > 0) {
+      console.log('Products data:', products[0]);
+      console.log('First product category:', products[0].category);
+      console.log('First product subcategory:', products[0].subcategory);
+    }
+  }, [products]);
+
   // Filter products based on current filters
   useEffect(() => {
-    let filtered = products;
+    let filtered = convertedProducts.length > 0 ? convertedProducts : products;
 
     if (filters.category) {
       filtered = filtered.filter(product =>
@@ -236,41 +238,36 @@ export default function StorePage() {
     }
 
     setFilteredProducts(filtered);
-  }, [products, filters]);
+  }, [convertedProducts, products, filters]);
 
-  const fetchStoreData = async () => {
+  const convertProductPrices = async (products: Product[], currencyInfo: any) => {
+    setConverting(true);
+    
     try {
-      // First, detect customer currency
-      let detectedCurrency = 'USD';
-      try {
-        const locationResponse = await fetch('/api/customer/location');
-        if (locationResponse.ok) {
-          const locationData = await locationResponse.json();
-          detectedCurrency = locationData.suggestedCurrency || 'USD';
-        }
-      } catch (error) {
-        console.log('Currency detection failed, using USD as default');
-      }
+      const convertedProducts = await Promise.all(
+        products.map(async (product) => {
+          // Convert the final price to customer currency
+          const convertedPrice = await currencyDetection.convertPrice(
+            product.finalPrice,
+            product.localCurrency,
+            currencyInfo.currency
+          );
+          
+          return {
+            ...product,
+            displayPrice: convertedPrice,
+            displayCurrency: currencyInfo.currency,
+            exchangeRate: currencyInfo.rate
+          };
+        })
+      );
       
-      setCustomerCurrency(detectedCurrency);
-      
-      // Fetch store data with currency parameter
-      const response = await fetch(`/api/stores/by-slug/${slug}?currency=${detectedCurrency}`);
-      const data = await response.json();
-      console.log('Store data received:', data);
-      console.log('Store logo:', data.store?.logo);
-      console.log('Currency info:', data.currencyInfo);
-      
-      setStore(data.store);
-      setCurrencyInfo(data.currencyInfo);
-      
-      const allProducts = data.store?.products || [];
-      setProducts(allProducts);
+      setConvertedProducts(convertedProducts);
       
       // Separate products by status
-      const featured = allProducts.filter(product => product.featured);
-      const bestSelling = allProducts.filter(product => product.bestSelling);
-      const newArrival = allProducts.filter(product => {
+      const featured = convertedProducts.filter(product => product.featured);
+      const bestSelling = convertedProducts.filter(product => product.bestSelling);
+      const newArrival = convertedProducts.filter(product => {
         const createdAt = new Date(product.createdAt);
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -281,10 +278,39 @@ export default function StorePage() {
       setBestSellingProducts(bestSelling);
       setNewArrivalProducts(newArrival);
       
+    } catch (error) {
+      console.error('Error converting prices:', error);
+      // Fallback to original products
+      setConvertedProducts(products);
+    } finally {
+      setConverting(false);
+    }
+  };
+
+  const fetchStoreData = async () => {
+    try {
+      setLoading(true);
+      
+      // Detect customer currency using frontend-only service
+      const detectedCurrencyInfo = await currencyDetection.detectCurrency();
+      setCustomerCurrency(detectedCurrencyInfo.currency);
+      setCurrencyInfo(detectedCurrencyInfo);
+      
+      console.log('Detected currency:', detectedCurrencyInfo);
+      
+      // Fetch store data (without currency parameter - backend unchanged)
+      const response = await fetch(`/api/stores/by-slug/${slug}`);
+      const data = await response.json();
       console.log('Store data received:', data);
-      console.log('Store banner:', data.store?.banner);
-      console.log('Store logo:', data.store?.logo);
-      console.log('Products set:', allProducts);
+      
+      setStore(data.store);
+      
+      const allProducts = data.store?.products || [];
+      setProducts(allProducts);
+      
+      // Convert prices to customer currency on frontend
+      await convertProductPrices(allProducts, detectedCurrencyInfo);
+      
     } catch (error) {
       console.error('Error fetching store data:', error);
     } finally {
@@ -318,6 +344,11 @@ export default function StorePage() {
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{store.name}</h1>
                 <p className="text-xs text-gray-500">Online Store</p>
+                {currencyInfo && (
+                  <p className="text-xs text-indigo-600 mt-1">
+                    Prices in {currencyInfo.currency} ({currencyInfo.country})
+                  </p>
+                )}
               </div>
             </div>
 
@@ -421,7 +452,7 @@ export default function StorePage() {
                   onChange={(e) => setFilters({ ...filters, category: e.target.value })}
                 >
                   <option value="">All Categories</option>
-                  {Array.from(new Set(products.map(p => p.category))).map(category => (
+                  {Array.from(new Set(products.map(p => p.category?.name).filter(Boolean))).map(category => (
                     <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
@@ -470,7 +501,8 @@ export default function StorePage() {
             </div>
             <div className="mt-4 flex justify-between items-center">
               <p className="text-sm text-gray-600">
-                Showing {filteredProducts.length} of {products.length} products
+                Showing {filteredProducts.length} of {convertedProducts.length > 0 ? convertedProducts.length : products.length} products
+                {converting && <span className="ml-2 text-indigo-600">(Converting prices...)</span>}
               </p>
               <button
                 onClick={() => setFilters({ category: '', type: '', priceRange: '', sortBy: 'newest' })}

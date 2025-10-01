@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { useCart } from '@/contexts/CartContext';
+import { currencyDetection } from '@/lib/currency-detection';
+import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Product {
   id: string;
@@ -11,8 +13,21 @@ interface Product {
   description: string;
   price: number;
   image: string;
-  images?: string[];
-  category: string;
+  images?: Array<{
+    id: string;
+    url: string;
+    alt?: string;
+    isMain: boolean;
+    order: number;
+  }>;
+  category?: {
+    name: string;
+    slug: string;
+  };
+  subcategory?: {
+    name: string;
+    slug: string;
+  };
   type?: string;
   subCategory?: string;
   sku?: string;
@@ -34,14 +49,33 @@ interface Product {
   createdAt: string;
   supplier: {
     name: string;
+    email: string;
   };
-  store: {
+  store?: {
     id: string;
     name: string;
     slug: string;
     logo?: string;
+    currency: string;
   };
   hostedLink: string;
+  storeProductId: string;
+  lockedUSDPrice: number;
+  lockedLocalPrice: number;
+  localCurrency: string;
+  markup: number;
+  finalPrice: number;
+  displayPrice: number;
+  displayCurrency: string;
+  exchangeRate: number;
+  isActive: boolean;
+  updatedAt: string;
+  tags?: Array<{
+    tag: {
+      name: string;
+      color?: string;
+    };
+  }>;
 }
 
 interface CustomerInfo {
@@ -73,6 +107,10 @@ export default function ProductDetailPage() {
   
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [customerCurrency, setCustomerCurrency] = useState('USD');
+  const [currencyInfo, setCurrencyInfo] = useState<any>(null);
+  const [convertedPrice, setConvertedPrice] = useState<number | null>(null);
+  const [converting, setConverting] = useState(false);
   const [showBottomSlider, setShowBottomSlider] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
@@ -115,20 +153,60 @@ export default function ProductDetailPage() {
 
   const fetchProduct = async () => {
     try {
+      setLoading(true);
+      
+      // Detect customer currency
+      const detectedCurrencyInfo = await currencyDetection.detectCurrency();
+      setCustomerCurrency(detectedCurrencyInfo.currency);
+      setCurrencyInfo(detectedCurrencyInfo);
+      
+      // Fetch product data
       const response = await fetch(`/api/products/${productId}`);
       const data = await response.json();
+      
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+      
       setProduct(data.product);
+      
+      // Convert price to customer currency
+      if (data.product) {
+        await convertProductPrice(data.product, detectedCurrencyInfo);
+      }
+      
     } catch (error) {
       console.error('Error fetching product:', error);
+      setError('Failed to load product');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const convertProductPrice = async (product: Product, currencyInfo: any) => {
+    setConverting(true);
+    
+    try {
+      const convertedPrice = await currencyDetection.convertPrice(
+        product.finalPrice,
+        product.localCurrency,
+        currencyInfo.currency
+      );
+      
+      setConvertedPrice(convertedPrice);
+    } catch (error) {
+      console.error('Error converting price:', error);
+      setConvertedPrice(product.finalPrice);
+    } finally {
+      setConverting(false);
     }
   };
 
   const calculateTotalPrice = () => {
     if (!product) return 0;
     
-    let basePrice = product.price;
+    let basePrice = convertedPrice || product.finalPrice;
     
     // Add variant price modifiers
     Object.values(selectedVariants).forEach(variantValue => {
@@ -257,26 +335,13 @@ export default function ProductDetailPage() {
           {/* Product Images */}
           <div className="space-y-4">
             <div className="aspect-w-1 aspect-h-1">
-              <img
-                src={product.image}
-                alt={product.name}
+              <ProductImageSlider
+                images={product.images || []}
+                fallbackImage={product.image}
+                productName={product.name}
                 className="w-full h-96 object-cover rounded-lg"
               />
             </div>
-            
-            {/* Additional Images */}
-            {product.images && product.images.length > 0 && (
-              <div className="grid grid-cols-4 gap-2">
-                {product.images.map((image, index) => (
-                  <img
-                    key={index}
-                    src={image}
-                    alt={`${product.name} ${index + 1}`}
-                    className="w-full h-20 object-cover rounded-md cursor-pointer hover:opacity-75"
-                  />
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Product Details */}
@@ -284,6 +349,11 @@ export default function ProductDetailPage() {
             <div>
               <div className="flex items-center space-x-2 mb-2">
                 <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
+                {currencyInfo && (
+                  <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-1 rounded-full">
+                    {currencyInfo.currency}
+                  </span>
+                )}
                 {product.featured && (
                   <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full">
                     ⭐ Featured
@@ -304,7 +374,18 @@ export default function ProductDetailPage() {
               <p className="text-lg text-gray-600">{product.description}</p>
               
               <div className="mt-4 flex items-center space-x-4">
-                <span className="text-3xl font-bold text-indigo-600">${product.price}</span>
+                <div className="flex flex-col">
+                  <span className="text-3xl font-bold text-indigo-600">
+                    {currencyDetection.getCurrencySymbol(customerCurrency)}
+                    {convertedPrice ? convertedPrice.toFixed(2) : product.finalPrice.toFixed(2)}
+                    {converting && <span className="text-sm text-gray-500 ml-2">(Converting...)</span>}
+                  </span>
+                  {convertedPrice && customerCurrency !== product.localCurrency && (
+                    <span className="text-sm text-gray-500">
+                      Store: {currencyDetection.getCurrencySymbol(product.localCurrency)}{product.finalPrice.toFixed(2)}
+                    </span>
+                  )}
+                </div>
                 <span className="text-sm text-gray-500">Available: {product.availableQuantity}</span>
               </div>
             </div>
