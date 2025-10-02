@@ -67,21 +67,87 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Check if product is already imported to this store
-    const existingStoreProduct = await prisma.storeProduct.findUnique({
+    // Check if product is already imported to this vendor (any store)
+    const existingStoreProduct = await prisma.storeProduct.findFirst({
       where: {
-        productId_storeId: {
-          productId,
-          storeId
+        productId,
+        store: {
+          ownerId: session.id
         }
+      },
+      include: {
+        store: true
       }
     });
 
     if (existingStoreProduct) {
-      return NextResponse.json(
-        { error: 'Product already imported to this store' },
-        { status: 400 }
-      );
+      // If product exists in My Products (isActive: false), update it to Store
+      if (!existingStoreProduct.isActive) {
+        // Update existing StoreProduct to be active and assign to the selected store
+        const updatedStoreProduct = await prisma.storeProduct.update({
+          where: { id: existingStoreProduct.id },
+          data: {
+            storeId,
+            isActive: true,
+            // Update pricing if needed
+            lockedLocalPrice: store.currency === 'USD' 
+              ? (product.lockedUSDPrice || product.price)
+              : await currencyService.convert(
+                  product.lockedUSDPrice || product.price,
+                  'USD',
+                  store.currency
+                ),
+            localCurrency: store.currency,
+            exchangeRateAtImport: store.currency === 'USD' 
+              ? 1 
+              : await currencyService.getRate('USD', store.currency),
+            finalPrice: store.currency === 'USD' 
+              ? (product.lockedUSDPrice || product.price) * (1 + markup / 100)
+              : (await currencyService.convert(
+                  product.lockedUSDPrice || product.price,
+                  'USD',
+                  store.currency
+                )) * (1 + markup / 100),
+            markup,
+          },
+          include: {
+            product: {
+              include: {
+                images: {
+                  orderBy: [
+                    { isMain: 'desc' },
+                    { order: 'asc' },
+                    { createdAt: 'asc' }
+                  ]
+                }
+              }
+            },
+            store: true
+          }
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: `Product moved from My Products to ${store.name} successfully`,
+          storeProduct: {
+            id: updatedStoreProduct.id,
+            product: updatedStoreProduct.product,
+            lockedUSDPrice: updatedStoreProduct.lockedUSDPrice,
+            lockedLocalPrice: updatedStoreProduct.lockedLocalPrice,
+            localCurrency: updatedStoreProduct.localCurrency,
+            finalPrice: updatedStoreProduct.finalPrice,
+            markup: updatedStoreProduct.markup,
+            isActive: updatedStoreProduct.isActive,
+            createdAt: updatedStoreProduct.createdAt
+          }
+        });
+      } else {
+        // Product is already in a store
+        return NextResponse.json(
+          { error: 'Product already imported to a store' },
+          { status: 400 }
+        );
+      }
     }
 
     // Convert price to store currency

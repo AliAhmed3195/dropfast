@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Product {
   id: string;
@@ -76,9 +77,11 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedStore, setSelectedStore] = useState('');
   const [markupPercentage, setMarkupPercentage] = useState(20);
+  const [markupAmount, setMarkupAmount] = useState<number | string>('');
+  const [markupType, setMarkupType] = useState<'percentage' | 'amount'>('percentage');
   const [productMargin, setProductMargin] = useState<number | ''>('');
+  const [calculatedMarkup, setCalculatedMarkup] = useState({ markup: 0, sellingPrice: 0, profit: 0 });
   const [activeTab, setActiveTab] = useState('overview');
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [userCurrency, setUserCurrency] = useState('USD');
   const [exchangeRates, setExchangeRates] = useState<CurrencyRate>({});
   const [converting, setConverting] = useState(false);
@@ -136,10 +139,15 @@ export default function ProductDetailPage() {
     
     try {
       setConverting(true);
+      console.log('Fetching exchange rates for:', userCurrency);
       const response = await fetch(`/api/currency/convert?from=USD&to=${userCurrency}&amount=1`);
       if (response.ok) {
         const data = await response.json();
-        setExchangeRates({ [userCurrency]: data.rate });
+        console.log('Exchange rate data:', data);
+        setExchangeRates({ [userCurrency]: data.exchangeRate });
+        console.log('Exchange rate set:', { [userCurrency]: data.exchangeRate });
+      } else {
+        console.error('Failed to fetch exchange rates:', response.status);
       }
     } catch (error) {
       console.error('Error fetching exchange rates:', error);
@@ -152,8 +160,13 @@ export default function ProductDetailPage() {
     const priceToUse = usdPrice || originalPrice || 0;
     if (userCurrency === 'USD') return priceToUse;
     const rate = exchangeRates[userCurrency];
-    if (!rate) return priceToUse;
-    return Math.round(priceToUse * rate * 100) / 100;
+    if (!rate) {
+      console.log('No exchange rate available for:', userCurrency, 'using original price:', priceToUse);
+      return priceToUse;
+    }
+    const convertedPrice = Math.round(priceToUse * rate * 100) / 100;
+    console.log('Converting price:', { priceToUse, rate, convertedPrice, userCurrency });
+    return convertedPrice;
   };
 
   const getCurrencySymbol = (currency: string) => {
@@ -174,6 +187,49 @@ export default function ProductDetailPage() {
     return `${getCurrencySymbol(currency)}${price.toFixed(2)}`;
   };
 
+  // Calculate markup and selling price
+  const calculateMarkup = () => {
+    if (!product) return { markup: 0, sellingPrice: 0, profit: 0 };
+    
+    const basePrice = convertPrice(product.lockedUSDPrice, product.price);
+    
+    let markup = 0;
+    if (markupType === 'percentage') {
+      markup = basePrice * (markupPercentage / 100);
+    } else {
+      markup = Number(markupAmount) || 0;
+    }
+    
+    const sellingPrice = basePrice + markup;
+    const profit = sellingPrice - basePrice;
+    
+    return { markup, sellingPrice, profit };
+  };
+
+  // Recalculate markup when values change
+  useEffect(() => {
+    if (product) {
+      const newMarkup = calculateMarkup();
+      setCalculatedMarkup(newMarkup);
+      
+      // Debug logging
+      console.log('Markup calculation:', {
+        product: product.name,
+        lockedUSDPrice: product.lockedUSDPrice,
+        price: product.price,
+        userCurrency,
+        exchangeRates,
+        convertedPrice: convertPrice(product.lockedUSDPrice, product.price),
+        markupType,
+        markupPercentage,
+        markupAmount,
+        newMarkup
+      });
+    }
+  }, [product, markupType, markupPercentage, markupAmount, userCurrency, exchangeRates]);
+
+  const { markup, sellingPrice, profit } = calculatedMarkup;
+
   useEffect(() => {
     if (userCurrency && userCurrency !== 'USD') {
       fetchExchangeRates();
@@ -191,15 +247,16 @@ export default function ProductDetailPage() {
 
     try {
       if (destination === 'myProducts') {
-        // Add to My Products only
-        const response = await fetch('/api/vendor/products/add', {
+        // Add to My Products only (not in store)
+        const response = await fetch('/api/vendor/products/add-to-my-products', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             productId,
-            markup: productMargin !== '' ? productMargin : markupPercentage,
+            markup: markupType === 'percentage' ? markupPercentage : markupAmount,
+            markupType,
           }),
         });
 
@@ -213,8 +270,8 @@ export default function ProductDetailPage() {
           alert(`Error: ${error.error}`);
         }
       } else {
-        // Add to Store (which automatically adds to My Products)
-        const response = await fetch('/api/products/import', {
+        // Add to Store (same as Quick Import)
+        const response = await fetch('/api/stores/import-product', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -222,13 +279,13 @@ export default function ProductDetailPage() {
           body: JSON.stringify({
             productId,
             storeId: selectedStore,
-            markup: productMargin !== '' ? productMargin : markupPercentage,
-            generateHostedLink: true,
+            markup: markupType === 'percentage' ? markupPercentage : markupAmount,
+            markupType,
           }),
         });
 
         if (response.ok) {
-          setSuccess('Product added to your store and products list successfully!');
+          setSuccess('Product added to your store successfully!');
           setTimeout(() => {
             router.back();
           }, 2000);
@@ -316,12 +373,6 @@ export default function ProductDetailPage() {
     );
   }
 
-  // Mock multiple images for demonstration
-  const productImages = [
-    product.image,
-    product.image, // In real implementation, this would be from product.images array
-    product.image,
-  ].filter(Boolean);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: '📋' },
@@ -373,46 +424,15 @@ export default function ProductDetailPage() {
           {/* Left Column - Images */}
           <div className="lg:col-span-1">
             <Card className="sticky top-8">
-              {/* Main Image */}
+              {/* Product Images */}
               <div className="aspect-square mb-4">
-                {productImages[currentImageIndex] ? (
-                  <img
-                    src={productImages[currentImageIndex]}
-                    alt={product.name}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center">
-                    <div className="text-center text-gray-500">
-                      <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <p>No Image Available</p>
-                    </div>
-                  </div>
-                )}
+                <ProductImageSlider
+                  images={product.images || []}
+                  fallbackImage={product.image}
+                  productName={product.name}
+                  className="w-full h-full object-cover rounded-lg"
+                />
               </div>
-
-              {/* Thumbnail Images */}
-              {productImages.length > 1 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {productImages.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`aspect-square rounded-lg overflow-hidden border-2 ${
-                        currentImageIndex === index ? 'border-indigo-500' : 'border-gray-200'
-                      }`}
-                    >
-                      <img
-                        src={image}
-                        alt={`${product.name} ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
 
               {/* Destination Toggle */}
               <div className="mt-6 space-y-4">
@@ -587,35 +607,71 @@ export default function ProductDetailPage() {
                       <h4 className="text-lg font-semibold text-gray-900 mb-4">Pricing Configuration</h4>
                       
                       <div className="space-y-4">
+                        {/* Markup Type Selection */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Markup Percentage (%)
+                            Markup Type
+                          </label>
+                          <div className="flex space-x-4">
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                value="percentage"
+                                checked={markupType === 'percentage'}
+                                onChange={(e) => setMarkupType(e.target.value as 'percentage' | 'amount')}
+                                className="mr-2"
+                              />
+                              Percentage (%)
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                value="amount"
+                                checked={markupType === 'amount'}
+                                onChange={(e) => setMarkupType(e.target.value as 'percentage' | 'amount')}
+                                className="mr-2"
+                              />
+                              Fixed Amount
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Markup Input */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {markupType === 'percentage' ? 'Markup Percentage (%)' : 'Markup Amount'}
                           </label>
                           <input
                             type="number"
                             min="0"
-                            max="100"
-                            step="0.1"
+                            max={markupType === 'percentage' ? '100' : undefined}
+                            step={markupType === 'percentage' ? '0.1' : '0.01'}
+                            value={markupType === 'percentage' ? markupPercentage : markupAmount}
+                            onChange={(e) => {
+                              if (markupType === 'percentage') {
+                                setMarkupPercentage(Number(e.target.value));
+                              } else {
+                                setMarkupAmount(e.target.value);
+                              }
+                            }}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
-                            value={productMargin}
-                            onChange={(e) => handleMarginChange(Number(e.target.value))}
-                            placeholder={`${markupPercentage}%`}
+                            placeholder={markupType === 'percentage' ? 'Enter percentage' : 'Enter amount'}
                           />
                           <p className="text-sm text-gray-500 mt-1">
-                            Leave empty to use global markup: {markupPercentage}%
+                            {markupType === 'percentage' 
+                              ? 'Leave empty to use global markup: 20%'
+                              : `Enter markup amount in ${userCurrency}`
+                            }
                           </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 mb-4">
                           <div className="bg-white p-4 rounded-lg border">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              {product.lockedUSDPrice ? 'Original Price (USD)' : 'Price (USD)'}
+                              Original Price (USD)
                             </label>
                             <p className="text-2xl font-bold text-gray-900">
-                              {product.lockedUSDPrice 
-                                ? formatPrice(product.lockedUSDPrice, 'USD')
-                                : formatPrice(product.price, 'USD')
-                              }
+                              {formatPrice(product.lockedUSDPrice || product.price, 'USD')}
                             </p>
                           </div>
                           <div className="bg-white p-4 rounded-lg border">
@@ -636,22 +692,13 @@ export default function ProductDetailPage() {
                           <div className="bg-white p-4 rounded-lg border">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Your Selling Price</label>
                             <p className="text-2xl font-bold text-green-600">
-                              {formatPrice(
-                                convertPrice(product.lockedUSDPrice, product.price) * 
-                                (1 + (productMargin as number || markupPercentage) / 100), 
-                                userCurrency
-                              )}
+                              {formatPrice(sellingPrice, userCurrency)}
                             </p>
                           </div>
                           <div className="bg-white p-4 rounded-lg border">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Your Profit</label>
                             <p className="text-2xl font-bold text-blue-600">
-                              {formatPrice(
-                                convertPrice(product.lockedUSDPrice, product.price) * 
-                                (1 + (productMargin as number || markupPercentage) / 100) - 
-                                convertPrice(product.lockedUSDPrice, product.price), 
-                                userCurrency
-                              )}
+                              {formatPrice(profit, userCurrency)}
                             </p>
                           </div>
                         </div>

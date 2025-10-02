@@ -469,11 +469,10 @@ export default function VendorProductsPage() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleImportProduct(product.id)}
-                        disabled={importing === product.id || !selectedStore}
-                        className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        onClick={() => router.push(`/vendor/products/${product.id}`)}
+                        className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
                       >
-                        {importing === product.id ? 'Importing...' : 'Quick Import'}
+                        View Details
                       </button>
                     )}
                   </div>

@@ -171,6 +171,16 @@ export default function ProductDetailPage() {
       
       setProduct(data.product);
       
+      // Debug product data
+      console.log('Product loaded:', {
+        id: data.product.id,
+        name: data.product.name,
+        availableQuantity: data.product.availableQuantity,
+        totalQuantity: data.product.totalQuantity,
+        price: data.product.price,
+        finalPrice: data.product.finalPrice
+      });
+      
       // Convert price to customer currency
       if (data.product) {
         await convertProductPrice(data.product, detectedCurrencyInfo);
@@ -373,7 +383,7 @@ export default function ProductDetailPage() {
               
               <p className="text-lg text-gray-600">{product.description}</p>
               
-              <div className="mt-4 flex items-center space-x-4">
+              <div className="mt-4 flex items-center justify-between">
                 <div className="flex flex-col">
                   <span className="text-3xl font-bold text-indigo-600">
                     {currencyDetection.getCurrencySymbol(customerCurrency)}
@@ -386,6 +396,54 @@ export default function ProductDetailPage() {
                     </span>
                   )}
                 </div>
+                
+                {/* Currency Selector */}
+                <div className="flex flex-col items-end">
+                  <label className="text-sm text-gray-600 mb-1">Currency</label>
+                  <select
+                    value={customerCurrency}
+                    onChange={async (e) => {
+                      const newCurrency = e.target.value;
+                      setCustomerCurrency(newCurrency);
+                      setConverting(true);
+                      
+                      try {
+                        const convertedPrice = await currencyDetection.convertPrice(
+                          product.finalPrice,
+                          product.localCurrency,
+                          newCurrency
+                        );
+                        setConvertedPrice(convertedPrice);
+                      } catch (error) {
+                        console.error('Error converting price:', error);
+                        setConvertedPrice(product.finalPrice);
+                      } finally {
+                        setConverting(false);
+                      }
+                    }}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="CAD">CAD (C$)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="AUD">AUD (A$)</option>
+                    <option value="JPY">JPY (¥)</option>
+                    <option value="INR">INR (₹)</option>
+                    <option value="PKR">PKR (₨)</option>
+                    <option value="MYR">MYR (RM)</option>
+                    <option value="SGD">SGD (S$)</option>
+                    <option value="CNY">CNY (¥)</option>
+                    <option value="BRL">BRL (R$)</option>
+                    <option value="MXN">MXN ($)</option>
+                    <option value="RUB">RUB (₽)</option>
+                    <option value="KRW">KRW (₩)</option>
+                    <option value="THB">THB (฿)</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="mt-2">
                 <span className="text-sm text-gray-500">Available: {product.availableQuantity}</span>
               </div>
             </div>
@@ -395,7 +453,7 @@ export default function ProductDetailPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-gray-700">Category:</span>
-                  <span className="ml-2 text-gray-600">{product.category}</span>
+                  <span className="ml-2 text-gray-600">{product.category?.name || 'No Category'}</span>
                 </div>
                 {product.type && (
                   <div>
@@ -449,7 +507,11 @@ export default function ProductDetailPage() {
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  onClick={() => {
+                    const newQuantity = Math.max(1, quantity - 1);
+                    console.log('Decreasing quantity:', { current: quantity, new: newQuantity, available: product.availableQuantity });
+                    setQuantity(newQuantity);
+                  }}
                   className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                 >
                   -
@@ -457,7 +519,11 @@ export default function ProductDetailPage() {
                 <span className="w-12 text-center">{quantity}</span>
                 <button
                   type="button"
-                  onClick={() => setQuantity(Math.min(product.availableQuantity, quantity + 1))}
+                  onClick={() => {
+                    const newQuantity = Math.min(product.availableQuantity || 100, quantity + 1);
+                    console.log('Increasing quantity:', { current: quantity, new: newQuantity, available: product.availableQuantity });
+                    setQuantity(newQuantity);
+                  }}
                   className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                 >
                   +
@@ -469,7 +535,9 @@ export default function ProductDetailPage() {
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-medium">Total:</span>
-                <span className="text-2xl font-bold text-indigo-600">${calculateTotalPrice().toFixed(2)}</span>
+                <span className="text-2xl font-bold text-indigo-600">
+                  {currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}
+                </span>
               </div>
             </div>
 
@@ -484,13 +552,13 @@ export default function ProductDetailPage() {
                     : 'bg-indigo-600 text-white hover:bg-indigo-700'
                 }`}
               >
-                {isAddedToCart ? '✓ Added to Cart' : `Add to Cart - $${calculateTotalPrice().toFixed(2)}`}
+                {isAddedToCart ? '✓ Added to Cart' : `Add to Cart - ${currencyDetection.getCurrencySymbol(customerCurrency)}${calculateTotalPrice().toFixed(2)}`}
               </button>
               <button
                 onClick={handleBuyNow}
                 className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors"
               >
-                Buy Now - ${calculateTotalPrice().toFixed(2)}
+                Buy Now - {currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}
               </button>
             </div>
           </div>
@@ -551,7 +619,7 @@ export default function ProductDetailPage() {
                 <div className="bg-gray-100 p-4 rounded-lg mb-6">
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-medium text-gray-900">Total Items: {getTotalItems()}</span>
-                    <span className="text-xl font-bold text-indigo-600">${getTotalPrice().toFixed(2)}</span>
+                    <span className="text-xl font-bold text-indigo-600">{currencyDetection.getCurrencySymbol(customerCurrency)}{getTotalPrice().toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -894,7 +962,7 @@ export default function ProductDetailPage() {
                           )}
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-gray-900">${calculateTotalPrice().toFixed(2)}</p>
+                          <p className="font-semibold text-gray-900">{currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}</p>
                         </div>
                       </div>
 
@@ -902,7 +970,7 @@ export default function ProductDetailPage() {
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Subtotal</span>
-                          <span className="font-medium">${calculateTotalPrice().toFixed(2)}</span>
+                          <span className="font-medium">{currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Shipping</span>
@@ -915,7 +983,7 @@ export default function ProductDetailPage() {
                         <div className="border-t pt-2">
                           <div className="flex justify-between text-lg font-semibold">
                             <span>Total</span>
-                            <span>${calculateTotalPrice().toFixed(2)}</span>
+                            <span>{currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -927,7 +995,7 @@ export default function ProductDetailPage() {
                         disabled={processing}
                         className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {processing ? 'Processing...' : `Pay Now - $${calculateTotalPrice().toFixed(2)}`}
+                        {processing ? 'Processing...' : `Pay Now - ${currencyDetection.getCurrencySymbol(customerCurrency)}${calculateTotalPrice().toFixed(2)}`}
                       </button>
                     </Card>
                   </div>

@@ -134,8 +134,8 @@ export default function ImportedProductsPage() {
             ? { 
                 ...sp, 
                 markup: newMarkup, 
-                finalPrice: sp.lockedLocalPrice * (1 + newMarkup / 100) 
-              }
+                finalPrice: sp.lockedLocalPrice * (1 + newMarkup / 100)
+              } 
             : sp
         ));
         alert('Markup updated successfully!');
@@ -146,6 +146,104 @@ export default function ImportedProductsPage() {
     } catch (error) {
       console.error('Error updating markup:', error);
       alert('Failed to update markup');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleAddToStore = async (storeProductId: string) => {
+    try {
+      setUpdating(storeProductId);
+      
+      // Get user's stores for selection
+      const storesResponse = await fetch('/api/stores');
+      if (!storesResponse.ok) {
+        alert('Failed to fetch stores');
+        return;
+      }
+      
+      const storesData = await storesResponse.json();
+      const activeStores = storesData.stores.filter((store: any) => store.isActive);
+      
+      if (activeStores.length === 0) {
+        alert('No active stores found. Please create a store first.');
+        return;
+      }
+      
+      // For now, use the first active store. In a real app, you'd show a modal to select store
+      const selectedStore = activeStores[0];
+      
+      const response = await fetch('/api/vendor/products/add-to-store', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeProductId,
+          storeId: selectedStore.id,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update the local state
+        setStoreProducts(prev => prev.map(sp => 
+          sp.id === storeProductId 
+            ? { 
+                ...sp, 
+                isActive: true,
+                storeId: selectedStore.id,
+                store: selectedStore
+              } 
+            : sp
+        ));
+        alert(data.message);
+      } else {
+        const error = await response.json();
+        alert(`Failed to add to store: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error adding to store:', error);
+      alert('Failed to add product to store');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleRemoveFromStore = async (storeProductId: string) => {
+    try {
+      setUpdating(storeProductId);
+      
+      const response = await fetch('/api/vendor/products/remove-from-store', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeProductId,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update the local state
+        setStoreProducts(prev => prev.map(sp => 
+          sp.id === storeProductId 
+            ? { 
+                ...sp, 
+                isActive: false,
+                store: data.storeProduct.store
+              } 
+            : sp
+        ));
+        alert(data.message);
+      } else {
+        const error = await response.json();
+        alert(`Failed to remove from store: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error removing from store:', error);
+      alert('Failed to remove product from store');
     } finally {
       setUpdating(null);
     }
@@ -240,7 +338,18 @@ export default function ImportedProductsPage() {
                     </div>
                   )}
                   
-                  <div className="absolute top-2 right-2">
+                  {/* Store Status and Toggle */}
+                  <div className="absolute top-2 right-2 flex flex-col gap-1">
+                    {storeProduct.isActive ? (
+                      <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                        In Store
+                      </span>
+                    ) : (
+                      <span className="bg-gray-500 text-white text-xs px-2 py-1 rounded-full">
+                        My Products
+                      </span>
+                    )}
+                    
                     <button
                       onClick={() => handleToggleStatus(storeProduct.id, storeProduct.isActive)}
                       className={`px-2 py-1 text-xs rounded-full ${
@@ -363,6 +472,29 @@ export default function ImportedProductsPage() {
                       )}
                     </div>
                   )}
+
+                  {/* Action Buttons */}
+                  <div className="mt-4 pt-3 border-t">
+                    <div className="flex space-x-2">
+                      {!storeProduct.isActive ? (
+                        <button
+                          onClick={() => handleAddToStore(storeProduct.id)}
+                          disabled={updating === storeProduct.id}
+                          className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          {updating === storeProduct.id ? 'Adding...' : 'Add to Store'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleRemoveFromStore(storeProduct.id)}
+                          disabled={updating === storeProduct.id}
+                          className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          {updating === storeProduct.id ? 'Removing...' : 'Remove from Store'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             );

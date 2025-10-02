@@ -192,6 +192,24 @@ export default function StorePage() {
       console.log('Products data:', products[0]);
       console.log('First product category:', products[0].category);
       console.log('First product subcategory:', products[0].subcategory);
+      console.log('First product tags:', products[0].tags);
+      
+      // Check for any objects being rendered directly
+      products.forEach((product, index) => {
+        if (typeof product.category === 'object' && product.category !== null) {
+          console.warn(`Product ${index} has category object:`, product.category);
+        }
+        if (typeof product.subcategory === 'object' && product.subcategory !== null) {
+          console.warn(`Product ${index} has subcategory object:`, product.subcategory);
+        }
+        if (Array.isArray(product.tags)) {
+          product.tags.forEach((tag, tagIndex) => {
+            if (typeof tag === 'object' && tag !== null) {
+              console.warn(`Product ${index} tag ${tagIndex} is object:`, tag);
+            }
+          });
+        }
+      });
     }
   }, [products]);
 
@@ -244,23 +262,38 @@ export default function StorePage() {
     setConverting(true);
     
     try {
-      const convertedProducts = await Promise.all(
-        products.map(async (product) => {
-          // Convert the final price to customer currency
-          const convertedPrice = await currencyDetection.convertPrice(
-            product.finalPrice,
-            product.localCurrency,
-            currencyInfo.currency
-          );
-          
-          return {
-            ...product,
-            displayPrice: convertedPrice,
-            displayCurrency: currencyInfo.currency,
-            exchangeRate: currencyInfo.rate
-          };
-        })
-      );
+      // Group products by their base currency to minimize API calls
+      const currencyGroups: { [key: string]: Product[] } = {};
+      products.forEach(product => {
+        const baseCurrency = product.localCurrency || 'USD';
+        if (!currencyGroups[baseCurrency]) {
+          currencyGroups[baseCurrency] = [];
+        }
+        currencyGroups[baseCurrency].push(product);
+      });
+      
+      // Get exchange rates for each unique currency pair
+      const exchangeRates: { [key: string]: number } = {};
+      for (const baseCurrency of Object.keys(currencyGroups)) {
+        if (baseCurrency !== currencyInfo.currency) {
+          exchangeRates[baseCurrency] = await currencyDetection.convertPrice(1, baseCurrency, currencyInfo.currency);
+        } else {
+          exchangeRates[baseCurrency] = 1;
+        }
+      }
+      
+      const convertedProducts = products.map((product) => {
+        const baseCurrency = product.localCurrency || 'USD';
+        const rate = exchangeRates[baseCurrency] || 1;
+        const convertedPrice = product.finalPrice * rate;
+        
+        return {
+          ...product,
+          displayPrice: convertedPrice,
+          displayCurrency: currencyInfo.currency,
+          exchangeRate: rate
+        };
+      });
       
       setConvertedProducts(convertedProducts);
       

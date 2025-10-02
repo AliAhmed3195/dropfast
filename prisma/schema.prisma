@@ -170,8 +170,8 @@ model Order {
   productId     String
   store         Store    @relation(fields: [storeId], references: [id])
   storeId       String
-  customer      User     @relation(fields: [customerId], references: [id])
-  customerId    String
+  customer      User?    @relation(fields: [customerId], references: [id])
+  customerId    String?
   quantity      Int      @default(1)
   productPrice  Float    // Original supplier price
   markupAmount  Float    // Vendor markup amount

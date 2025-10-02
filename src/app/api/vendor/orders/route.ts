@@ -24,6 +24,7 @@ export async function GET() {
                 name: true,
               },
             },
+            images: true,
           },
         },
         customer: {
@@ -43,7 +44,22 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ orders });
+    // Process orders to include guest customer info from shipping address
+    const processedOrders = orders.map(order => {
+      if (!order.customer && order.shippingAddress) {
+        const shipping = order.shippingAddress as any;
+        return {
+          ...order,
+          customer: {
+            name: `${shipping.firstName || ''} ${shipping.lastName || ''}`.trim() || 'Guest Customer',
+            email: shipping.email || 'N/A (Guest)'
+          }
+        };
+      }
+      return order;
+    });
+
+    return NextResponse.json({ orders: processedOrders });
   } catch (error) {
     console.error('Error fetching vendor orders:', error);
     return NextResponse.json(

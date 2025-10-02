@@ -84,6 +84,8 @@ export async function GET(
         isActive: storeProduct.isActive,
         updatedAt: storeProduct.updatedAt,
         store: storeProduct.store,
+        availableQuantity: storeProduct.product.totalQuantity || 100, // Default to 100 if not set
+        totalQuantity: storeProduct.product.totalQuantity || 100,
       };
 
       return NextResponse.json({ product });
@@ -150,6 +152,8 @@ export async function GET(
       isActive: true,
       updatedAt: originalProduct.updatedAt,
       store: null, // No store context for original products
+      availableQuantity: originalProduct.totalQuantity || 100, // Default to 100 if not set
+      totalQuantity: originalProduct.totalQuantity || 100,
     };
 
     return NextResponse.json({ product });

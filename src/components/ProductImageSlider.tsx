@@ -23,13 +23,16 @@ export default function ProductImageSlider({
   productName, 
   className = "w-full h-32 object-cover rounded-md mb-3" 
 }: ProductImageSliderProps) {
+  // Safety check for productName
+  const safeProductName = typeof productName === 'string' ? productName : 'Product';
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Combine images from ProductImage table and fallback image
   const allImages = [
-    ...(fallbackImage ? [{ id: 'main', url: fallbackImage, alt: productName, isMain: true, order: -1 }] : []),
-    ...images
-  ].sort((a, b) => {
+    ...(fallbackImage ? [{ id: 'main', url: fallbackImage, alt: safeProductName, isMain: true, order: -1 }] : []),
+    ...(Array.isArray(images) ? images : [])
+  ].filter(img => img && typeof img === 'object' && img.url) // Filter out invalid images
+  .sort((a, b) => {
     // Sort by isMain first, then by order
     if (a.isMain && !b.isMain) return -1;
     if (!a.isMain && b.isMain) return 1;
@@ -48,7 +51,7 @@ export default function ProductImageSlider({
     return (
       <img
         src={allImages[0].url}
-        alt={allImages[0].alt || productName}
+        alt={allImages[0].alt || safeProductName}
         className={className}
       />
     );
@@ -66,7 +69,7 @@ export default function ProductImageSlider({
     <div className="relative group">
       <img
         src={allImages[currentImageIndex].url}
-        alt={allImages[currentImageIndex].alt || productName}
+        alt={allImages[currentImageIndex].alt || safeProductName}
         className={className}
       />
       
