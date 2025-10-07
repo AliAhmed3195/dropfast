@@ -146,6 +146,38 @@ export default function VendorOrdersPage() {
     router.push(`/vendor/orders/${orderId}`);
   };
 
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm('Are you sure you want to cancel this order?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/vendor/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          status: 'CANCELLED',
+          reason: 'Cancelled by vendor',
+          notes: 'Order cancelled by vendor'
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh orders list
+        fetchOrders();
+        alert('Order cancelled successfully!');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to cancel order');
+      }
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      alert('Failed to cancel order');
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -351,12 +383,22 @@ export default function VendorOrdersPage() {
                       {formatDate(order.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => handleViewDetails(order.id)}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
-                      >
-                        View Details
-                      </button>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleViewDetails(order.id)}
+                          className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
+                        >
+                          View Details
+                        </button>
+                        {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
+                          <button
+                            onClick={() => handleCancelOrder(order.id)}
+                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -369,7 +411,7 @@ export default function VendorOrdersPage() {
       {filteredAndSortedOrders.length === 0 && orders.length > 0 && (
         <div className="text-center py-8">
           <p className="text-gray-500">No orders match your current filters</p>
-        </div>
+      </div>
       )}
     </div>
   );

@@ -5,8 +5,9 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'SUPPLIER' | 'VENDOR';
-  isActive: boolean;
+  role: 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER' | 'CUSTOMER';
+  status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION';
+  businessId?: string;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -17,7 +18,7 @@ export async function verifyPassword(password: string, hashedPassword: string): 
   return bcrypt.compare(password, hashedPassword);
 }
 
-export async function createUser(email: string, password: string, name: string, role: 'ADMIN' | 'SUPPLIER' | 'VENDOR', preferredCurrency: string = 'USD') {
+export async function createUser(email: string, password: string, name: string, role: 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER' | 'CUSTOMER', businessId?: string) {
   const hashedPassword = await hashPassword(password);
   
   return prisma.user.create({
@@ -26,16 +27,16 @@ export async function createUser(email: string, password: string, name: string, 
       password: hashedPassword,
       name,
       role,
-      preferredCurrency,
-      isActive: true,
+      businessId,
+      status: 'ACTIVE',
     },
     select: {
       id: true,
       email: true,
       name: true,
       role: true,
-      preferredCurrency: true,
-      isActive: true,
+      status: true,
+      businessId: true,
     },
   });
 }
@@ -50,7 +51,7 @@ export async function authenticateUser(email: string, password: string): Promise
   }
 
   // Check if user is active
-  if (!user.isActive) {
+  if (user.status !== 'ACTIVE') {
     return null;
   }
 
@@ -64,7 +65,8 @@ export async function authenticateUser(email: string, password: string): Promise
     email: user.email,
     name: user.name,
     role: user.role,
-    isActive: user.isActive,
+    status: user.status,
+    businessId: user.businessId,
   };
 }
 
@@ -76,7 +78,8 @@ export async function getUserById(id: string): Promise<User | null> {
       email: true,
       name: true,
       role: true,
-      isActive: true,
+      status: true,
+      businessId: true,
     },
   });
 

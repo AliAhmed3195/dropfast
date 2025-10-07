@@ -1,24 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
+    console.log('Supplier order detail API called for orderId:', params.id);
+    
     const session = await getSession();
-    if (!session || session.role !== 'VENDOR') {
+    console.log('Session:', session);
+    
+    if (!session || session.role !== 'SUPPLIER') {
+      console.log('No session or not SUPPLIER role');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get order details with all relations
-    const order = await prisma.order.findFirst({
+    // Get order details
+    const order = await prisma.order.findUnique({
       where: {
-        id: params.orderId,
-        store: {
-          ownerId: session.id, // Ensure vendor can only see their own orders
-        },
+        id: params.id,
       },
       include: {
         product: {
@@ -35,6 +37,7 @@ export async function GET(
         },
         customer: {
           select: {
+            id: true,
             name: true,
             email: true,
           },
@@ -43,7 +46,21 @@ export async function GET(
           select: {
             id: true,
             name: true,
+            slug: true,
+            owner: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
+        },
+        statusHistory: {
+          orderBy: {
+            changedAt: 'desc',
+          },
+          take: 10,
         },
       },
     });
@@ -52,13 +69,19 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    // Check if the supplier owns this product
+    if (order.product.supplier.id !== session.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Process order to include guest customer info from shipping address
-    let processedOrder = { ...order };
+    let processedOrder = order;
     if (!order.customer && order.shippingAddress) {
       const shipping = order.shippingAddress as any;
       processedOrder = {
         ...order,
         customer: {
+          id: 'guest',
           name: `${shipping.firstName || ''} ${shipping.lastName || ''}`.trim() || 'Guest Customer',
           email: shipping.email || 'N/A (Guest)'
         }
@@ -67,7 +90,7 @@ export async function GET(
 
     return NextResponse.json({ order: processedOrder });
   } catch (error) {
-    console.error('Error fetching order details:', error);
+    console.error('Error fetching supplier order details:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

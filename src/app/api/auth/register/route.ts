@@ -4,7 +4,7 @@ import { createSession } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, role, preferredCurrency = 'USD' } = await request.json();
+    const { name, email, password, role, businessId } = await request.json();
 
     if (!name || !email || !password || !role) {
       return NextResponse.json(
@@ -13,14 +13,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['ADMIN', 'SUPPLIER', 'VENDOR'].includes(role)) {
+    if (!['ADMIN', 'VENDOR_USER', 'SUPPLIER_USER', 'CUSTOMER'].includes(role)) {
       return NextResponse.json(
         { error: 'Invalid role' },
         { status: 400 }
       );
     }
 
-    const user = await createUser(email, password, name, role, preferredCurrency);
+    const user = await createUser(email, password, name, role, businessId);
 
     // Create session
     await createSession(user);

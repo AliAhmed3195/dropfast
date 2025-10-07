@@ -18,9 +18,18 @@ export async function GET() {
         email: true,
         name: true,
         role: true,
-        preferredCurrency: true,
-        isActive: true,
+        status: true,
+        businessId: true,
         createdAt: true,
+        business: {
+          select: {
+            id: true,
+            businessName: true,
+            preferredCurrency: true,
+            country: true,
+            kycStatus: true,
+          }
+        }
       },
     });
 

@@ -83,7 +83,7 @@ export default function VendorDashboard() {
       <div className="mt-6">
         <Card>
           <h2 className="text-xl mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <a
               href="/vendor/create-store"
               className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-center"
@@ -107,6 +107,12 @@ export default function VendorDashboard() {
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-center"
             >
               Upload Logo
+            </a>
+            <a
+              href="/vendor/bank-details"
+              className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 text-center"
+            >
+              Bank Details
             </a>
           </div>
         </Card>

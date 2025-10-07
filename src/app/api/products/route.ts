@@ -87,9 +87,16 @@ export async function POST(request: NextRequest) {
       totalQuantity,
       availableQuantity,
       shippingInfo,
-      variants = [],
-      currency = 'USD' // Add currency field
+      variants = []
     } = await request.json();
+
+    // Get user's business currency
+    const user = await prisma.user.findUnique({
+      where: { id: session.id },
+      include: { business: true }
+    });
+
+    const currency = user?.business?.preferredCurrency || 'USD';
 
     if (!name || !description || !price || !categoryId) {
       return NextResponse.json(
@@ -151,6 +158,7 @@ export async function POST(request: NextRequest) {
           availableQuantity: availableQuantity || 0,
           shippingInfo: shippingInfo || null,
           supplierId: session.userId || session.id,
+          businessId: user?.businessId || null,
           storeId: null, // Explicitly set to null for original products
           isActive: true, // Explicitly set to true
           variants: variantsData.length > 0 ? variantsData : null, // Store as JSON

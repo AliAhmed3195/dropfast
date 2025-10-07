@@ -7,22 +7,173 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  SUPPLIER
+  VENDOR
+  VENDOR_USER
+  SUPPLIER_USER
+  CUSTOMER
+}
+
+enum BusinessType {
+  VENDOR
+  SUPPLIER
+}
+
+enum BusinessBusinessType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum KycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PENDING_VENDOR_APPROVAL
+  AWAITING_SUPPLIER_CONFIRMATION
+  CONFIRMED
+  PACKED
+  HANDED_TO_COURIER
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PayoutStatus {
+  PENDING
+  APPROVAL_REQUIRED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  ON_HOLD
+  FAILED
+  DISPUTED
+  REFUNDED
+}
+
+enum PayoutMethod {
+  STRIPE_CONNECT
+  BANK_TRANSFER
+  PAYPAL
+  WISE
+  CRYPTO
+  CHECK
+}
+
+enum NotificationType {
+  PAYOUT_CREATED
+  PAYOUT_APPROVED
+  PAYOUT_PROCESSED
+  PAYOUT_FAILED
+  PAYOUT_COMPLETED
+  PAYOUT_CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role
-  isActive  Boolean  @default(true)
-  preferredCurrency String @default("USD")
-  stores    Store[]
-  products  Product[] @relation("SupplierProducts")
-  orders    Order[]
-  invoices  Invoice[]
+  id          String      @id @default(cuid())
+  name        String
+  email       String      @unique
+  password    String
+  role        Role
+  businessId  String?     // FK to Business (NULL for admin)
+  business    Business?   @relation(fields: [businessId], references: [id])
+  phone       String?
+  dob         DateTime?   // For KYC
+  status      UserStatus  @default(ACTIVE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt @default(now())
+  
+  // Relations
+  orders      Order[]
+  invoices    Invoice[]
+  bankDetails BankDetails?
+  stores      Store[]
+  supplierProducts Product[] @relation("SupplierProducts")
   supplierPayouts Payout[] @relation("SupplierPayouts")
   vendorPayouts   Payout[] @relation("VendorPayouts")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now())
+  payoutNotifications PayoutNotification[]
+}
+
+model Business {
+  id                  String                @id @default(cuid())
+  type                BusinessType
+  businessName        String
+  businessType        BusinessBusinessType
+  registrationNumber  String?
+  vatGstNumber        String?
+  country             String
+  preferredCurrency   String
+  addressStreet       String
+  addressCity         String
+  addressState        String
+  addressZip          String
+  addressCountry      String
+  kycStatus           KycStatus            @default(PENDING)
+  stripeAccountId     String?              // Stripe Connected Account ID
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt @default(now())
+  
+  // Relations
+  users               User[]
+  stores              Store[]
+  products            Product[]
+  bankDetails         BankDetails[]
+  supplierPayouts     Payout[]             @relation("SupplierPayouts")
+  vendorPayouts       Payout[]             @relation("VendorPayouts")
+}
+
+model BankDetails {
+  id                    String    @id @default(cuid())
+  userId                String?   @unique // For individual users
+  user                  User?     @relation(fields: [userId], references: [id])
+  businessId            String?   // For business accounts
+  business              Business? @relation(fields: [businessId], references: [id])
+  
+  // Country and Stripe Integration
+  countryCode           String    // e.g. "US", "UK", "PK", "DE"
+  fields                Json      // Dynamic fields based on country
+  stripeAccountId       String?   // Stripe Connected Account ID
+  kycStatus             KycStatus @default(PENDING)
+  
+  // Legacy fields (keeping for backward compatibility)
+  bankName              String?
+  accountHolderName     String?
+  accountNumber         String?
+  routingNumber         String?
+  swiftCode             String?
+  iban                  String?
+  bankAddress           String?
+  bankCity              String?
+  bankCountry           String?
+  bankPostalCode        String?
+  
+  // Verification
+  isVerified            Boolean   @default(false)
+  verifiedAt            DateTime?
+  verifiedBy            String?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt @default(now())
 }
 
 model Store {
@@ -34,6 +185,8 @@ model Store {
   isActive    Boolean  @default(true)
   owner       User     @relation(fields: [ownerId], references: [id])
   ownerId     String
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id])
   products    Product[]
   orders      Order[]
   invoices    Invoice[]
@@ -48,6 +201,8 @@ model Store {
   invoiceTemplate String @default("default")
   // Multi-currency support
   currency    String   @default("USD")
+  // Vendor approval settings
+  autoForwardOrders Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt @default(now())
 }
@@ -63,6 +218,8 @@ model Product {
   markup      Float    @default(0) // Vendor markup percentage
   supplier    User     @relation("SupplierProducts", fields: [supplierId], references: [id])
   supplierId  String
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id])
   store       Store?   @relation(fields: [storeId], references: [id])
   storeId     String?
   orders      Order[]
@@ -163,7 +320,6 @@ model ProductTag {
   @@unique([productId, tagId])
 }
 
-
 model Order {
   id            String   @id @default(cuid())
   product       Product  @relation(fields: [productId], references: [id])
@@ -192,8 +348,29 @@ model Order {
   shippingAddress Json?
   billingAddress Json?
   notes         String?
+  // Vendor approval workflow
+  requiresVendorApproval Boolean @default(false)
+  vendorApprovedAt      DateTime?
+  vendorApprovedBy      String?
+  vendorRejectedAt      DateTime?
+  vendorRejectedBy      String?
+  vendorRejectionReason String?
+  // Order status history
+  statusHistory OrderStatusHistory[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(cuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id])
+  status      OrderStatus
+  reason      String?
+  changedBy   String      // User ID who changed the status
+  changedAt   DateTime    @default(now())
+  notes       String?
+  metadata    Json?       // Additional data about the status change
 }
 
 model Invoice {
@@ -213,21 +390,6 @@ model Invoice {
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-}
-
-enum InvoiceStatus {
-  PENDING
-  PAID
-  OVERDUE
-  CANCELLED
-}
-
-enum OrderStatus {
-  PENDING
-  PAID
-  SHIPPED
-  DELIVERED
-  CANCELLED
 }
 
 model StoreProduct {
@@ -252,33 +414,92 @@ model StoreProduct {
 }
 
 model Payout {
-  id            String   @id @default(cuid())
-  orderId       String   @unique
-  order         Order    @relation(fields: [orderId], references: [id])
-  supplierId    String
-  supplier      User     @relation("SupplierPayouts", fields: [supplierId], references: [id])
-  vendorId      String
-  vendor        User     @relation("VendorPayouts", fields: [vendorId], references: [id])
-  supplierAmount Float   // Amount to pay supplier (in USD)
-  vendorAmount  Float    // Amount to pay vendor (in USD)
-  platformFee   Float    // Platform fee (in USD)
-  status        PayoutStatus @default(PENDING)
-  stripeTransferId String? // Stripe transfer ID
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  orderId               String   @unique
+  order                 Order    @relation(fields: [orderId], references: [id])
+  
+  // Parties
+  supplierId            String
+  supplier              User     @relation("SupplierPayouts", fields: [supplierId], references: [id])
+  supplierBusinessId    String?
+  supplierBusiness      Business? @relation("SupplierPayouts", fields: [supplierBusinessId], references: [id])
+  vendorId              String
+  vendor                User     @relation("VendorPayouts", fields: [vendorId], references: [id])
+  vendorBusinessId      String?
+  vendorBusiness        Business? @relation("VendorPayouts", fields: [vendorBusinessId], references: [id])
+  
+  // Financial Breakdown (in USD - base currency)
+  orderTotal            Float    // Original order total
+  supplierAmount        Float    // Supplier's share (no platform fee)
+  vendorGrossAmount     Float    // Vendor's gross amount
+  platformFee           Float    // Platform fee (5% of vendor amount)
+  transactionFee        Float    // Payment processing fee
+  currencyConversionFee Float    @default(0) // Multi-currency conversion fee
+  
+  // Final Amounts (in USD)
+  finalSupplierAmount   Float    // What supplier actually receives
+  finalVendorAmount     Float    // What vendor actually receives
+  platformRevenue       Float    // Platform's total revenue
+  
+  // Currency Information
+  baseCurrency          String   @default("USD")
+  supplierCurrency      String   // Supplier's preferred currency
+  vendorCurrency        String   // Vendor's preferred currency
+  exchangeRateAtPayout  Float?   // Exchange rate used for conversion
+  
+  // Payout Locking
+  isLocked              Boolean  @default(false) // Whether payout amounts are locked
+  lockedAt              DateTime? // When amounts were locked
+  lockedExchangeRate    Float?   // Exchange rate at locking time
+  lockedSupplierAmount  Float?   // Locked supplier amount in supplier currency
+  lockedVendorAmount    Float?   // Locked vendor amount in vendor currency
+  
+  // Payout Details
+  status                PayoutStatus @default(PENDING)
+  payoutMethod          PayoutMethod @default(STRIPE_CONNECT)
+  payoutDate            DateTime?
+  processedAt           DateTime?
+  
+  // External References
+  stripeTransferId      String?
+  stripePayoutId        String?
+  bankReference         String?
+  wiseTransferId        String?
+  
+  // Approval Workflow
+  requiresApproval      Boolean  @default(false)
+  approvedBy            String?
+  approvedAt            DateTime?
+  approvalNotes         String?
+  
+  // Tracking
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relations
+  statusHistory         PayoutStatusHistory[]
+  notifications         PayoutNotification[]
 }
 
-enum PayoutStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-  CANCELLED
+model PayoutStatusHistory {
+  id          String   @id @default(cuid())
+  payoutId    String
+  payout      Payout   @relation(fields: [payoutId], references: [id])
+  status      PayoutStatus
+  reason      String?
+  changedBy   String
+  changedAt   DateTime @default(now())
+  notes       String?
 }
 
-enum Role {
-  ADMIN
-  SUPPLIER
-  VENDOR
-  CUSTOMER
+model PayoutNotification {
+  id        String   @id @default(cuid())
+  payoutId  String
+  payout    Payout   @relation(fields: [payoutId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      NotificationType
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

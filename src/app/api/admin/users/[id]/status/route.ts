@@ -13,10 +13,10 @@ export async function PATCH(
     }
 
     const userId = params.id;
-    const { isActive } = await request.json();
+    const { status } = await request.json();
 
     // Prevent admin from deactivating themselves
-    if (userId === session.id && !isActive) {
+    if (userId === session.id && status === 'SUSPENDED') {
       return NextResponse.json(
         { error: 'Cannot deactivate your own account' },
         { status: 400 }
@@ -26,19 +26,19 @@ export async function PATCH(
     // Update user status
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { isActive },
+      data: { status },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
-        isActive: true,
+        status: true,
         createdAt: true,
       },
     });
 
     return NextResponse.json({ 
-      message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
+      message: `User ${status === 'ACTIVE' ? 'activated' : 'deactivated'} successfully`,
       user 
     });
   } catch (error) {

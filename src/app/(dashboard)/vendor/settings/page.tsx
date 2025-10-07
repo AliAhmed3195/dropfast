@@ -1,36 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/Card';
-import TemplateSelector from '@/components/invoices/TemplateSelector';
 
-interface StoreSettings {
+interface Store {
   id: string;
   name: string;
-  description: string;
-  logo?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  taxNumber?: string;
-  invoiceTemplate: string;
+  slug: string;
+  autoForwardOrders: boolean;
+  currency: string;
+  createdAt: string;
 }
 
-const INVOICE_TEMPLATES = [
-  { id: 'default', name: 'Default', description: 'Clean and professional' },
-  { id: 'modern', name: 'Modern', description: 'Contemporary design' },
-  { id: 'minimal', name: 'Minimal', description: 'Simple and clean' },
-  { id: 'professional', name: 'Professional', description: 'Business-focused' },
-];
-
 export default function VendorSettingsPage() {
-  const [stores, setStores] = useState<StoreSettings[]>([]);
-  const [selectedStore, setSelectedStore] = useState<StoreSettings | null>(null);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStores();
@@ -38,12 +22,14 @@ export default function VendorSettingsPage() {
 
   const fetchStores = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/stores');
       const data = await response.json();
-      setStores(data.stores || []);
-      if (data.stores?.length > 0) {
-        setSelectedStore(data.stores[0]);
-        setPreview(data.stores[0].logo || null);
+
+      if (response.ok) {
+        setStores(data.stores || []);
+      } else {
+        console.error('Error fetching stores:', data);
       }
     } catch (error) {
       console.error('Error fetching stores:', error);
@@ -52,367 +38,244 @@ export default function VendorSettingsPage() {
     }
   };
 
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedStore) return;
-
-    setSaving(true);
+  const updateAutoForwardSetting = async (storeId: string, autoForward: boolean) => {
     try {
-      const response = await fetch(`/api/stores/by-id/${selectedStore.id}/settings`, {
-        method: 'PATCH',
+      setUpdating(storeId);
+      const response = await fetch(`/api/stores/${storeId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          logo: selectedStore.logo,
-          address: selectedStore.address,
-          phone: selectedStore.phone,
-          email: selectedStore.email,
-          taxNumber: selectedStore.taxNumber,
-          invoiceTemplate: selectedStore.invoiceTemplate,
+          autoForwardOrders: autoForward
         }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        alert('Settings saved successfully!');
-        fetchStores();
+        // Update local state
+        setStores(stores.map(store => 
+          store.id === storeId 
+            ? { ...store, autoForwardOrders: autoForward }
+            : store
+        ));
+        alert('Store settings updated successfully!');
       } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to save settings');
+        alert(`Error: ${data.error}`);
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
-      alert('Failed to save settings');
+      console.error('Error updating store settings:', error);
+      alert('Error updating store settings');
     } finally {
-      setSaving(false);
+      setUpdating(null);
     }
   };
 
-  const handleInputChange = (field: keyof StoreSettings, value: string) => {
-    if (selectedStore) {
-      setSelectedStore({
-        ...selectedStore,
-        [field]: value,
-      });
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
-        return;
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
-        return;
-      }
-
-      setSelectedFile(file);
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleLogoUpload = async () => {
-    if (!selectedFile || !selectedStore) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const logoUrl = data.url;
-
-        // Update store with new logo
-        const updateResponse = await fetch(`/api/stores/by-id/${selectedStore.id}/settings`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ logo: logoUrl }),
-        });
-
-        if (updateResponse.ok) {
-          alert('Logo uploaded successfully!');
-          handleInputChange('logo', logoUrl);
-          setSelectedFile(null);
-        } else {
-          const error = await updateResponse.json();
-          alert(error.error || 'Failed to update store logo');
-        }
-      } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to upload logo');
-      }
-    } catch (error) {
-      console.error('Error uploading logo:', error);
-      alert('Failed to upload logo');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const removeLogo = async () => {
-    if (!selectedStore) return;
-
-    if (!confirm('Are you sure you want to remove the logo?')) return;
-
-    try {
-      const response = await fetch(`/api/stores/by-id/${selectedStore.id}/settings`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ logo: null }),
-      });
-
-      if (response.ok) {
-        alert('Logo removed successfully!');
-        handleInputChange('logo', '');
-        setPreview(null);
-      } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to remove logo');
-      }
-    } catch (error) {
-      console.error('Error removing logo:', error);
-      alert('Failed to remove logo');
-    }
+  const getCurrencyName = (currency: string) => {
+    const currencyNames: { [key: string]: string } = {
+      'USD': 'US Dollar',
+      'EUR': 'Euro',
+      'GBP': 'British Pound',
+      'PKR': 'Pakistani Rupee',
+      'CAD': 'Canadian Dollar',
+      'AUD': 'Australian Dollar',
+      'JPY': 'Japanese Yen',
+      'INR': 'Indian Rupee',
+      'MYR': 'Malaysian Ringgit'
+    };
+    return currencyNames[currency] || currency;
   };
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
-  }
-
-  if (stores.length === 0) {
     return (
-      <div className="p-6">
-        <Card>
-          <p className="text-center text-gray-500 py-8">
-            No stores found. Please create a store first.
-          </p>
-          <div className="text-center">
-            <a
-              href="/vendor/stores"
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
-            >
-              Create Store
-            </a>
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Store Settings</h1>
-        <p className="text-gray-600">Configure your store branding and invoice settings</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Store Selection */}
-        <div className="lg:col-span-1">
-          <Card>
-            <h2 className="text-lg font-semibold mb-4">Select Store</h2>
-            <div className="space-y-2">
-              {stores.map((store) => (
-                <button
-                  key={store.id}
-                  onClick={() => {
-                    setSelectedStore(store);
-                    setPreview(store.logo || null);
-                    setSelectedFile(null);
-                  }}
-                  className={`w-full text-left p-3 rounded-md border ${
-                    selectedStore?.id === store.id
-                      ? 'border-indigo-500 bg-indigo-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <p className="font-medium">{store.name}</p>
-                  <p className="text-sm text-gray-600">{store.description}</p>
-                </button>
-              ))}
-            </div>
-          </Card>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Store Settings</h1>
+          <p className="mt-2 text-gray-600">
+            Manage your store settings and order processing preferences
+          </p>
         </div>
 
-        {/* Settings Form */}
-        <div className="lg:col-span-2">
-          {selectedStore && (
-            <Card>
-              <h2 className="text-lg font-semibold mb-4">Store Branding & Invoice Settings</h2>
-              
-              <form onSubmit={handleSaveSettings} className="space-y-6">
-                {/* Logo */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Store Logo
-                  </label>
-                  
-                  {/* Current Logo Preview */}
-                  {preview && (
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium text-gray-700 mb-2">Current Logo:</h3>
-                      <div className="border rounded-lg p-4 bg-gray-50 inline-block">
-                        <img
-                          src={preview}
-                          alt="Current logo"
-                          className="max-h-24 mx-auto object-contain"
-                        />
+        {/* Stores List */}
+        {stores.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-500 text-lg">No stores found</div>
+            <p className="text-gray-400 mt-2">
+              Create a store first to manage settings
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {stores.map((store) => (
+              <div key={store.id} className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      {store.name}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Store URL: /store/{store.slug}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Currency: {getCurrencyName(store.currency)} ({store.currency})
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Created: {new Date(store.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Order Processing Settings */}
+                <div className="border-t pt-4">
+                  <h4 className="text-lg font-medium text-gray-900 mb-4">
+                    Order Processing Settings
+                  </h4>
+
+                  <div className="space-y-4">
+                    {/* Auto-Forward Orders Setting */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h5 className="text-sm font-medium text-gray-900">
+                          Auto-Forward Orders
+                        </h5>
+                        <p className="text-sm text-gray-600">
+                          {store.autoForwardOrders 
+                            ? 'Orders are automatically forwarded to suppliers after payment'
+                            : 'Orders require manual approval before forwarding to suppliers'
+                          }
+                        </p>
+                        <div className="mt-2">
+                          <div className="flex items-center space-x-4 text-sm">
+                            <div className={`flex items-center ${store.autoForwardOrders ? 'text-green-600' : 'text-gray-400'}`}>
+                              <div className={`w-2 h-2 rounded-full mr-2 ${store.autoForwardOrders ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                              Auto-Forward (Recommended)
+                            </div>
+                            <div className={`flex items-center ${!store.autoForwardOrders ? 'text-red-600' : 'text-gray-400'}`}>
+                              <div className={`w-2 h-2 rounded-full mr-2 ${!store.autoForwardOrders ? 'bg-red-500' : 'bg-gray-300'}`}></div>
+                              Manual Approval
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <button
-                        onClick={removeLogo}
-                        className="mt-2 text-red-600 hover:text-red-800 text-sm"
-                      >
-                        Remove Logo
-                      </button>
-                    </div>
-                  )}
-
-                  {/* File Upload */}
-                  <div className="space-y-3">
-                    <div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Supported formats: JPG, PNG, GIF. Max size: 5MB
-                      </p>
+                      <div className="ml-6">
+                        <button
+                          onClick={() => updateAutoForwardSetting(store.id, !store.autoForwardOrders)}
+                          disabled={updating === store.id}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                            store.autoForwardOrders ? 'bg-blue-600' : 'bg-gray-200'
+                          } ${updating === store.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              store.autoForwardOrders ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Upload Button */}
-                    {selectedFile && (
-                      <button
-                        onClick={handleLogoUpload}
-                        disabled={uploading}
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                      >
-                        {uploading ? 'Uploading...' : 'Upload Logo'}
-                      </button>
-                    )}
+                    {/* Setting Descriptions */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h6 className="text-sm font-medium text-gray-900 mb-2">
+                        {store.autoForwardOrders ? 'Auto-Forward Mode' : 'Manual Approval Mode'}
+                      </h6>
+                      <div className="text-sm text-gray-600 space-y-2">
+                        {store.autoForwardOrders ? (
+                          <>
+                            <p>✅ Orders are processed automatically after customer payment</p>
+                            <p>✅ Faster order processing and customer satisfaction</p>
+                            <p>✅ Less manual work required</p>
+                            <p>⚠️ Less control over individual orders</p>
+                          </>
+                        ) : (
+                          <>
+                            <p>🔍 Each order requires your manual review and approval</p>
+                            <p>✅ Full control over order quality and customer verification</p>
+                            <p>✅ Better for high-value or custom products</p>
+                            <p>⚠️ More time required for order management</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
 
-                    {/* Manual URL Input */}
-                    <div className="pt-2 border-t">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Or enter logo URL manually:
-                      </label>
-                      <input
-                        type="url"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        value={selectedStore.logo || ''}
-                        onChange={(e) => {
-                          handleInputChange('logo', e.target.value);
-                          setPreview(e.target.value);
-                        }}
-                        placeholder="https://example.com/logo.png"
-                      />
+                    {/* Recommendation */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <h6 className="text-sm font-medium text-blue-800">
+                            Recommendation
+                          </h6>
+                          <div className="mt-1 text-sm text-blue-700">
+                            {store.autoForwardOrders ? (
+                              <p>
+                                Auto-forward is recommended for most stores. You can always switch to manual approval 
+                                if you need more control over specific orders.
+                              </p>
+                            ) : (
+                              <p>
+                                Manual approval is good for quality control. Consider switching to auto-forward 
+                                once you're comfortable with your order volume and supplier relationships.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-                {/* Address */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Store Address
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    value={selectedStore.address || ''}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    placeholder="123 Main St, City, State 12345"
-                  />
-                </div>
-
-                {/* Contact Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      value={selectedStore.phone || ''}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                      placeholder="+1 (555) 123-4567"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      value={selectedStore.email || ''}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      placeholder="store@example.com"
-                    />
-                  </div>
-                </div>
-
-                {/* Tax Number */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tax Number / Business ID
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    value={selectedStore.taxNumber || ''}
-                    onChange={(e) => handleInputChange('taxNumber', e.target.value)}
-                    placeholder="TAX123456789"
-                  />
-                </div>
-
-                {/* Invoice Template */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Invoice Template
-                  </label>
-                  <TemplateSelector
-                    selectedTemplate={selectedStore.invoiceTemplate}
-                    onTemplateSelect={(templateId) => handleInputChange('invoiceTemplate', templateId)}
-                  />
-                </div>
-
-                {/* Save Button */}
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                  >
-                    {saving ? 'Saving...' : 'Save Settings'}
-                  </button>
-                </div>
-              </form>
-            </Card>
-          )}
+        {/* Help Section */}
+        <div className="mt-12 bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Need Help?
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 mb-2">
+                Auto-Forward Orders
+              </h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• Best for established stores</li>
+                <li>• High-volume order processing</li>
+                <li>• Trusted supplier relationships</li>
+                <li>• Standard product categories</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 mb-2">
+                Manual Approval
+              </h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• New or growing stores</li>
+                <li>• High-value products</li>
+                <li>• Custom or personalized items</li>
+                <li>• Quality control requirements</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>

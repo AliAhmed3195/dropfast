@@ -16,8 +16,15 @@ export async function GET() {
         name: true,
         email: true,
         role: true,
-        isActive: true,
-        preferredCurrency: true,
+        status: true,
+        business: {
+          select: {
+            id: true,
+            businessName: true,
+            preferredCurrency: true,
+            type: true
+          }
+        },
         createdAt: true,
       },
       orderBy: {
@@ -42,7 +49,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, email, password, role, preferredCurrency = 'USD' } = await request.json();
+    const { 
+      name, 
+      email, 
+      password, 
+      role, 
+      phone,
+      dob,
+      // Business fields
+      businessName,
+      businessType,
+      registrationNumber,
+      vatGstNumber,
+      country,
+      preferredCurrency,
+      addressStreet,
+      addressCity,
+      addressState,
+      addressZip,
+      addressCountry
+    } = await request.json();
 
     if (!name || !email || !password || !role) {
       return NextResponse.json(
@@ -66,26 +92,79 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role,
-        preferredCurrency,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        preferredCurrency: true,
-        createdAt: true,
-      },
-    });
+    // Create user with business if needed
+    let user;
+    
+    if (role === 'VENDOR_USER' || role === 'SUPPLIER_USER') {
+      // Create business first
+      const business = await prisma.business.create({
+        data: {
+          type: role === 'VENDOR_USER' ? 'VENDOR' : 'SUPPLIER',
+          businessName: businessName || name,
+          businessType: businessType || 'INDIVIDUAL',
+          registrationNumber: registrationNumber || null,
+          vatGstNumber: vatGstNumber || null,
+          country: country || 'US',
+          preferredCurrency: preferredCurrency || 'USD',
+          addressStreet: addressStreet || 'TBD',
+          addressCity: addressCity || 'TBD',
+          addressState: addressState || 'TBD',
+          addressZip: addressZip || 'TBD',
+          addressCountry: addressCountry || 'US',
+          kycStatus: 'PENDING'
+        }
+      });
+
+      // Create user with business reference
+      user = await prisma.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          role,
+          businessId: business.id,
+          phone: phone || null,
+          dob: dob ? new Date(dob) : null,
+          status: 'ACTIVE'
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          status: true,
+          business: {
+            select: {
+              id: true,
+              businessName: true,
+              preferredCurrency: true
+            }
+          },
+          createdAt: true,
+        },
+      });
+    } else {
+      // Create user without business (ADMIN, CUSTOMER)
+      user = await prisma.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          role,
+          phone: phone || null,
+          dob: dob ? new Date(dob) : null,
+          status: 'ACTIVE'
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+    }
 
     return NextResponse.json({ 
       message: 'User created successfully',

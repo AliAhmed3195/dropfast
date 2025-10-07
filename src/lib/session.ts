@@ -4,8 +4,9 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'SUPPLIER' | 'VENDOR';
-  isActive: boolean;
+  role: 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER' | 'CUSTOMER';
+  status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION';
+  businessId?: string;
 }
 
 export async function createSession(user: User) {
@@ -14,7 +15,8 @@ export async function createSession(user: User) {
     email: user.email,
     name: user.name,
     role: user.role,
-    isActive: user.isActive,
+    status: user.status,
+    businessId: user.businessId,
   };
 
   // In a real app, you'd use a proper session store or JWT

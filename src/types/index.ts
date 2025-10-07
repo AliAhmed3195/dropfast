@@ -1,13 +1,15 @@
 export type DashboardProps = {
   userId: string;
-  role: 'ADMIN' | 'SUPPLIER' | 'VENDOR';
+  role: 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER' | 'CUSTOMER';
 };
 
 export type User = {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'SUPPLIER' | 'VENDOR';
+  role: 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER' | 'CUSTOMER';
+  status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION';
+  businessId?: string;
 };
 
 export type Product = {

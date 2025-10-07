@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { getSession } from '@/lib/session';
 
 export default function DashboardLayout({
   children,
@@ -31,11 +30,11 @@ export default function DashboardLayout({
         // Redirect based on role and current path
         const role = data.role;
         if (pathname === '/admin' && role !== 'ADMIN') {
-          router.push(`/${role.toLowerCase()}`);
-        } else if (pathname === '/supplier' && role !== 'SUPPLIER') {
-          router.push(`/${role.toLowerCase()}`);
-        } else if (pathname === '/vendor' && role !== 'VENDOR') {
-          router.push(`/${role.toLowerCase()}`);
+          router.push(`/${role.toLowerCase().replace('_user', '')}`);
+        } else if (pathname === '/supplier' && role !== 'SUPPLIER_USER') {
+          router.push(`/${role.toLowerCase().replace('_user', '')}`);
+        } else if (pathname === '/vendor' && role !== 'VENDOR_USER') {
+          router.push(`/${role.toLowerCase().replace('_user', '')}`);
         }
       } else {
         console.log('Auth failed, redirecting to login');
@@ -74,24 +73,27 @@ export default function DashboardLayout({
   }
 
   const navigation = [
-    { name: 'Dashboard', href: `/${user.role.toLowerCase()}`, current: pathname === `/${user.role.toLowerCase()}` },
+    { name: 'Dashboard', href: `/${user.role.toLowerCase().replace('_user', '')}`, current: pathname === `/${user.role.toLowerCase().replace('_user', '')}` },
   ];
 
-  if (user.role === 'SUPPLIER') {
+  if (user.role === 'SUPPLIER_USER') {
     navigation.push(
       { name: 'Products', href: '/supplier/products', current: pathname === '/supplier/products' },
-      { name: 'Orders', href: '/supplier/orders', current: pathname === '/supplier/orders' }
+      { name: 'Orders', href: '/supplier/orders', current: pathname === '/supplier/orders' },
+      { name: 'Bank Details', href: '/supplier/bank-details', current: pathname === '/supplier/bank-details' }
     );
   }
 
-  if (user.role === 'VENDOR') {
+  if (user.role === 'VENDOR_USER') {
     navigation.push(
       { name: 'Stores', href: '/vendor/stores', current: pathname === '/vendor/stores' },
       { name: 'Available Products', href: '/vendor/products', current: pathname === '/vendor/products' },
       { name: 'Imported Products', href: '/vendor/imported-products', current: pathname === '/vendor/imported-products' },
       { name: 'Orders', href: '/vendor/orders', current: pathname === '/vendor/orders' },
+      { name: 'Pending Approval', href: '/vendor/orders/pending-approval', current: pathname === '/vendor/orders/pending-approval' },
       { name: 'Invoices', href: '/vendor/invoices', current: pathname === '/vendor/invoices' },
       { name: 'Invoice Templates', href: '/vendor/invoice-templates', current: pathname === '/vendor/invoice-templates' },
+      { name: 'Bank Details', href: '/vendor/bank-details', current: pathname === '/vendor/bank-details' },
       { name: 'Settings', href: '/vendor/settings', current: pathname === '/vendor/settings' }
     );
   }
@@ -103,6 +105,8 @@ export default function DashboardLayout({
       { name: 'Categories', href: '/admin/categories', current: pathname === '/admin/categories' },
       { name: 'Tags', href: '/admin/tags', current: pathname === '/admin/tags' },
       { name: 'Orders', href: '/admin/orders', current: pathname === '/admin/orders' },
+      { name: 'Order Management', href: '/admin/orders/management', current: pathname === '/admin/orders/management' },
+      { name: 'Payouts', href: '/admin/payouts', current: pathname === '/admin/payouts' },
       { name: 'Invoice Templates', href: '/admin/invoice-templates', current: pathname === '/admin/invoice-templates' }
     );
   }

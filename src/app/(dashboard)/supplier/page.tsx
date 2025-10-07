@@ -83,7 +83,7 @@ export default function SupplierDashboard() {
       <div className="mt-6">
         <Card>
           <h2 className="text-xl mb-4">Quick Actions</h2>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <a
               href="/supplier/products"
               className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
@@ -95,6 +95,18 @@ export default function SupplierDashboard() {
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
             >
               Add New Product
+            </a>
+            <a
+              href="/supplier/orders"
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            >
+              View Orders
+            </a>
+            <a
+              href="/supplier/bank-details"
+              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
+            >
+              Bank Details
             </a>
           </div>
         </Card>

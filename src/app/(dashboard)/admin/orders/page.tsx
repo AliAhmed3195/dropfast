@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '@/components/ProductImageSlider';
 
@@ -13,6 +14,7 @@ interface Order {
   status: string;
   createdAt: string;
   product: {
+    id: string;
     name: string;
     image: string;
     images?: Array<{
@@ -23,28 +25,35 @@ interface Order {
       order: number;
     }>;
     supplier: {
+      id: string;
       name: string;
+      email: string;
     };
   };
   customer: {
     name: string;
     email: string;
-  };
+  } | null;
   store: {
+    id: string;
     name: string;
     owner: {
+      id: string;
       name: string;
+      email: string;
     };
   };
+  shippingAddress?: any;
+  billingAddress?: any;
+  notes?: string;
 }
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pending, paid, shipped, delivered, cancelled
   const [searchTerm, setSearchTerm] = useState('');
+  const router = useRouter();
 
   useEffect(() => {
     fetchOrders();
@@ -74,9 +83,6 @@ export default function AdminOrdersPage() {
 
       if (response.ok) {
         fetchOrders();
-        if (selectedOrder?.id === orderId) {
-          setSelectedOrder({ ...selectedOrder, status: newStatus });
-        }
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to update order status');
@@ -99,9 +105,12 @@ export default function AdminOrdersPage() {
   };
 
   const filteredOrders = orders.filter(order => {
+    const customerName = order.customer ? order.customer.name : 'Guest Customer';
+    const customerEmail = order.customer ? order.customer.email : 'N/A (Guest)';
+    
     const matchesSearch = order.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.store.name.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (filter === 'all') return matchesSearch;
@@ -189,7 +198,7 @@ export default function AdminOrdersPage() {
                   Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Details
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -215,8 +224,12 @@ export default function AdminOrdersPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
-                      <div className="text-sm text-gray-500">{order.customer.email}</div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {order.customer ? order.customer.name : 'Guest Customer'}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {order.customer ? order.customer.email : 'N/A (Guest)'}
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -244,10 +257,7 @@ export default function AdminOrdersPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
-                      onClick={() => {
-                        setSelectedOrder(order);
-                        setShowDetails(true);
-                      }}
+                      onClick={() => router.push(`/admin/orders/${order.id}`)}
                       className="text-indigo-600 hover:text-indigo-900 p-2 rounded-full hover:bg-indigo-50"
                       title="View Details"
                     >
@@ -272,137 +282,6 @@ export default function AdminOrdersPage() {
               : 'No orders found.'}
           </p>
         </Card>
-      )}
-
-      {/* Order Details Modal */}
-      {showDetails && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-6">
-                <h2 className="text-2xl font-bold">Order Details</h2>
-                <button
-                  onClick={() => setShowDetails(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Order Info */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Order Information</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Order ID</label>
-                      <p className="text-gray-900">{selectedOrder.id}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Status</label>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedOrder.status)}`}>
-                        {selectedOrder.status}
-                      </span>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Quantity</label>
-                      <p className="text-gray-900">{selectedOrder.quantity}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Total Amount</label>
-                      <p className="text-gray-900 font-semibold">${selectedOrder.totalAmount.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Order Date</label>
-                      <p className="text-gray-900">{new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Customer & Store Info */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Customer & Store Information</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Customer</label>
-                      <p className="text-gray-900">{selectedOrder.customer.name}</p>
-                      <p className="text-sm text-gray-600">{selectedOrder.customer.email}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Store</label>
-                      <p className="text-gray-900">{selectedOrder.store.name}</p>
-                      <p className="text-sm text-gray-600">Vendor: {selectedOrder.store.owner.name}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Supplier</label>
-                      <p className="text-gray-900">{selectedOrder.product.supplier.name}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Product Info */}
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-4">Product Information</h3>
-                <div className="flex items-start space-x-4">
-                  <div className="w-24 h-24">
-                    <ProductImageSlider
-                      images={selectedOrder.product.images || []}
-                      fallbackImage={selectedOrder.product.image}
-                      productName={selectedOrder.product.name}
-                      className="w-24 h-24 object-cover rounded-md"
-                    />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{selectedOrder.product.name}</h4>
-                    <div className="mt-2 space-y-1">
-                      <p className="text-sm">
-                        <span className="font-medium">Supplier Price:</span> ${selectedOrder.productPrice.toFixed(2)}
-                      </p>
-                      <p className="text-sm">
-                        <span className="font-medium">Vendor Markup:</span> ${selectedOrder.markupAmount.toFixed(2)}
-                      </p>
-                      <p className="text-sm">
-                        <span className="font-medium">Customer Paid:</span> ${selectedOrder.totalAmount.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Status Update */}
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-4">Update Order Status</h3>
-                <div className="flex flex-wrap gap-2">
-                  {['PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => updateOrderStatus(selectedOrder.id, status)}
-                      className={`px-3 py-1 rounded-md text-sm font-medium ${
-                        selectedOrder.status === status
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {status}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowDetails(false)}
-                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

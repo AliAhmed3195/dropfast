@@ -1,32 +1,32 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'SUPPLIER' | 'VENDOR';
-  isActive: boolean;
-  preferredCurrency: string;
+  role: 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER' | 'CUSTOMER';
+  status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION';
+  businessId?: string;
+  business?: {
+    id: string;
+    businessName: string;
+    preferredCurrency: string;
+    type: string;
+  };
   createdAt: string;
 }
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [newUser, setNewUser] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'SUPPLIER' as 'ADMIN' | 'SUPPLIER' | 'VENDOR',
-    preferredCurrency: 'USD',
-  });
+  const router = useRouter();
 
   useEffect(() => {
     fetchUsers();
@@ -44,35 +44,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleAddUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newUser),
-      });
-
-      if (response.ok) {
-        setNewUser({
-          name: '',
-          email: '',
-          password: '',
-          role: 'SUPPLIER',
-        });
-        setShowAddForm(false);
-        fetchUsers();
-      } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to create user');
-      }
-    } catch (error) {
-      console.error('Error adding user:', error);
-      alert('Failed to create user');
-    }
-  };
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +59,7 @@ export default function AdminUsersPage() {
           name: editingUser.name,
           email: editingUser.email,
           role: editingUser.role,
-          isActive: editingUser.isActive,
+          status: editingUser.status,
         }),
       });
 
@@ -112,7 +83,7 @@ export default function AdminUsersPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ isActive: !currentStatus }),
+        body: JSON.stringify({ status: currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' }),
       });
 
       if (response.ok) {
@@ -156,114 +127,13 @@ export default function AdminUsersPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">User Management</h1>
         <button
-          onClick={() => setShowAddForm(true)}
+          onClick={() => router.push('/admin/users/add')}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
         >
           Add User
         </button>
       </div>
 
-      {/* Add User Form */}
-      {showAddForm && (
-        <Card className="mb-6">
-          <h2 className="text-xl font-semibold mb-4">Add New User</h2>
-          <form onSubmit={handleAddUser} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Role
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'ADMIN' | 'SUPPLIER' | 'VENDOR' })}
-                >
-                  <option value="SUPPLIER">Supplier</option>
-                  <option value="VENDOR">Vendor</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Preferred Currency
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                value={newUser.preferredCurrency}
-                onChange={(e) => setNewUser({ ...newUser, preferredCurrency: e.target.value })}
-              >
-                <option value="USD">USD - US Dollar</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="GBP">GBP - British Pound</option>
-                <option value="INR">INR - Indian Rupee</option>
-                <option value="PKR">PKR - Pakistani Rupee</option>
-                <option value="MYR">MYR - Malaysian Ringgit</option>
-                <option value="CAD">CAD - Canadian Dollar</option>
-                <option value="AUD">AUD - Australian Dollar</option>
-                <option value="JPY">JPY - Japanese Yen</option>
-                <option value="CNY">CNY - Chinese Yuan</option>
-                <option value="AED">AED - UAE Dirham</option>
-                <option value="SAR">SAR - Saudi Riyal</option>
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
-              >
-                Add User
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Card>
-      )}
 
       {/* Edit User Form */}
       {editingUser && (
@@ -317,8 +187,8 @@ export default function AdminUsersPage() {
                 </label>
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  value={editingUser.isActive ? 'active' : 'inactive'}
-                  onChange={(e) => setEditingUser({ ...editingUser, isActive: e.target.value === 'active' })}
+                  value={editingUser.status === 'ACTIVE' ? 'active' : 'inactive'}
+                  onChange={(e) => setEditingUser({ ...editingUser, status: e.target.value === 'active' ? 'ACTIVE' : 'SUSPENDED' })}
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -394,15 +264,15 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">{user.preferredCurrency}</span>
+                    <span className="text-sm text-gray-900">{user.business?.preferredCurrency || 'USD'}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      user.isActive 
+                      user.status === 'ACTIVE'
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {user.isActive ? 'Active' : 'Inactive'}
+                      {user.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -420,15 +290,15 @@ export default function AdminUsersPage() {
                         </svg>
                       </button>
                       <button
-                        onClick={() => toggleUserStatus(user.id, user.isActive)}
+                        onClick={() => toggleUserStatus(user.id, user.status)}
                         className={`p-1 rounded-full hover:bg-gray-50 ${
-                          user.isActive
+                          user.status === 'ACTIVE'
                             ? 'text-red-600 hover:text-red-900'
                             : 'text-green-600 hover:text-green-900'
                         }`}
-                        title={user.isActive ? 'Deactivate' : 'Activate'}
+                        title={user.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
                       >
-                        {user.isActive ? (
+                        {user.status === 'ACTIVE' ? (
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
                           </svg>

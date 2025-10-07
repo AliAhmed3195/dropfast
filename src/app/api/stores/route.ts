@@ -59,9 +59,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, description, slug, template, logo, banner, currency = 'USD' } = body;
+    const { name, description, slug, template, logo, banner } = body;
 
-    console.log('Store creation request:', { name, description, slug, template, logo, banner });
+    // Get user's business currency
+    const user = await prisma.user.findUnique({
+      where: { id: session.id },
+      include: { business: true }
+    });
+
+    const currency = user?.business?.preferredCurrency || 'USD';
+
+    console.log('Store creation request:', { name, description, slug, template, logo, banner, currency });
 
     const store = await prisma.store.create({
       data: {
@@ -73,6 +81,7 @@ export async function POST(request: Request) {
         banner: banner || null,
         currency,
         ownerId: session.id,
+        businessId: user?.businessId || null,
         isActive: true,
       },
     });

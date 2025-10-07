@@ -32,10 +32,12 @@ export default function LoginPage() {
         // Redirect based on role
         if (data.user.role === 'ADMIN') {
           router.push('/admin');
-        } else if (data.user.role === 'SUPPLIER') {
+        } else if (data.user.role === 'SUPPLIER_USER') {
           router.push('/supplier');
-        } else if (data.user.role === 'VENDOR') {
+        } else if (data.user.role === 'VENDOR_USER') {
           router.push('/vendor');
+        } else if (data.user.role === 'CUSTOMER') {
+          router.push('/customer');
         }
       } else {
         console.log('Login failed:', data.error);
