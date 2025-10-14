@@ -42,7 +42,7 @@ export async function PUT(
 ) {
   try {
     const session = await getSession();
-    if (!session || session.role !== 'VENDOR') {
+    if (!session || session.role !== 'VENDOR_USER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -79,7 +79,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getSession();
-    if (!session || session.role !== 'VENDOR') {
+    if (!session || session.role !== 'VENDOR_USER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

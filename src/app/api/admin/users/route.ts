@@ -67,7 +67,9 @@ export async function POST(request: NextRequest) {
       addressCity,
       addressState,
       addressZip,
-      addressCountry
+      addressCountry,
+      // KYC fields
+      kycDetails
     } = await request.json();
 
     if (!name || !email || !password || !role) {
@@ -163,6 +165,32 @@ export async function POST(request: NextRequest) {
           status: true,
           createdAt: true,
         },
+      });
+    }
+
+    // Create KYC details if provided (for VENDOR_USER and SUPPLIER_USER)
+    if (kycDetails && (role === 'VENDOR_USER' || role === 'SUPPLIER_USER')) {
+      await prisma.stripeKycDetails.create({
+        data: {
+          userId: user.id,
+          countryCode: kycDetails.countryCode,
+          accountType: kycDetails.accountType,
+          firstName: kycDetails.firstName,
+          lastName: kycDetails.lastName,
+          email: kycDetails.email,
+          phone: kycDetails.phone,
+          dobDay: kycDetails.dobDay,
+          dobMonth: kycDetails.dobMonth,
+          dobYear: kycDetails.dobYear,
+          nationalId: kycDetails.nationalId,
+          addressLine1: kycDetails.addressLine1,
+          addressLine2: kycDetails.addressLine2,
+          city: kycDetails.city,
+          state: kycDetails.state,
+          postalCode: kycDetails.postalCode,
+          businessName: kycDetails.businessName,
+          businessTaxId: kycDetails.businessTaxId
+        }
       });
     }
 

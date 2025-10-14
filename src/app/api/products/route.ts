@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
     console.log('Session in products API:', session);
-    if (!session || session.role !== 'SUPPLIER') {
+    if (!session || session.role !== 'SUPPLIER_USER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

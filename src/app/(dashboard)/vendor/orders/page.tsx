@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import OrderCurrencyDisplay from '@/components/OrderCurrencyDisplay';
 
 interface Order {
   id: string;
@@ -27,6 +28,8 @@ interface Order {
   totalAmount: number;
   status: 'PENDING' | 'PAID' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
   createdAt: string;
+  lockedUSDPrice?: number;
+  displayCurrency?: string;
 }
 
 export default function VendorOrdersPage() {
@@ -36,11 +39,26 @@ export default function VendorOrdersPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [userCurrency, setUserCurrency] = useState('USD');
   const router = useRouter();
 
   useEffect(() => {
     fetchOrders();
+    fetchUserCurrency();
   }, []);
+
+  const fetchUserCurrency = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const user = await response.json();
+        const currency = user.business?.preferredCurrency || 'USD';
+        setUserCurrency(currency);
+      }
+    } catch (error) {
+      console.error('Error fetching user currency:', error);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -371,8 +389,15 @@ export default function VendorOrdersPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {order.quantity}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${order.totalAmount.toFixed(2)}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <OrderCurrencyDisplay
+                        userRole="VENDOR_USER"
+                        userPreferredCurrency={userCurrency}
+                        orderTotalAmount={order.totalAmount}
+                        orderDisplayCurrency={order.displayCurrency}
+                        orderLockedUSDPrice={order.lockedUSDPrice}
+                        showSecondary={true}
+                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
@@ -398,14 +423,14 @@ export default function VendorOrdersPage() {
                             Cancel
                           </button>
                         )}
-                      </div>
+                </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-                </div>
               </div>
+            </div>
       )}
 
       {filteredAndSortedOrders.length === 0 && orders.length > 0 && (

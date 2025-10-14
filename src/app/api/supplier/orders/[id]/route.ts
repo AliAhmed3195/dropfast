@@ -12,8 +12,8 @@ export async function GET(
     const session = await getSession();
     console.log('Session:', session);
     
-    if (!session || session.role !== 'SUPPLIER') {
-      console.log('No session or not SUPPLIER role');
+    if (!session || session.role !== 'SUPPLIER_USER') {
+      console.log('No session or not SUPPLIER_USER role');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

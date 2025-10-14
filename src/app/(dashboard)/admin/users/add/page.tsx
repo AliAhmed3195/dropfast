@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import KycForm from '@/components/forms/KycForm';
 
 interface UserFormData {
   name: string;
@@ -23,6 +24,27 @@ interface UserFormData {
   addressState?: string;
   addressZip?: string;
   addressCountry?: string;
+  
+  // KYC fields (for VENDOR_USER and SUPPLIER_USER)
+  kycDetails?: {
+    countryCode: string;
+    accountType: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    dobDay: number;
+    dobMonth: number;
+    dobYear: number;
+    nationalId: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    businessName?: string;
+    businessTaxId?: string;
+  };
 }
 
 export default function AddUserPage() {
@@ -47,6 +69,8 @@ export default function AddUserPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [kycData, setKycData] = useState<any>(null);
   const router = useRouter();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -55,6 +79,26 @@ export default function AddUserPage() {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleKycSubmit = (kycFormData: any) => {
+    setKycData(kycFormData);
+    setFormData(prev => ({
+      ...prev,
+      kycDetails: kycFormData
+    }));
+    setShowKycModal(false);
+  };
+
+  const handleKycCancel = () => {
+    setShowKycModal(false);
+    setKycData(null);
+  };
+
+  const shouldShowKycButton = () => {
+    return (formData.role === 'VENDOR_USER' || formData.role === 'SUPPLIER_USER') && 
+           formData.businessName && 
+           formData.country;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -425,6 +469,30 @@ export default function AddUserPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* KYC Details Section */}
+                  <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-md font-medium text-blue-900">KYC Verification</h4>
+                        <p className="text-sm text-blue-700">
+                          Required for Stripe Connect and payout processing
+                        </p>
+                        {kycData && (
+                          <p className="text-sm text-green-700 mt-1">
+                            ✅ KYC details completed
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowKycModal(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {kycData ? 'Update KYC' : 'Add KYC Details'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -480,6 +548,45 @@ export default function AddUserPage() {
           </form>
         </div>
       </div>
+
+      {/* KYC Modal */}
+      {showKycModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  KYC Verification Details
+                </h3>
+                <button
+                  onClick={handleKycCancel}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <KycForm
+                onSubmit={handleKycSubmit}
+                onCancel={handleKycCancel}
+                initialData={kycData || {
+                  countryCode: formData.country,
+                  accountType: formData.businessType?.toLowerCase() || 'individual',
+                  firstName: formData.name.split(' ')[0] || '',
+                  lastName: formData.name.split(' ').slice(1).join(' ') || '',
+                  email: formData.email,
+                  phone: formData.phone || '',
+                  businessName: formData.businessName,
+                  businessTaxId: formData.registrationNumber
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

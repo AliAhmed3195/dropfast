@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import StripeStatusCard from '@/components/StripeStatusCard';
+import StripeRequirementsModal from '@/components/StripeRequirementsModal';
 
 interface User {
   id: string;
@@ -16,6 +18,13 @@ interface User {
     businessName: string;
     preferredCurrency: string;
     type: string;
+    country?: string;
+    expressAccountId?: string;
+    expressOnboardingStatus?: string;
+    stripeAccountStatus?: string;
+    stripePayoutsEnabled?: boolean;
+    bankStatus?: string;
+    stripeChargesEnabled?: boolean;
   };
   createdAt: string;
 }
@@ -26,6 +35,15 @@ export default function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [expressAccountData, setExpressAccountData] = useState<any>(null);
+  const [expressLoading, setExpressLoading] = useState(false);
+  
+  // Requirements modal state
+  const [showRequirementsModal, setShowRequirementsModal] = useState(false);
+  const [requirementsData, setRequirementsData] = useState<any>(null);
+  const [requirementsLoading, setRequirementsLoading] = useState(false);
+  const [selectedUserForRequirements, setSelectedUserForRequirements] = useState<User | null>(null);
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -44,6 +62,204 @@ export default function AdminUsersPage() {
     }
   };
 
+  const getStripeStatusBadge = (user: User) => {
+    const stripeAccountStatus = user.business?.stripeAccountStatus;
+    const stripePayoutsEnabled = user.business?.stripePayoutsEnabled;
+    const bankStatus = user.business?.bankStatus;
+    
+    // Determine overall status
+    if (stripeAccountStatus === 'verified' && stripePayoutsEnabled && bankStatus === 'verified') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          ✅ Fully Active
+        </span>
+      );
+    } else if (stripeAccountStatus === 'pending' || bankStatus === 'pending') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          ⏳ Pending
+        </span>
+      );
+    } else if (stripeAccountStatus === 'restricted') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+          ⚠️ Restricted
+        </span>
+      );
+    } else if (stripeAccountStatus === 'rejected' || bankStatus === 'rejected') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          ❌ Rejected
+        </span>
+      );
+    } else {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          ❌ Not Started
+        </span>
+      );
+    }
+  };
+
+  const createExpressAccount = async (userId: string) => {
+    try {
+      setExpressLoading(true);
+      const response = await fetch(`/api/admin/users/${userId}/express-account`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        const onboardingLink = data.data.onboardingLink;
+        const userEmail = data.data.userEmail;
+        const userName = data.data.userName;
+        const message = data.message;
+        
+        // Ask admin if they want to send email
+        const sendEmail = confirm(
+          `${message}\n\nUser: ${userName} (${userEmail})\n\nOnboarding Link: ${onboardingLink}\n\nDo you want to send this link via email to the user?`
+        );
+        
+        if (sendEmail) {
+          await sendOnboardingEmail(userId, onboardingLink);
+        } else {
+          alert(`${message}\n\nShare this link manually with ${userName}:\n\n${onboardingLink}`);
+        }
+        
+        fetchUsers(); // Refresh users list
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating Express account:', error);
+      alert('Failed to create Express account');
+    } finally {
+      setExpressLoading(false);
+    }
+  };
+
+  const generateOnboardingLink = async (userId: string) => {
+    try {
+      setExpressLoading(true);
+      const response = await fetch(`/api/admin/users/${userId}/express-link`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        const onboardingLink = data.data.onboardingLink;
+        
+        // Ask admin if they want to send email
+        const sendEmail = confirm(
+          `New onboarding link generated!\n\nLink: ${onboardingLink}\n\nDo you want to send this link via email to the user?`
+        );
+        
+        if (sendEmail) {
+          await sendOnboardingEmail(userId, onboardingLink);
+        } else {
+          alert(`Link copied to clipboard!\n\nShare this link manually with the user:\n${onboardingLink}`);
+        }
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error generating onboarding link:', error);
+      alert('Failed to generate onboarding link');
+    } finally {
+      setExpressLoading(false);
+    }
+  };
+
+  const sendOnboardingEmail = async (userId: string, onboardingLink: string) => {
+    try {
+      setExpressLoading(true);
+      const response = await fetch(`/api/admin/users/${userId}/send-onboarding-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ onboardingLink }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ Email sent successfully to ${data.data.userEmail}!\n\nUser will receive the onboarding link via email.`);
+      } else {
+        alert(`❌ Failed to send email: ${data.error}\n\nYou can still share the link manually.`);
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('❌ Failed to send email. You can still share the link manually.');
+    } finally {
+      setExpressLoading(false);
+    }
+  };
+
+  const checkRequirements = async (userId: string) => {
+    try {
+      setRequirementsLoading(true);
+      setSelectedUserForRequirements(users.find(u => u.id === userId) || null);
+      
+      const response = await fetch(`/api/admin/users/${userId}/stripe-requirements`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setRequirementsData(data.requirements);
+        setShowRequirementsModal(true);
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error checking requirements:', error);
+      alert('Failed to check requirements');
+    } finally {
+      setRequirementsLoading(false);
+    }
+  };
+
+  const resendOnboardingLink = async (userId: string, linkType: string) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/resend-onboarding-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ linkType })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert(`Onboarding link sent successfully to ${data.data.userEmail}`);
+        setShowRequirementsModal(false);
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error resending onboarding link:', error);
+      alert('Failed to resend onboarding link');
+    }
+  };
+
+  const checkExpressStatus = async (userId: string) => {
+    try {
+      setExpressLoading(true);
+      const response = await fetch(`/api/admin/users/${userId}/express-account`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setExpressAccountData(data.data);
+        setShowDetails(true);
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error checking Express status:', error);
+      alert('Failed to check Express account status');
+    } finally {
+      setExpressLoading(false);
+    }
+  };
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,6 +449,9 @@ export default function AdminUsersPage() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Stripe Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -274,6 +493,9 @@ export default function AdminUsersPage() {
                     }`}>
                       {user.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {getStripeStatusBadge(user)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(user.createdAt).toLocaleDateString()}
@@ -317,6 +539,77 @@ export default function AdminUsersPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
+                      
+                      {/* Express Account Management for VENDOR_USER and SUPPLIER_USER */}
+                      {(user.role === 'VENDOR_USER' || user.role === 'SUPPLIER_USER') && (
+                        <>
+                          {!user.business?.expressAccountId ? (
+                            <button
+                              onClick={() => createExpressAccount(user.id)}
+                              disabled={expressLoading}
+                              className="text-purple-600 hover:text-purple-900 p-1 rounded-full hover:bg-purple-50"
+                              title="Create Express Account"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => generateOnboardingLink(user.id)}
+                                disabled={expressLoading}
+                                className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50"
+                                title="Generate New Onboarding Link"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => checkExpressStatus(user.id)}
+                                disabled={expressLoading}
+                                className="text-orange-600 hover:text-orange-900 p-1 rounded-full hover:bg-orange-50"
+                                title="Check Express Status"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const response = await fetch(`/api/admin/users/${user.id}/express-link`, { method: 'POST' });
+                                  const data = await response.json();
+                                  if (response.ok) {
+                                    await sendOnboardingEmail(user.id, data.data.onboardingLink);
+                                  } else {
+                                    alert(`Error: ${data.error}`);
+                                  }
+                                }}
+                                disabled={expressLoading}
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50"
+                                title="Send Onboarding Email"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                              </button>
+                              
+                              {/* Check Requirements Button */}
+                              <button
+                                onClick={() => checkRequirements(user.id)}
+                                disabled={requirementsLoading}
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50"
+                                title="Check Stripe Requirements"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
+                        </>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -346,6 +639,137 @@ export default function AdminUsersPage() {
           <p className="text-center text-gray-500">No users found.</p>
         </Card>
       )}
+
+      {/* Express Account Details Modal */}
+      {showDetails && expressAccountData && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Express Account Details
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowDetails(false);
+                    setExpressAccountData(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">User Name</label>
+                    <p className="mt-1 text-sm text-gray-900">{expressAccountData.userName}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Email</label>
+                    <p className="mt-1 text-sm text-gray-900">{expressAccountData.userEmail}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Country</label>
+                    <p className="mt-1 text-sm text-gray-900">{expressAccountData.businessCountry}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Account ID</label>
+                    <p className="mt-1 text-sm text-gray-900 font-mono">{expressAccountData.accountId}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Onboarding Status</label>
+                  <p className={`mt-1 text-sm font-medium ${
+                    expressAccountData.isOnboardingComplete 
+                      ? 'text-green-600' 
+                      : 'text-yellow-600'
+                  }`}>
+                    {expressAccountData.isOnboardingComplete ? 'Completed' : 'Pending'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Charges Enabled</label>
+                    <p className={`mt-1 text-sm font-medium ${
+                      expressAccountData.stripeStatus.charges_enabled 
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`}>
+                      {expressAccountData.stripeStatus.charges_enabled ? 'Yes' : 'No'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Payouts Enabled</label>
+                    <p className={`mt-1 text-sm font-medium ${
+                      expressAccountData.stripeStatus.payouts_enabled 
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`}>
+                      {expressAccountData.stripeStatus.payouts_enabled ? 'Yes' : 'No'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Details Submitted</label>
+                    <p className={`mt-1 text-sm font-medium ${
+                      expressAccountData.stripeStatus.details_submitted 
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`}>
+                      {expressAccountData.stripeStatus.details_submitted ? 'Yes' : 'No'}
+                    </p>
+                  </div>
+                </div>
+
+                {expressAccountData.stripeStatus.requirements && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Requirements</label>
+                    <div className="mt-1 text-sm text-gray-900">
+                      {Object.entries(expressAccountData.stripeStatus.requirements).map(([key, value]) => (
+                        <div key={key} className="flex justify-between">
+                          <span className="capitalize">{key.replace(/_/g, ' ')}:</span>
+                          <span className="font-medium">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowDetails(false);
+                    setExpressAccountData(null);
+                  }}
+                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Requirements Modal */}
+      <StripeRequirementsModal
+        isOpen={showRequirementsModal}
+        onClose={() => {
+          setShowRequirementsModal(false);
+          setRequirementsData(null);
+          setSelectedUserForRequirements(null);
+        }}
+        user={selectedUserForRequirements}
+        requirements={requirementsData}
+        loading={requirementsLoading}
+        onResendLink={resendOnboardingLink}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
+import { validatePostalCode } from '@/lib/postal-code-utils';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -19,6 +20,30 @@ export interface CreateConnectedAccountParams {
     postal_code: string;
     country: string;
   };
+  serviceAgreement?: 'full' | 'recipient';
+  ntn?: string;
+  postalCode?: string; // Country-specific postal code
+  bankDetails?: Record<string, any>; // Add bank details parameter
+  // KYC Details (NEW - preferred over individual fields)
+  kycDetails?: {
+    countryCode: string;
+    accountType: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    dobDay: number;
+    dobMonth: number;
+    dobYear: number;
+    nationalId: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    businessName?: string;
+    businessTaxId?: string;
+  };
 }
 
 export interface AddExternalAccountParams {
@@ -32,6 +57,42 @@ export class StripeConnectService {
 
   private constructor() {}
 
+  /**
+   * Get the base URL for the application
+   */
+  private getBaseUrl(): string {
+       // Use environment variable if set
+    if (process.env.NEXT_PUBLIC_BASE_URL) {
+      return process.env.NEXT_PUBLIC_BASE_URL;
+    }
+    
+    // Check if we're in development
+    if (process.env.NODE_ENV === 'development') {
+      return 'http://localhost:3000';
+    }
+    
+ 
+    // Fallback for production
+    return 'https://fastdrop.com';
+  }
+
+  /**
+   * Validate and construct redirect URLs
+   */
+  private getRedirectUrls(): { refresh_url: string; return_url: string } {
+    const baseUrl = this.getBaseUrl();
+    
+    // Ensure base URL starts with http:// or https://
+    if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      throw new Error(`Invalid base URL: ${baseUrl}. Must start with http:// or https://`);
+    }
+    
+    return {
+      refresh_url: `${baseUrl}/bank-details?refresh=true`,
+      return_url: `${baseUrl}/bank-details?success=true`,
+    };
+  }
+
   public static getInstance(): StripeConnectService {
     if (!StripeConnectService.instance) {
       StripeConnectService.instance = new StripeConnectService();
@@ -40,69 +101,295 @@ export class StripeConnectService {
   }
 
   /**
+   * Get Stripe capabilities based on country
+   * Some countries (like Pakistan) only support transfers (payouts), not card_payments
+   */
+  public getCapabilitiesForCountry(countryCode: string): Record<string, { requested: boolean }> {
+    const country = countryCode.toUpperCase();
+    // Countries that support both card_payments and transfers
+    const fullCapabilityCountries = ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'CH', 'SE', 'NO', 'DK', 'FI', 'IE', 'PT', 'LU', 'MT', 'CY', 'SI', 'SK', 'CZ', 'HU', 'PL', 'LT', 'LV', 'EE', 'RO', 'BG', 'HR', 'GR'];
+    
+    // Countries that only support transfers (payouts)
+    const transferOnlyCountries = ['PK', 'IN', 'BD', 'LK', 'NP', 'BT', 'MV', 'AF', 'IR', 'IQ', 'SY', 'LB', 'JO', 'PS', 'IL', 'SA', 'AE', 'QA', 'KW', 'BH', 'OM', 'YE', 'EG', 'LY', 'TN', 'DZ', 'MA', 'SD', 'ET', 'KE', 'UG', 'TZ', 'RW', 'BI', 'DJ', 'SO', 'ER', 'SS', 'CF', 'TD', 'CM', 'GQ', 'GA', 'CG', 'CD', 'AO', 'ZM', 'ZW', 'BW', 'NA', 'SZ', 'LS', 'MG', 'MU', 'SC', 'KM', 'YT', 'RE', 'MZ', 'MW', 'MG', 'MU', 'SC', 'KM', 'YT', 'RE'];
+    
+    if (fullCapabilityCountries.includes(country)) {
+      // Full capabilities for supported countries
+      return {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      };
+    } else if (transferOnlyCountries.includes(country)) {
+      // Only transfers for payout-only countries
+      return {
+        transfers: { requested: true },
+      };
+    } else {
+      // Default to transfers only for unknown countries
+      console.warn(`Unknown country ${country}, defaulting to transfers only`);
+      return {
+        transfers: { requested: true },
+      };
+    }
+  }
+
+  /**
+   * Generate token data for bank account based on country
+   */
+  private generateTokenData(countryCode: string, bankDetails: Record<string, any>): any {
+    console.log(`Generating token data for country: ${countryCode}`);
+    console.log('Bank details:', bankDetails);
+
+    switch (countryCode.toUpperCase()) {
+      case 'US':
+        return {
+          country: 'US',
+          currency: 'usd',
+          account_number: bankDetails.account_number,
+          routing_number: bankDetails.routing_number,
+          account_holder_name: bankDetails.account_holder_name,
+          account_holder_type: 'individual',
+        };
+
+      case 'GB':
+        return {
+          country: 'GB',
+          currency: 'gbp',
+          account_number: bankDetails.account_number,
+          sort_code: bankDetails.sort_code,
+          account_holder_name: bankDetails.account_holder_name,
+          account_holder_type: 'individual',
+        };
+
+      case 'DE':
+      case 'FR':
+      case 'IT':
+      case 'ES':
+      case 'NL':
+      case 'BE':
+      case 'AT':
+        return {
+          country: countryCode,
+          currency: 'eur',
+          iban: bankDetails.iban,
+          account_holder_name: bankDetails.account_holder_name,
+          account_holder_type: 'individual',
+        };
+
+      case 'PK':
+        // Pakistan uses account_number and routing_number, not IBAN
+        return {
+          country: 'PK',
+          currency: 'pkr',
+          account_number: bankDetails.account_number || bankDetails.iban, // Fallback to iban if account_number not provided
+          routing_number: bankDetails.routing_number || bankDetails.swift_code, // Use swift_code as routing number
+          account_holder_name: bankDetails.account_holder_name,
+          account_holder_type: 'individual',
+        };
+
+      case 'CA':
+        return {
+          country: 'CA',
+          currency: 'cad',
+          account_number: bankDetails.account_number,
+          routing_number: bankDetails.routing_number,
+          account_holder_name: bankDetails.account_holder_name,
+          account_holder_type: 'individual',
+        };
+
+      case 'AU':
+        return {
+          country: 'AU',
+          currency: 'aud',
+          account_number: bankDetails.account_number,
+          bsb: bankDetails.bsb,
+          account_holder_name: bankDetails.account_holder_name,
+          account_holder_type: 'individual',
+        };
+
+      default:
+        throw new Error(`Unsupported country: ${countryCode}`);
+    }
+  }
+
+  /**
+   * Get service agreement type based on country
+   * Some countries require 'recipient' service agreement (like Pakistan)
+   */
+  public getServiceAgreementForCountry(countryCode: string): 'full' | 'recipient' {
+    const country = countryCode.toUpperCase();
+    // Countries that require recipient service agreement
+    const recipientServiceCountries = ['PK', 'IN', 'BD', 'LK', 'NP', 'BT', 'MV', 'AF', 'IR', 'IQ', 'SY', 'LB', 'JO', 'PS', 'IL', 'SA', 'AE', 'QA', 'KW', 'BH', 'OM', 'YE', 'EG', 'LY', 'TN', 'DZ', 'MA', 'SD', 'ET', 'KE', 'UG', 'TZ', 'RW', 'BI', 'DJ', 'SO', 'ER', 'SS', 'CF', 'TD', 'CM', 'GQ', 'GA', 'CG', 'CD', 'AO', 'ZM', 'ZW', 'BW', 'NA', 'SZ', 'LS', 'MG', 'MU', 'SC', 'KM', 'YT', 'RE', 'MZ', 'MW'];
+    
+    if (recipientServiceCountries.includes(country)) {
+      return 'recipient';
+    } else {
+      return 'full';
+    }
+  }
+
+  /**
    * Create a Stripe Connected Account
    */
   async createConnectedAccount(params: CreateConnectedAccountParams): Promise<{
     stripeAccountId: string;
     accountLink: string;
+    serviceAgreement: string;
+    capabilities: Record<string, { requested: boolean }>;
   }> {
     try {
-      // Create the connected account
-      const account = await stripe.accounts.create({
+      // Determine service agreement and capabilities
+      const serviceAgreement = params.serviceAgreement || this.getServiceAgreementForCountry(params.countryCode);
+      const capabilities = this.getCapabilitiesForCountry(params.countryCode);
+
+      // Use KYC details if available, otherwise fall back to individual fields
+      const useKycData = params.kycDetails;
+      
+      if (useKycData) {
+        console.log('Using KYC details for Stripe account creation');
+        console.log('KYC Country:', useKycData.countryCode);
+        console.log('KYC Account Type:', useKycData.accountType);
+        console.log('KYC Name:', `${useKycData.firstName} ${useKycData.lastName}`);
+      } else {
+        console.log('Using individual fields for Stripe account creation');
+        console.log(`Creating Stripe account for ${params.countryCode} with service agreement: ${serviceAgreement}`);
+        console.log('Requested capabilities:', capabilities);
+        console.log('Address data:', params.address);
+        console.log('Postal code from params.postalCode:', params.postalCode);
+        console.log('Postal code from params.address.postal_code:', params.address.postal_code);
+      }
+
+      // Validate and format postal code
+      const rawPostalCode = useKycData ? useKycData.postalCode : (params.postalCode || params.address.postal_code);
+      const countryCode = useKycData ? useKycData.countryCode : params.countryCode;
+      console.log('Raw postal code:', rawPostalCode);
+      console.log('Country code:', countryCode);
+      
+      let validPostalCode = rawPostalCode;
+      if (rawPostalCode) {
+        const validation = validatePostalCode(countryCode, rawPostalCode);
+        if (validation.isValid && validation.formattedCode) {
+          validPostalCode = validation.formattedCode;
+          console.log('Validated postal code:', validPostalCode);
+        } else {
+          console.error('Invalid postal code:', validation.error);
+          throw new Error(`Invalid postal code for ${countryCode}: ${validation.error}`);
+        }
+      } else {
+        throw new Error(`Postal code is required for ${countryCode}`);
+      }
+
+      // Generate tokenData for external account if bankDetails provided
+      let tokenData: any = null;
+      if (params.bankDetails) {
+        console.log('Generating tokenData for bank account...');
+        tokenData = this.generateTokenData(params.countryCode, params.bankDetails);
+        console.log('Generated tokenData:', tokenData);
+      }
+
+      // Create the connected account using KYC data or fallback to individual fields
+      const accountData: any = {
         type: 'custom',
-        country: params.countryCode,
-        email: params.email,
-        business_type: params.businessType,
+        country: countryCode,
+        email: useKycData ? useKycData.email : params.email,
+        business_type: useKycData ? useKycData.accountType : params.businessType,
         business_profile: {
-          name: params.businessName,
-          url: process.env.NEXT_PUBLIC_APP_URL || 'https://fastdrop.com',
-          support_email: params.email,
-          support_phone: params.phone,
+          name: useKycData ? (useKycData.businessName || `${useKycData.firstName} ${useKycData.lastName}`) : params.businessName,
+          url: this.getBaseUrl(),
+          support_email: useKycData ? useKycData.email : params.email,
+          support_phone: useKycData ? useKycData.phone : params.phone,
+          product_description: 'Supplier or Vendor payouts for Fastdrop orders',
         },
-        company: params.businessType === 'company' ? {
-          name: params.businessName,
-          address: params.address,
+        company: (useKycData ? useKycData.accountType : params.businessType) === 'company' ? {
+          name: useKycData ? useKycData.businessName : params.businessName,
+          address: {
+            line1: useKycData ? useKycData.addressLine1 : params.address.line1,
+            line2: useKycData ? useKycData.addressLine2 : params.address.line2,
+            city: useKycData ? useKycData.city : params.address.city,
+            state: useKycData ? useKycData.state : params.address.state,
+            postal_code: validPostalCode,
+            country: countryCode,
+          },
+          tax_id: useKycData ? useKycData.businessTaxId : params.ntn,
         } : undefined,
-        individual: params.businessType === 'individual' ? {
-          first_name: params.businessName.split(' ')[0] || '',
-          last_name: params.businessName.split(' ').slice(1).join(' ') || '',
-          email: params.email,
-          phone: params.phone,
-          address: params.address,
+        individual: (useKycData ? useKycData.accountType : params.businessType) === 'individual' ? {
+          first_name: useKycData ? useKycData.firstName : (params.businessName.split(' ')[0] || ''),
+          last_name: useKycData ? useKycData.lastName : (params.businessName.split(' ').slice(1).join(' ') || ''),
+          email: useKycData ? useKycData.email : params.email,
+          phone: useKycData ? useKycData.phone : params.phone,
+          dob: useKycData ? {
+            day: useKycData.dobDay,
+            month: useKycData.dobMonth,
+            year: useKycData.dobYear
+          } : undefined,
+          address: {
+            line1: useKycData ? useKycData.addressLine1 : params.address.line1,
+            line2: useKycData ? useKycData.addressLine2 : params.address.line2,
+            city: useKycData ? useKycData.city : params.address.city,
+            state: useKycData ? useKycData.state : params.address.state,
+            postal_code: validPostalCode,
+            country: countryCode,
+          },
+          id_number: useKycData ? useKycData.nationalId : params.ntn,
         } : undefined,
-        capabilities: {
-          card_payments: { requested: true },
-          transfers: { requested: true },
-        },
+        capabilities: capabilities,
         settings: {
           payouts: {
             schedule: {
-              interval: 'daily',
+              interval: 'manual', // Changed to manual for better control
             },
           },
         },
-      });
+        // TOS acceptance with service agreement inside
+        tos_acceptance: {
+          date: Math.floor(Date.now() / 1000),
+          ip: '127.0.0.1', // This should be the user's IP in production
+          service_agreement: serviceAgreement, // 'recipient' or 'full'
+        },
+        // Add external account directly if tokenData is available
+        ...(tokenData && {
+          external_account: {
+            object: 'bank_account',
+            ...tokenData,
+          },
+        }),
+      };
+
+      console.log('Creating Stripe account with data:', JSON.stringify(accountData, null, 2));
+      const account = await stripe.accounts.create(accountData);
+      console.log(`Stripe account created successfully: ${account.id}`);
 
       // Create account link for onboarding
+      const redirectUrls = this.getRedirectUrls();
       const accountLink = await stripe.accountLinks.create({
         account: account.id,
-        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/bank-details?refresh=true`,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/bank-details?success=true`,
+        refresh_url: redirectUrls.refresh_url,
+        return_url: redirectUrls.return_url,
         type: 'account_onboarding',
       });
 
-      // Update business with Stripe account ID
+      // Update business with Stripe account details
       await prisma.business.update({
         where: { id: params.businessId },
-        data: { stripeAccountId: account.id }
+        data: { 
+          stripeAccountId: account.id,
+          serviceAgreement: serviceAgreement,
+          capabilities: capabilities,
+          stripeAccountCreatedAt: new Date(),
+          lastStripeSyncAt: new Date(),
+        }
       });
 
       return {
         stripeAccountId: account.id,
         accountLink: accountLink.url,
+        serviceAgreement: serviceAgreement,
+        capabilities: capabilities,
       };
     } catch (error) {
       console.error('Error creating Stripe connected account:', error);
+      if (error instanceof Error) {
+        throw new Error(`Failed to create Stripe connected account: ${error.message}`);
+      }
       throw new Error('Failed to create Stripe connected account');
     }
   }
@@ -115,6 +402,9 @@ export class StripeConnectService {
   }> {
     try {
       let tokenData: any = {};
+
+      console.log(`Adding bank account for country: ${params.countryCode}`);
+      console.log('Bank details received:', params.bankDetails);
 
       // Prepare token data based on country
       switch (params.countryCode.toUpperCase()) {
@@ -157,10 +447,12 @@ export class StripeConnectService {
           break;
 
         case 'PK':
+          // Pakistan uses account_number and routing_number, not IBAN
           tokenData = {
-            country: 'PK',
-            currency: 'pkr',
-            iban: params.bankDetails.iban,
+            country: 'US',
+            currency: 'USD',
+            account_number: params.bankDetails.account_number || params.bankDetails.iban, // Fallback to iban if account_number not provided
+            routing_number: params.bankDetails.routing_number || params.bankDetails.swift_code, // Use swift_code as routing number
             account_holder_name: params.bankDetails.account_holder_name,
             account_holder_type: 'individual',
           };
@@ -205,13 +497,52 @@ export class StripeConnectService {
         }
       );
 
+      console.log('Bank account added successfully:', externalAccount.id);
       return {
         externalAccountId: externalAccount.id,
       };
     } catch (error) {
       console.error('Error adding external account:', error);
-      throw new Error('Failed to add bank account to Stripe');
+      
+      // Enhanced error handling for specific Stripe errors
+      if (error instanceof Error) {
+        if (error.message.includes('parameter_unknown')) {
+          throw new Error(`Invalid bank account parameters for ${params.countryCode}. Please check the bank account format.`);
+        }
+        if (error.message.includes('invalid_request_error')) {
+          throw new Error(`Bank account validation failed for ${params.countryCode}. Please verify your bank details.`);
+        }
+      }
+      
+      throw new Error(`Failed to add bank account to Stripe: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * Add external account using account links (alternative approach)
+   * This is used when direct bank account creation fails
+   */
+  async addExternalAccountViaLink(stripeAccountId: string): Promise<{
+    accountLink: string;
+    message: string;
+  }> {
+    try {
+      const redirectUrls = this.getRedirectUrls();
+      const accountLink = await stripe.accountLinks.create({
+        account: stripeAccountId,
+        refresh_url: redirectUrls.refresh_url,
+        return_url: redirectUrls.return_url,
+        type: 'account_update',
+      });
+
+      return {
+        accountLink: accountLink.url,
+        message: 'Please complete bank account setup via Stripe\'s secure link',
+      };
+    } catch (error) {
+      console.error('Error creating account link for bank setup:', error);
+      throw new Error('Failed to create account link for bank setup');
+    } 
   }
 
   /**
@@ -243,10 +574,11 @@ export class StripeConnectService {
    */
   async createAccountLink(stripeAccountId: string, type: 'account_onboarding' | 'account_update' = 'account_update'): Promise<string> {
     try {
+      const redirectUrls = this.getRedirectUrls();
       const accountLink = await stripe.accountLinks.create({
         account: stripeAccountId,
-        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/bank-details?refresh=true`,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/bank-details?success=true`,
+        refresh_url: redirectUrls.refresh_url,
+        return_url: redirectUrls.return_url,
         type: type,
       });
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductImageSlider from '@/components/ProductImageSlider';
+import OrderDetailCurrencyDisplay from '@/components/OrderDetailCurrencyDisplay';
 
 interface OrderDetails {
   id: string;
@@ -44,6 +45,11 @@ interface OrderDetails {
   displayPrice?: number;
   displayCurrency?: string;
   settlementCurrency?: string;
+  markupPercentage?: number;
+  markupAmountInVendorCurrency?: number;
+  markupType?: string;
+  vendorCurrency?: string;
+  supplierCurrency?: string;
 }
 
 export default function VendorOrderDetailsPage({ params }: { params: { id: string } }) {
@@ -51,11 +57,25 @@ export default function VendorOrderDetailsPage({ params }: { params: { id: strin
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [userCurrency, setUserCurrency] = useState<string>('USD');
   const router = useRouter();
 
   useEffect(() => {
     fetchOrderDetails();
+    fetchUserCurrency();
   }, [params.id]);
+
+  const fetchUserCurrency = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const userData = await response.json();
+        setUserCurrency(userData.business?.preferredCurrency || 'USD');
+      }
+    } catch (error) {
+      console.error('Error fetching user currency:', error);
+    }
+  };
 
   const fetchOrderDetails = async () => {
     try {
@@ -378,16 +398,67 @@ export default function VendorOrderDetailsPage({ params }: { params: { id: strin
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Product Price:</span>
-                  <span className="font-medium">{formatCurrency(order.productPrice * order.quantity)}</span>
+                  <OrderDetailCurrencyDisplay
+                    userRole="VENDOR_USER"
+                    userPreferredCurrency={userCurrency}
+                    amount={order.productPrice * order.quantity}
+                    showSecondary={true}
+                    className="text-right"
+                  />
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Vendor Markup:</span>
-                  <span className="font-medium">{formatCurrency(order.markupAmount * order.quantity)}</span>
+                  <span className="text-gray-600">Your Markup:</span>
+                  <div className="text-right">
+                    {order.markupAmountInVendorCurrency && order.vendorCurrency && order.vendorCurrency !== 'USD' ? (
+                      <>
+                        <div className="font-medium">
+                          {(order.markupAmountInVendorCurrency * order.quantity).toFixed(2)} {order.vendorCurrency}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          ${(order.markupAmount * order.quantity).toFixed(2)} USD
+                          {order.markupType === 'percentage' && order.markupPercentage && (
+                            <span className="ml-2">({order.markupPercentage}%)</span>
+                          )}
+                          {order.markupType === 'fixed' && (
+                            <span className="ml-2">(Fixed)</span>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="font-medium">${(order.markupAmount * order.quantity).toFixed(2)} USD</div>
+                    )}
+                  </div>
                 </div>
                 <div className="border-t pt-3">
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total Amount:</span>
-                    <span>{formatCurrency(order.totalAmount)}</span>
+                    <OrderDetailCurrencyDisplay
+                      userRole="VENDOR_USER"
+                      userPreferredCurrency={userCurrency}
+                      amount={(order.productPrice + order.markupAmount) * order.quantity}
+                      showSecondary={true}
+                      className="text-right"
+                    />
+                  </div>
+                </div>
+                
+                {/* Currency Reference Information */}
+                <div className="border-t pt-3 mt-3">
+                  <div className="text-sm text-gray-500 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Your Currency:</span>
+                      <span>{userCurrency}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Supplier Currency:</span>
+                      <span>{order.supplierCurrency || 'USD'}</span>
+                    </div>
+                    {order.markupType && (
+                      <div className="flex justify-between">
+                        <span>Markup Type:</span>
+                        <span className="capitalize">{order.markupType}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

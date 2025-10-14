@@ -12,7 +12,7 @@ export async function GET() {
     // Filter stores by the current user's role
     let whereClause = {};
     
-    if (session.role === 'VENDOR') {
+    if (session.role === 'VENDOR_USER') {
       // Vendors can only see their own stores
       whereClause = { ownerId: session.id };
     } else if (session.role === 'ADMIN') {
@@ -54,7 +54,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    if (!session || session.role !== 'VENDOR') {
+    if (!session || session.role !== 'VENDOR_USER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

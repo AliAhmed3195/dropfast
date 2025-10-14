@@ -104,12 +104,16 @@ export async function POST(request: NextRequest) {
     const storeCurrency = storeProduct.store.owner?.business?.preferredCurrency || 'USD';
     const supplierCurrency = storeProduct.product.supplier?.business?.preferredCurrency || 'USD';
 
-    // Calculate pricing
+    // Use locked markup amounts from StoreProduct
     const basePrice = storeProduct.lockedUSDPrice || storeProduct.product.price;
-    const markupAmount = storeProduct.markup || 0;
+    const markupAmountInUSD = storeProduct.markupAmountInUSD || 0;
+    const markupAmountInVendorCurrency = storeProduct.markupAmountInLocalCurrency || 0;
+    const markupType = storeProduct.markupType || 'percentage';
+    const markupPercentage = storeProduct.markup || 0;
+    
     const finalPrice = storeProduct.finalPrice;
 
-    console.log('Pricing details:', { basePrice, markupAmount, finalPrice, totalAmount, storeCurrency, supplierCurrency });
+    console.log('Pricing details:', { basePrice, markupAmountInUSD, markupAmountInVendorCurrency, finalPrice, totalAmount, storeCurrency, supplierCurrency });
 
     // Check if store requires vendor approval
     const requiresApproval = !storeProduct.store.autoForwardOrders;
@@ -122,11 +126,9 @@ export async function POST(request: NextRequest) {
         storeId: storeProduct.storeId,
         storeProductId: storeProduct.id,
         customerId: customerId, // Can be null for guest customers
-        vendorId: storeProduct.store.ownerId,
-        supplierId: storeProduct.product.supplierId,
         quantity,
         productPrice: basePrice,
-        markupAmount: markupAmount,
+        markupAmount: markupAmountInUSD, // Store USD equivalent for consistency
         totalAmount: totalAmount,
         selectedVariants: JSON.stringify(selectedVariants),
         status: initialStatus,
@@ -138,6 +140,12 @@ export async function POST(request: NextRequest) {
         displayPrice: totalAmount,
         displayCurrency: storeCurrency,
         settlementCurrency: 'USD',
+        // Markup details
+        markupPercentage: markupPercentage,
+        markupAmountInVendorCurrency: markupAmountInVendorCurrency,
+        markupType: markupType,
+        vendorCurrency: storeCurrency,
+        supplierCurrency: supplierCurrency,
         // Address information
         shippingAddress: {
           firstName: customerInfo.firstName,
@@ -168,6 +176,7 @@ export async function POST(request: NextRequest) {
     // Create initial status history entry
     await prisma.orderStatusHistory.create({
       data: {
+        id: `osh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
         orderId: order.id,
         status: initialStatus,
         reason: requiresApproval ? 'Order created, awaiting vendor approval' : 'Order created, forwarded to supplier',
@@ -265,11 +274,12 @@ async function createPayoutRecord(order: any, storeProduct: any) {
       orderId: order.id,
       supplierId: supplier.id,
       vendorId: vendor.id,
-      orderTotal: calculation.orderTotal,
+      // Use new field names from schema
+      grossAmount: calculation.orderTotal,
       supplierAmount: calculation.supplierAmount,
-      vendorGrossAmount: calculation.vendorGrossAmount,
+      grossVendorAmount: calculation.vendorGrossAmount,
       platformFee: calculation.platformFee,
-      transactionFee: calculation.transactionFee,
+      stripeProcessingFee: calculation.transactionFee,
       currencyConversionFee: calculation.currencyConversionFee,
       finalSupplierAmount: calculation.finalSupplierAmount,
       finalVendorAmount: calculation.finalVendorAmount,
@@ -295,6 +305,7 @@ async function createPayoutRecord(order: any, storeProduct: any) {
   // Create initial status history
   await prisma.payoutStatusHistory.create({
     data: {
+      id: `psh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
       payoutId: payout.id,
       status: 'PENDING',
       reason: 'Order placed - payout created',

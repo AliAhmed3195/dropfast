@@ -89,7 +89,13 @@ export default function VendorProductsPage() {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
         const user = await response.json();
-        setUserCurrency(user.preferredCurrency || 'USD');
+        console.log('Vendor user data:', user); // Debug log
+        
+        // Fix: Access currency from business object
+        const currency = user.business?.preferredCurrency || 'USD';
+        console.log('Vendor currency found:', currency); // Debug log
+        
+        setUserCurrency(currency);
       }
     } catch (error) {
       console.error('Error fetching user currency:', error);
@@ -197,8 +203,10 @@ export default function VendorProductsPage() {
         'INR': 83.0,
       };
       const fallbackRate = fallbackRates[userCurrency] || 1;
+      console.log('Using fallback rate:', fallbackRate, 'for currency:', userCurrency);
       return Math.round(priceToUse * fallbackRate * 100) / 100;
     }
+    console.log('Using real exchange rate:', rate, 'for currency:', userCurrency);
     return Math.round(priceToUse * rate * 100) / 100;
   };
 
@@ -444,7 +452,19 @@ export default function VendorProductsPage() {
                       </div>
                       <div className="text-xs text-gray-400">
                         {hasLockedUSDPrice 
-                          ? `Rate: ${exchangeRates[userCurrency]?.toFixed(4) || 'Using fallback rate'}`
+                          ? (() => {
+                              const rate = exchangeRates[userCurrency];
+                              if (rate) {
+                                return `Rate: ${rate.toFixed(4)} (Live)`;
+                              } else {
+                                const fallbackRates: { [key: string]: number } = {
+                                  'EUR': 0.85, 'GBP': 0.73, 'PKR': 280.0, 'CAD': 1.35,
+                                  'AUD': 1.50, 'JPY': 150.0, 'INR': 83.0,
+                                };
+                                const fallbackRate = fallbackRates[userCurrency] || 1;
+                                return `Rate: ${fallbackRate.toFixed(4)} (Fallback)`;
+                              }
+                            })()
                           : 'Using original price'
                         }
                       </div>

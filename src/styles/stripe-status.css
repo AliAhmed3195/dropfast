@@ -1,0 +1,155 @@
+/* Stripe Status Styling */
+
+.stripe-status-card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.status-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.status-item .label {
+  font-weight: 500;
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-success { 
+  background: #d4edda; 
+  color: #155724; 
+  border: 1px solid #c3e6cb;
+}
+
+.badge-warning { 
+  background: #fff3cd; 
+  color: #856404; 
+  border: 1px solid #ffeaa7;
+}
+
+.badge-danger { 
+  background: #f8d7da; 
+  color: #721c24; 
+  border: 1px solid #f5c6cb;
+}
+
+.badge-secondary { 
+  background: #e2e3e5; 
+  color: #383d41; 
+  border: 1px solid #d6d8db;
+}
+
+.badge-info {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+/* Compact badge styling */
+.badge-compact {
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 3px;
+}
+
+/* Status icons */
+.status-icon {
+  font-size: 14px;
+  margin-right: 4px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .status-details {
+    grid-template-columns: 1fr;
+  }
+  
+  .status-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .status-item .label {
+    font-size: 0.75rem;
+  }
+}
+
+/* Animation for status updates */
+.status-update {
+  animation: statusUpdate 0.5s ease-in-out;
+}
+
+@keyframes statusUpdate {
+  0% { opacity: 0.5; transform: scale(0.95); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Hover effects */
+.stripe-status-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.status-item:hover {
+  background: #e9ecef;
+  transition: background-color 0.2s ease-in-out;
+}
+
+/* Loading state */
+.status-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.status-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

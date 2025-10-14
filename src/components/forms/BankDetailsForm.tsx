@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { clientCountrySpecsService, BankFieldSpec } from '@/lib/client-country-specs';
+import { validatePostalCode, getPostalCodePlaceholder, getPostalCodeLabel } from '@/lib/postal-code-utils';
 
 interface BankDetailsFormProps {
   countryCode: string;
-  onSubmit: (bankDetails: Record<string, any>) => void;
+  onSubmit: (bankDetails: Record<string, any>, postalCode?: string) => void;
   loading?: boolean;
   initialData?: Record<string, any>;
 }
@@ -18,6 +19,7 @@ export default function BankDetailsForm({
 }: BankDetailsFormProps) {
   const [fields, setFields] = useState<BankFieldSpec[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>(initialData);
+  const [postalCode, setPostalCode] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loadingFields, setLoadingFields] = useState(true);
 
@@ -55,8 +57,26 @@ export default function BankDetailsForm({
   const validateForm = async (): Promise<boolean> => {
     try {
       const validation = await clientCountrySpecsService.validateBankDetails(countryCode, formData);
-      setErrors(validation.errors);
-      return validation.isValid;
+      const newErrors = { ...validation.errors };
+      
+      // Validate NTN for Pakistan
+      if (countryCode.toUpperCase() === 'PK' && formData.ntn) {
+        const ntnPattern = /^[0-9]{7,13}$/;
+        if (!ntnPattern.test(formData.ntn)) {
+          newErrors.ntn = 'NTN must be 7-13 digits';
+        }
+      }
+      
+      // Validate postal code
+      if (postalCode) {
+        const postalValidation = validatePostalCode(countryCode, postalCode);
+        if (!postalValidation.isValid) {
+          newErrors.postalCode = postalValidation.error || 'Invalid postal code';
+        }
+      }
+      
+      setErrors(newErrors);
+      return validation.isValid && !newErrors.ntn && !newErrors.postalCode;
     } catch (error) {
       console.error('Validation error:', error);
       setErrors({ general: 'Validation failed' });
@@ -69,7 +89,7 @@ export default function BankDetailsForm({
     
     const isValid = await validateForm();
     if (isValid) {
-      onSubmit(formData);
+      onSubmit(formData, postalCode);
     }
   };
 
@@ -160,9 +180,64 @@ export default function BankDetailsForm({
         </div>
       )}
 
+      {/* Postal Code Field */}
+      <div className="mb-4">
+        <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1">
+          {getPostalCodeLabel(countryCode)}
+          <span className="text-red-500 ml-1">*</span>
+        </label>
+        <input
+          type="text"
+          id="postalCode"
+          name="postalCode"
+          value={postalCode}
+          onChange={(e) => setPostalCode(e.target.value)}
+          placeholder={getPostalCodePlaceholder(countryCode)}
+          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            errors.postalCode ? 'border-red-500' : 'border-gray-300'
+          }`}
+          required
+        />
+        {errors.postalCode && (
+          <p className="mt-1 text-sm text-red-600">{errors.postalCode}</p>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map(renderField)}
       </div>
+
+      {/* NTN Field for Pakistan */}
+      {countryCode.toUpperCase() === 'PK' && (
+        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+          <h4 className="text-sm font-medium text-yellow-800 mb-3">Tax Information (Pakistan)</h4>
+          <div className="mb-4">
+            <label htmlFor="ntn" className="block text-sm font-medium text-gray-700 mb-1">
+              National Tax Number (NTN)
+              <span className="text-gray-500 ml-1">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              id="ntn"
+              name="ntn"
+              value={formData.ntn || ''}
+              onChange={(e) => handleInputChange('ntn', e.target.value)}
+              placeholder="Enter your NTN (e.g., 1234567890123)"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.ntn ? 'border-red-500' : 'border-gray-300'
+              }`}
+              pattern="[0-9]{7,13}"
+              title="NTN should be 7-13 digits"
+            />
+            {errors.ntn && (
+              <p className="mt-1 text-sm text-red-600">{errors.ntn}</p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Your NTN helps with tax compliance and faster verification.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end space-x-4 pt-6">
         <button

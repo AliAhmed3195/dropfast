@@ -112,6 +112,52 @@ model User {
   supplierPayouts Payout[] @relation("SupplierPayouts")
   vendorPayouts   Payout[] @relation("VendorPayouts")
   payoutNotifications PayoutNotification[]
+  stripeKycDetails   StripeKycDetails?
+}
+
+model StripeKycDetails {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Basic Info
+  countryCode           String
+  accountType           String   // 'individual' | 'company'
+  firstName             String
+  lastName              String
+  email                 String
+  phone                 String
+  
+  // Date of Birth
+  dobDay                Int
+  dobMonth              Int
+  dobYear               Int
+  
+  // National ID
+  nationalId            String
+  
+  // Address
+  addressLine1          String
+  addressLine2          String?
+  city                  String
+  state                 String
+  postalCode            String
+  
+  // Business Info (nullable for individuals)
+  businessName          String?
+  businessTaxId         String?
+  
+  // Additional Requirements
+  extraRequirements     Json?
+  
+  // Stripe Account
+  stripeAccountId       String?
+  stripeAccountStatus   String?  // 'pending', 'verified', 'failed'
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("stripe_kyc_details")
 }
 
 model Business {
@@ -121,6 +167,7 @@ model Business {
   businessType        BusinessBusinessType
   registrationNumber  String?
   vatGstNumber        String?
+  ntn                 String?              // National Tax Number (Pakistan)
   country             String
   preferredCurrency   String
   addressStreet       String
@@ -128,8 +175,32 @@ model Business {
   addressState        String
   addressZip          String
   addressCountry      String
+  postalCode          String?              // Country-specific postal code
   kycStatus           KycStatus            @default(PENDING)
   stripeAccountId     String?              // Stripe Connected Account ID
+  serviceAgreement    String?              // 'full' or 'recipient'
+  payoutStatus        String?              // 'PENDING', 'ACTIVE', 'SUSPENDED', 'FAILED'
+  capabilities        Json?                // Store requested capabilities
+  stripeAccountCreatedAt DateTime?         // When Stripe account was created
+  lastStripeSyncAt    DateTime?            // Last sync with Stripe
+  
+  // Express Stripe fields
+  expressAccountId        String?          // Express account ID
+  expressOnboardingStatus String?          // 'pending', 'submitted', 'completed'
+  
+  // Webhook integration fields
+  stripeAccountStatus     String?          // 'pending', 'verified', 'restricted', 'rejected'
+  stripeCapabilities      Json?            // Store capabilities status
+  stripeRequirements      Json?            // Store requirements
+  stripeMissingFields     Json?            // Store missing fields array
+  stripeLastRequirementsCheck DateTime?    // Last requirements check timestamp
+  stripeOnboardingLinksSent Int?           // Count of onboarding links sent
+  stripeLastUpdated       DateTime?        // Last webhook update
+  stripeVerificationLevel String?          // 'unverified', 'pending', 'verified'
+  stripePayoutsEnabled    Boolean?         // Payouts status
+  stripeChargesEnabled    Boolean?         // Charges status
+  bankStatus              String?          // 'pending', 'verified', 'rejected'
+  
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt @default(now())
   
@@ -355,6 +426,12 @@ model Order {
   vendorRejectedAt      DateTime?
   vendorRejectedBy      String?
   vendorRejectionReason String?
+  // Markup details
+  markupPercentage        Float?   // Store percentage (20%)
+  markupAmountInVendorCurrency Float? // A$51.37
+  markupType              String?  // "percentage" or "fixed"
+  vendorCurrency          String?  // "AUD"
+  supplierCurrency        String?  // "GBP"
   // Order status history
   statusHistory OrderStatusHistory[]
   createdAt     DateTime @default(now())
@@ -400,7 +477,12 @@ model StoreProduct {
   lockedLocalPrice      Float    // Locked local price in store currency
   localCurrency         String   // Store currency
   exchangeRateAtImport  Float    // Exchange rate at import time
-  markup                Float    @default(0) // Vendor markup percentage
+  markup                Float    @default(0) // Vendor markup percentage OR fixed amount
+  markupType            String   @default("percentage") // "percentage" or "fixed"
+  markupAmountInUSD     Float?   // Locked USD markup amount
+  markupAmountInLocalCurrency Float? // Locked local currency markup amount
+  markupLockedAt        DateTime? // When markup was locked
+  markupExchangeRate    Float?    // Exchange rate used for markup locking
   finalPrice            Float    // Final price after markup
   isActive              Boolean  @default(true)
   product               Product  @relation(fields: [productId], references: [id])
@@ -428,18 +510,36 @@ model Payout {
   vendorBusinessId      String?
   vendorBusiness        Business? @relation("VendorPayouts", fields: [vendorBusinessId], references: [id])
   
-  // Financial Breakdown (in USD - base currency)
-  orderTotal            Float    // Original order total
-  supplierAmount        Float    // Supplier's share (no platform fee)
-  vendorGrossAmount     Float    // Vendor's gross amount
-  platformFee           Float    // Platform fee (5% of vendor amount)
-  transactionFee        Float    // Payment processing fee
+  // Enhanced Financial Breakdown (in USD - base currency)
+  grossAmount           Float    @default(0) // Original order total (gross amount)
+  stripeProcessingFee   Float    @default(0) // Stripe's processing fee
+  platformFee           Float    @default(0) // Platform service fee
+  supplierAmount        Float    @default(0) // Base cost to supplier (no deductions)
+  grossVendorAmount     Float    @default(0) // Vendor amount before payout fee
+  stripePayoutFee       Float    @default(0) // Country-based Stripe payout fee
+  netVendorAmount       Float    @default(0) // Final vendor amount after payout fee
+  platformRevenue       Float    @default(0) // Platform's total revenue (platform fee)
+  
+  // Legacy fields (for backward compatibility)
+  orderTotal            Float?   // Original order total (deprecated)
+  vendorGrossAmount     Float?   // Vendor's gross amount (deprecated)
+  transactionFee        Float?   // Payment processing fee (deprecated)
   currencyConversionFee Float    @default(0) // Multi-currency conversion fee
   
   // Final Amounts (in USD)
-  finalSupplierAmount   Float    // What supplier actually receives
-  finalVendorAmount     Float    // What vendor actually receives
-  platformRevenue       Float    // Platform's total revenue
+  finalSupplierAmount   Float?   // What supplier actually receives (deprecated)
+  finalVendorAmount     Float?   // What vendor actually receives (deprecated)
+  
+  // Stripe Transfer Tracking
+  supplierTransferId    String?  // Stripe transfer ID to supplier
+  vendorTransferId      String?  // Stripe transfer ID to vendor
+  supplierTransferStatus String? // Transfer status to supplier
+  vendorTransferStatus  String?  // Transfer status to vendor
+  
+  // Fee Breakdown and Tracking
+  feeBreakdown          Json?    // Detailed fee calculation breakdown
+  countryPayoutFee      Float?   // Actual country payout fee used
+  stripePayoutFeeUsed   Float?   // Actual Stripe payout fee charged
   
   // Currency Information
   baseCurrency          String   @default("USD")

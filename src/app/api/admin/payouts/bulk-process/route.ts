@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { paymentService } from '@/lib/payment-service';
+import { prisma } from '@/lib/prisma';
 
-// POST /api/admin/payouts/bulk-process - Process multiple payouts
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
@@ -10,113 +10,120 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { payoutIds, action, payoutMethod, notes } = await request.json();
+    const { payoutIds, maxConcurrent = 5 } = await request.json();
 
     if (!payoutIds || !Array.isArray(payoutIds) || payoutIds.length === 0) {
-      return NextResponse.json(
-        { error: 'Payout IDs are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ 
+        error: 'payoutIds array is required' 
+      }, { status: 400 });
     }
 
-    if (!action) {
-      return NextResponse.json(
-        { error: 'Action is required' },
-        { status: 400 }
-      );
+    // Get all payouts
+    const payouts = await prisma.payout.findMany({
+      where: {
+        id: { in: payoutIds },
+        status: { in: ['PENDING', 'APPROVAL_REQUIRED'] }
+      },
+      include: {
+        order: {
+          include: {
+            product: {
+              include: {
+                supplier: {
+                  include: { business: true }
+                }
+              }
+            },
+            store: {
+              include: {
+                owner: {
+                  include: { business: true }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (payouts.length === 0) {
+      return NextResponse.json({ 
+        error: 'No eligible payouts found' 
+      }, { status: 404 });
     }
 
-    const validActions = ['PROCESSING', 'COMPLETED', 'ON_HOLD', 'CANCELLED'];
-    if (!validActions.includes(action)) {
-      return NextResponse.json(
-        { error: 'Invalid action' },
-        { status: 400 }
-      );
-    }
-
+    // Process payouts in batches
     const results = [];
     const errors = [];
 
-    // Process each payout
-    for (const payoutId of payoutIds) {
-      try {
-        // Get current payout
-        const payout = await prisma.payout.findUnique({
-          where: { id: payoutId }
-        });
-
-        if (!payout) {
-          errors.push({ payoutId, error: 'Payout not found' });
-          continue;
-        }
-
-        // Check if payout can be updated
-        if (payout.status === 'COMPLETED' && action !== 'CANCELLED') {
-          errors.push({ payoutId, error: 'Payout already completed' });
-          continue;
-        }
-
-        if (payout.status === 'CANCELLED' && action !== 'PROCESSING') {
-          errors.push({ payoutId, error: 'Payout is cancelled' });
-          continue;
-        }
-
-        // Update payout
-        const updatedPayout = await prisma.payout.update({
-          where: { id: payoutId },
-          data: {
-            status: action as any,
-            payoutMethod: payoutMethod ? payoutMethod as any : payout.payoutMethod,
-            processedAt: action === 'COMPLETED' ? new Date() : undefined,
-            approvedBy: action === 'COMPLETED' ? session.id : undefined,
-            approvedAt: action === 'COMPLETED' ? new Date() : undefined,
-            approvalNotes: notes
+    for (let i = 0; i < payouts.length; i += maxConcurrent) {
+      const batch = payouts.slice(i, i + maxConcurrent);
+      
+      const batchPromises = batch.map(async (payout) => {
+        try {
+          // Check if required Stripe accounts exist
+          if (!payout.order.product.supplier.business?.stripeAccountId) {
+            throw new Error('Supplier does not have a Stripe Connect account');
           }
-        });
 
-        // Create status history entry
-        await prisma.payoutStatusHistory.create({
-          data: {
-            payoutId: payoutId,
-            status: action as any,
-            reason: `Bulk ${action.toLowerCase()}`,
-            changedBy: session.id,
-            notes: notes || `Bulk processed by admin`
+          if (!payout.order.store.owner.business?.stripeAccountId) {
+            throw new Error('Vendor does not have a Stripe Connect account');
           }
-        });
 
-        results.push({
-          payoutId,
-          status: 'success',
-          payout: updatedPayout
-        });
+          const result = await paymentService.processOrderPayout(payout.orderId);
+          
+          return {
+            payoutId: payout.id,
+            orderId: payout.orderId,
+            success: result.success,
+            error: result.error,
+            supplierTransferId: result.supplierTransferId,
+            vendorTransferId: result.vendorTransferId
+          };
+        } catch (error) {
+          return {
+            payoutId: payout.id,
+            orderId: payout.orderId,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      });
 
-      } catch (error) {
-        console.error(`Error processing payout ${payoutId}:`, error);
-        errors.push({
-          payoutId,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
     }
 
-    // Calculate summary
-    const summary = {
-      total: payoutIds.length,
-      successful: results.length,
-      failed: errors.length,
-      successRate: (results.length / payoutIds.length) * 100
-    };
+    // Separate successful and failed results
+    const successful = results.filter(r => r.success);
+    const failed = results.filter(r => !r.success);
 
     return NextResponse.json({
       success: true,
-      summary,
-      results,
-      errors
+      message: `Processed ${results.length} payouts`,
+      data: {
+        total: results.length,
+        successful: successful.length,
+        failed: failed.length,
+        results: results,
+        summary: {
+          successful: successful.map(r => ({
+            payoutId: r.payoutId,
+            orderId: r.orderId,
+            supplierTransferId: r.supplierTransferId,
+            vendorTransferId: r.vendorTransferId
+          })),
+          failed: failed.map(r => ({
+            payoutId: r.payoutId,
+            orderId: r.orderId,
+            error: r.error
+          }))
+        }
+      }
     });
 
   } catch (error) {
-    console.error('Error in bulk processing:', error);
+    console.error('Error in bulk payout processing:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

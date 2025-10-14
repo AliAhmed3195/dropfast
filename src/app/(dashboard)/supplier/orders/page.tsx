@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import OrderCurrencyDisplay from '@/components/OrderCurrencyDisplay';
 
 interface Order {
   id: string;
@@ -31,6 +32,8 @@ interface Order {
       name: string;
     };
   };
+  lockedUSDPrice?: number;
+  displayCurrency?: string;
 }
 
 export default function SupplierOrdersPage() {
@@ -43,11 +46,26 @@ export default function SupplierOrdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [userCurrency, setUserCurrency] = useState('USD');
   const router = useRouter();
 
   useEffect(() => {
     fetchOrders();
+    fetchUserCurrency();
   }, []);
+
+  const fetchUserCurrency = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const user = await response.json();
+        const currency = user.business?.preferredCurrency || 'USD';
+        setUserCurrency(currency);
+      }
+    } catch (error) {
+      console.error('Error fetching user currency:', error);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -345,9 +363,16 @@ export default function SupplierOrdersPage() {
                       {order.quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">${order.totalAmount.toFixed(2)}</div>
-                      <div className="text-xs text-gray-500">
-                        Your Revenue: ${order.productPrice.toFixed(2)}
+                      <OrderCurrencyDisplay
+                        userRole="SUPPLIER_USER"
+                        userPreferredCurrency={userCurrency}
+                        orderTotalAmount={order.totalAmount}
+                        orderDisplayCurrency={order.displayCurrency}
+                        orderLockedUSDPrice={order.lockedUSDPrice}
+                        showSecondary={true}
+                      />
+                      <div className="text-xs text-gray-500 mt-1">
+                        Your Revenue: ${order.productPrice.toFixed(2)} USD
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -1,0 +1,21 @@
+# Database Configuration
+DATABASE_URL=postgresql://postgres:root@localhost:5432/dropfast_db
+# Email Configuration - SMTP (for aliahmed3195@gmail.com)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=aliahmed3195@gmail.com
+SMTP_PASS=gpidadsxfsimyydt
+EMAIL_FROM=aliahmed3195@gmail.com
+EMAIL_FROM_NAME=FastDrop
+
+# Email Settings
+EMAIL_ENABLED=true
+
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_test_51Rbe62E15RYp1swTGEpueX13F5idwSBOIhiwkgoTP5t8EzugmNK4nLnJHjq3aJOTUxHsOFNyWRvnnlXa1kJu4RN00ExRltYM5                                                                                 
+                                                            
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+
+# Platform Settings
+PLATFORM_FEE_PERCENTAGE=5

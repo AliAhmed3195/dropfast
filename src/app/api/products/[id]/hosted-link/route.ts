@@ -8,7 +8,7 @@ export async function POST(
 ) {
   try {
     const session = await getSession();
-    if (!session || session.role !== 'VENDOR') {
+    if (!session || session.role !== 'VENDOR_USER') {
       return NextResponse.json({ 
         error: 'Only vendors can create hosted links. Suppliers cannot create hosted links directly.' 
       }, { status: 403 });

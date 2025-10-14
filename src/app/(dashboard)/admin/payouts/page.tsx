@@ -2,19 +2,35 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import StripeStatusCard from '@/components/StripeStatusCard';
 
 interface Payout {
   id: string;
-  orderTotal: number;
-  supplierAmount: number;
-  vendorGrossAmount: number;
+  orderId: string;
+  // Enhanced financial breakdown
+  grossAmount: number;
+  stripeProcessingFee: number;
   platformFee: number;
-  finalSupplierAmount: number;
-  finalVendorAmount: number;
+  supplierAmount: number;
+  grossVendorAmount: number;
+  stripePayoutFee: number;
+  netVendorAmount: number;
   platformRevenue: number;
+  // Legacy fields (for backward compatibility)
+  orderTotal?: number;
+  vendorGrossAmount?: number;
+  finalSupplierAmount?: number;
+  finalVendorAmount?: number;
+  // Stripe transfer tracking
+  supplierTransferId?: string;
+  vendorTransferId?: string;
+  supplierTransferStatus?: string;
+  vendorTransferStatus?: string;
+  // Status and metadata
   status: string;
   payoutMethod: string;
   createdAt: string;
+  processedAt?: string;
   isLocked: boolean;
   lockedAt?: string;
   lockedSupplierAmount?: number;
@@ -32,6 +48,12 @@ interface Payout {
       isVerified: boolean;
       isActive: boolean;
     };
+    business?: {
+      stripeAccountStatus?: string;
+      stripePayoutsEnabled?: boolean;
+      bankStatus?: string;
+      stripeChargesEnabled?: boolean;
+    };
   };
   vendor: {
     id: string;
@@ -42,6 +64,12 @@ interface Payout {
       id: string;
       isVerified: boolean;
       isActive: boolean;
+    };
+    business?: {
+      stripeAccountStatus?: string;
+      stripePayoutsEnabled?: boolean;
+      bankStatus?: string;
+      stripeChargesEnabled?: boolean;
     };
   };
   order: {
@@ -63,6 +91,17 @@ export default function AdminPayoutsPage() {
   const [summary, setSummary] = useState<PayoutSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPayouts, setSelectedPayouts] = useState<string[]>([]);
+  const [processingStatus, setProcessingStatus] = useState<{
+    isProcessing: boolean;
+    isRetrying: boolean;
+  }>({ isProcessing: false, isRetrying: false });
+  const [automatedStats, setAutomatedStats] = useState<{
+    pending: number;
+    processing: number;
+    completed: number;
+    failed: number;
+    total: number;
+  } | null>(null);
   const [filters, setFilters] = useState({
     status: 'all',
     supplierId: '',
@@ -84,7 +123,22 @@ export default function AdminPayoutsPage() {
 
   useEffect(() => {
     fetchPayouts();
+    fetchAutomatedStatus();
   }, [filters, pagination.page]);
+
+  // Fetch automated processing status
+  const fetchAutomatedStatus = async () => {
+    try {
+      const response = await fetch('/api/admin/payouts/automated/status');
+      if (response.ok) {
+        const data = await response.json();
+        setProcessingStatus(data.data.processing);
+        setAutomatedStats(data.data.statistics);
+      }
+    } catch (error) {
+      console.error('Error fetching automated status:', error);
+    }
+  };
 
   const fetchPayouts = async () => {
     try {
@@ -196,17 +250,61 @@ export default function AdminPayoutsPage() {
 
   const handlePayoutAction = async (payoutId: string, action: string) => {
     try {
-      const response = await fetch(`/api/admin/payouts/${payoutId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: action })
-      });
+      if (action === 'PROCESS') {
+        // Use the new payout processing endpoint
+        const response = await fetch(`/api/admin/payouts/${payoutId}/process`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
 
-      if (response.ok) {
-        fetchPayouts();
+        if (response.ok) {
+          const result = await response.json();
+          await fetchPayouts();
+          setMessage(`Payout processed successfully. Supplier Transfer: ${result.data?.supplierTransferId || 'N/A'}, Vendor Transfer: ${result.data?.vendorTransferId || 'N/A'}`);
+          setMessageType('success');
+        } else {
+          const error = await response.json();
+          setMessage(error.error || 'Failed to process payout');
+          setMessageType('error');
+        }
+      } else if (action === 'RETRY') {
+        // Use the retry endpoint
+        const response = await fetch(`/api/admin/payouts/${payoutId}/retry`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+          await fetchPayouts();
+          setMessage('Payout retry initiated successfully');
+          setMessageType('success');
+        } else {
+          const error = await response.json();
+          setMessage(error.error || 'Failed to retry payout');
+          setMessageType('error');
+        }
+      } else {
+        // Use the legacy status update endpoint
+        const response = await fetch(`/api/admin/payouts/${payoutId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: action })
+        });
+
+        if (response.ok) {
+          await fetchPayouts();
+          setMessage(`Payout ${action.toLowerCase()} successfully`);
+          setMessageType('success');
+        } else {
+          const error = await response.json();
+          setMessage(error.error || 'Failed to update payout');
+          setMessageType('error');
+        }
       }
     } catch (error) {
       console.error('Error updating payout:', error);
+      setMessage('Failed to update payout');
+      setMessageType('error');
     }
   };
 
@@ -254,6 +352,63 @@ export default function AdminPayoutsPage() {
     } catch (error) {
       console.error('Error in scheduled processing:', error);
       alert('Error processing scheduled payouts');
+    } finally {
+      setProcessingScheduled(false);
+    }
+  };
+
+  // Automated processing functions
+  const handleAutomatedProcessing = async () => {
+    try {
+      setProcessingScheduled(true);
+      const response = await fetch('/api/admin/payouts/automated/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchSize: 10, maxConcurrent: 5 })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        await fetchPayouts();
+        await fetchAutomatedStatus();
+        setMessage(`Automated processing completed: ${result.data.processed} successful, ${result.data.failed} failed`);
+        setMessageType('success');
+      } else {
+        const error = await response.json();
+        setMessage(error.error || 'Failed to start automated processing');
+        setMessageType('error');
+      }
+    } catch (error) {
+      setMessage('Failed to start automated processing');
+      setMessageType('error');
+    } finally {
+      setProcessingScheduled(false);
+    }
+  };
+
+  const handleAutomatedRetry = async () => {
+    try {
+      setProcessingScheduled(true);
+      const response = await fetch('/api/admin/payouts/automated/retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchSize: 10, maxConcurrent: 5 })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        await fetchPayouts();
+        await fetchAutomatedStatus();
+        setMessage(`Automated retry completed: ${result.data.retried} successful, ${result.data.failed} failed`);
+        setMessageType('success');
+      } else {
+        const error = await response.json();
+        setMessage(error.error || 'Failed to start automated retry');
+        setMessageType('error');
+      }
+    } catch (error) {
+      setMessage('Failed to start automated retry');
+      setMessageType('error');
     } finally {
       setProcessingScheduled(false);
     }
@@ -309,6 +464,20 @@ export default function AdminPayoutsPage() {
               {processingScheduled ? 'Processing...' : 'Process Scheduled'}
             </button>
             <button
+              onClick={handleAutomatedProcessing}
+              disabled={processingScheduled || processingStatus.isProcessing}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processingStatus.isProcessing ? 'Auto Processing...' : 'Auto Process All'}
+            </button>
+            <button
+              onClick={handleAutomatedRetry}
+              disabled={processingScheduled || processingStatus.isRetrying}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processingStatus.isRetrying ? 'Auto Retrying...' : 'Auto Retry Failed'}
+            </button>
+            <button
               onClick={() => setShowBulkModal(true)}
               disabled={selectedPayouts.length === 0}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -318,6 +487,51 @@ export default function AdminPayoutsPage() {
           </div>
         </div>
       </div>
+
+      {/* Automated Processing Status */}
+      {automatedStats && (
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Automated Processing Status</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{automatedStats.pending}</div>
+              <div className="text-sm text-gray-500">Pending</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">{automatedStats.processing}</div>
+              <div className="text-sm text-gray-500">Processing</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{automatedStats.completed}</div>
+              <div className="text-sm text-gray-500">Completed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{automatedStats.failed}</div>
+              <div className="text-sm text-gray-500">Failed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-600">{automatedStats.total}</div>
+              <div className="text-sm text-gray-500">Total</div>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-center space-x-4">
+            <div className={`px-3 py-1 rounded-full text-sm ${
+              processingStatus.isProcessing 
+                ? 'bg-yellow-100 text-yellow-800' 
+                : 'bg-gray-100 text-gray-800'
+            }`}>
+              {processingStatus.isProcessing ? 'Auto Processing Active' : 'Auto Processing Idle'}
+            </div>
+            <div className={`px-3 py-1 rounded-full text-sm ${
+              processingStatus.isRetrying 
+                ? 'bg-orange-100 text-orange-800' 
+                : 'bg-gray-100 text-gray-800'
+            }`}>
+              {processingStatus.isRetrying ? 'Auto Retry Active' : 'Auto Retry Idle'}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       {summary && (
@@ -446,6 +660,9 @@ export default function AdminPayoutsPage() {
                     Bank Details
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Stripe Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amounts
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -516,6 +733,34 @@ export default function AdminPayoutsPage() {
                             </span>
                           );
                         })()}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-gray-500 text-xs">Supplier:</span>
+                        <StripeStatusCard 
+                          user={{ 
+                            id: payout.supplier.id, 
+                            name: payout.supplier.name, 
+                            email: payout.supplier.email,
+                            business: payout.supplier.business 
+                          }} 
+                          compact={true} 
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-gray-500 text-xs">Vendor:</span>
+                        <StripeStatusCard 
+                          user={{ 
+                            id: payout.vendor.id, 
+                            name: payout.vendor.name, 
+                            email: payout.vendor.email,
+                            business: payout.vendor.business 
+                          }} 
+                          compact={true} 
+                        />
                       </div>
                     </div>
                   </td>

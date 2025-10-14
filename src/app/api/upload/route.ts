@@ -7,7 +7,7 @@ import { existsSync } from 'fs';
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (session.role !== 'SUPPLIER' && session.role !== 'ADMIN' && session.role !== 'VENDOR')) {
+    if (!session || (session.role !== 'SUPPLIER_USER' && session.role !== 'ADMIN' && session.role !== 'VENDOR_USER')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

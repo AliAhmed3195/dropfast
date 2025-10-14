@@ -8,7 +8,7 @@ export async function PUT(
 ) {
   try {
     const session = await getSession();
-    if (!session || session.role !== 'VENDOR') {
+    if (!session || session.role !== 'VENDOR_USER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -41,15 +41,36 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Calculate new final price
-    const finalPrice = storeProduct.lockedLocalPrice * (1 + markup / 100);
+    // Calculate and lock new markup amounts based on current type
+    let newMarkupAmountInUSD: number;
+    let newMarkupAmountInLocalCurrency: number;
+    let newFinalPrice: number;
+
+    const currentMarkupType = storeProduct.markupType || 'percentage';
+
+    if (currentMarkupType === 'percentage') {
+      // Percentage-based markup
+      newMarkupAmountInUSD = storeProduct.lockedUSDPrice * (markup / 100);
+      newMarkupAmountInLocalCurrency = storeProduct.lockedLocalPrice * (markup / 100);
+    } else {
+      // Fixed price markup
+      newMarkupAmountInLocalCurrency = markup;
+      // Convert fixed markup to USD
+      newMarkupAmountInUSD = newMarkupAmountInLocalCurrency / storeProduct.exchangeRateAtImport;
+    }
+
+    newFinalPrice = storeProduct.lockedLocalPrice + newMarkupAmountInLocalCurrency;
 
     // Update the store product
     const updatedStoreProduct = await prisma.storeProduct.update({
       where: { id: storeProductId },
       data: {
         markup,
-        finalPrice,
+        markupAmountInUSD: newMarkupAmountInUSD,
+        markupAmountInLocalCurrency: newMarkupAmountInLocalCurrency,
+        markupLockedAt: new Date(),
+        markupExchangeRate: storeProduct.exchangeRateAtImport,
+        finalPrice: newFinalPrice,
       },
       include: {
         product: {

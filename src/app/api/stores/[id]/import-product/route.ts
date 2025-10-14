@@ -9,11 +9,11 @@ export async function POST(
 ) {
   try {
     const session = await getSession();
-    if (!session || session.role !== 'VENDOR') {
+    if (!session || session.role !== 'VENDOR_USER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { productId, markup = 0 } = await request.json();
+    const { productId, markup = 0, markupType = 'percentage' } = await request.json();
     const storeId = params.id;
 
     if (!productId) {
@@ -100,8 +100,25 @@ export async function POST(
       );
     }
 
-    // Calculate final price with markup
-    const finalPrice = lockedLocalPrice * (1 + markup / 100);
+    // Calculate and lock markup amounts based on type
+    let markupAmountInUSD: number;
+    let markupAmountInLocalCurrency: number;
+    let finalPrice: number;
+
+    // Use markupType from request (defaults to 'percentage' if not provided)
+
+    if (markupType === 'percentage') {
+      // Percentage-based markup
+      markupAmountInUSD = (product.lockedUSDPrice || product.price) * (markup / 100);
+      markupAmountInLocalCurrency = lockedLocalPrice * (markup / 100);
+    } else {
+      // Fixed price markup
+      markupAmountInLocalCurrency = markup;
+      // Convert fixed markup to USD
+      markupAmountInUSD = markupAmountInLocalCurrency / exchangeRateAtImport;
+    }
+
+    finalPrice = lockedLocalPrice + markupAmountInLocalCurrency;
 
     // Create StoreProduct entry
     const storeProduct = await prisma.storeProduct.create({
@@ -113,6 +130,11 @@ export async function POST(
         localCurrency: store.currency,
         exchangeRateAtImport,
         markup,
+        markupType,
+        markupAmountInUSD,
+        markupAmountInLocalCurrency,
+        markupLockedAt: new Date(),
+        markupExchangeRate: exchangeRateAtImport,
         finalPrice,
         isActive: true,
       },

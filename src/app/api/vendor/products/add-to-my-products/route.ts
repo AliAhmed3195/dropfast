@@ -6,7 +6,7 @@ import { currencyService } from '@/lib/currency-conversion';
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || session.role !== 'VENDOR') {
+    if (!session || session.role !== 'VENDOR_USER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -113,15 +113,23 @@ export async function POST(request: NextRequest) {
     const exchangeRate = await currencyService.getRate('USD', vendorCurrency);
     const convertedPrice = usdPrice * exchangeRate;
 
-    // Calculate final price with markup
-    let finalMarkup = 0;
+    // Calculate and lock markup amounts based on type
+    let markupAmountInUSD: number;
+    let markupAmountInLocalCurrency: number;
+    let finalPrice: number;
+
     if (markupType === 'percentage') {
-      finalMarkup = convertedPrice * (Number(markup) / 100);
+      // Percentage-based markup
+      markupAmountInUSD = usdPrice * (Number(markup) / 100);
+      markupAmountInLocalCurrency = convertedPrice * (Number(markup) / 100);
     } else {
-      finalMarkup = Number(markup) || 0;
+      // Fixed price markup
+      markupAmountInLocalCurrency = Number(markup) || 0;
+      // Convert fixed markup to USD
+      markupAmountInUSD = markupAmountInLocalCurrency / exchangeRate;
     }
 
-    const finalPrice = convertedPrice + finalMarkup;
+    finalPrice = convertedPrice + markupAmountInLocalCurrency;
 
     // Create StoreProduct entry for My Products (isActive: false)
     const storeProduct = await prisma.storeProduct.create({
@@ -132,7 +140,12 @@ export async function POST(request: NextRequest) {
         lockedLocalPrice: convertedPrice,
         localCurrency: vendorCurrency,
         exchangeRateAtImport: exchangeRate,
-        markup: finalMarkup,
+        markup: markup || 0,
+        markupType: markupType || 'percentage',
+        markupAmountInUSD: markupAmountInUSD,
+        markupAmountInLocalCurrency: markupAmountInLocalCurrency,
+        markupLockedAt: new Date(),
+        markupExchangeRate: exchangeRate,
         finalPrice: finalPrice,
         isActive: false, // This is My Products only, not in public store
       }

@@ -90,6 +90,7 @@ export default function SupplierProductsPage() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [userCurrency, setUserCurrency] = useState('USD');
+  const [currentExchangeRate, setCurrentExchangeRate] = useState<number>(1);
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
@@ -174,8 +175,33 @@ export default function SupplierProductsPage() {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
         const user = await response.json();
-        setUserCurrency(user.preferredCurrency || 'USD');
-        setNewProduct(prev => ({ ...prev, currency: user.preferredCurrency || 'USD' }));
+        console.log('User data:', user); // Debug log
+        
+        // Fix: Access currency from business object
+        const currency = user.business?.preferredCurrency || 'USD';
+        console.log('Currency found:', currency); // Debug log
+        
+        setUserCurrency(currency);
+        setNewProduct(prev => ({ ...prev, currency }));
+        
+        // Fetch current exchange rate for preview
+        if (currency !== 'USD') {
+          try {
+            const rateResponse = await fetch(`/api/currency/convert?from=${currency}&to=USD&amount=1`);
+            if (rateResponse.ok) {
+              const rateData = await rateResponse.json();
+              setCurrentExchangeRate(rateData.exchangeRate || 1);
+            }
+          } catch (error) {
+            console.error('Error fetching exchange rate:', error);
+            // Use fallback rate
+            const fallbackRates: { [key: string]: number } = {
+              'EUR': 0.85, 'GBP': 0.73, 'PKR': 280.0, 'CAD': 1.35,
+              'AUD': 1.50, 'JPY': 150.0, 'INR': 83.0
+            };
+            setCurrentExchangeRate(fallbackRates[currency] || 1);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching user currency:', error);
@@ -415,7 +441,7 @@ export default function SupplierProductsPage() {
           metaTags: '',
           totalQuantity: '',
           availableQuantity: '',
-          currency: 'USD',
+          currency: userCurrency,
           categoryId: '',
           subcategoryId: '',
           tagIds: []
@@ -474,6 +500,25 @@ export default function SupplierProductsPage() {
       {showAddForm && (
         <Card className="mb-6">
           <h2 className="text-xl font-semibold mb-4">Add New Product</h2>
+          
+          {/* Currency Information Box */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-semibold text-blue-900 mb-2">Currency Information</h3>
+            <p className="text-sm text-blue-800">
+              Your business currency is set to <strong>{userCurrency} ({getCurrencyName(userCurrency)})</strong>. 
+              {userCurrency !== 'USD' ? (
+                <>
+                  {' '}Prices will be entered in {userCurrency} and automatically converted to USD for storage.
+                  {currentExchangeRate !== 1 && (
+                    <> Current exchange rate: 1 {userCurrency} = ${currentExchangeRate.toFixed(4)} USD</>
+                  )}
+                </>
+              ) : (
+                ' Prices will be stored directly in USD.'
+              )}
+            </p>
+          </div>
+          
           <form onSubmit={handleAddProduct} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -502,7 +547,7 @@ export default function SupplierProductsPage() {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price
+                  Price ({userCurrency})
                 </label>
                 <input
                   type="number"
@@ -511,7 +556,13 @@ export default function SupplierProductsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   value={newProduct.price}
                   onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                  placeholder={`Enter price in ${userCurrency}`}
                 />
+                {newProduct.price && userCurrency !== 'USD' && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    This will be converted to USD for storage: ~${(parseFloat(newProduct.price) * currentExchangeRate).toFixed(2)} (rate: {currentExchangeRate.toFixed(4)})
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -519,13 +570,13 @@ export default function SupplierProductsPage() {
                 </label>
                 <select
                   required
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100 cursor-not-allowed"
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-blue-50 cursor-default"
                   value={newProduct.currency}
                 >
                   <option value={userCurrency}>{userCurrency} - {getCurrencyName(userCurrency)}</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">Your currency is locked to {userCurrency}</p>
+                <p className="text-xs text-blue-600 mt-1">Your currency is locked to {userCurrency}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1262,9 +1313,14 @@ export default function SupplierProductsPage() {
               <p className="text-base font-bold text-indigo-600">
                 {product.currency} {product.price}
               </p>
-              {product.lockedUSDPrice && (
+              {product.lockedUSDPrice && product.currency !== 'USD' && (
                 <p className="text-xs text-gray-500">
                   Locked USD: ${product.lockedUSDPrice.toFixed(2)}
+                </p>
+              )}
+              {product.exchangeRateAtCreation && product.currency !== 'USD' && (
+                <p className="text-xs text-gray-400">
+                  Rate used: {product.exchangeRateAtCreation.toFixed(4)}
                 </p>
               )}
             </div>

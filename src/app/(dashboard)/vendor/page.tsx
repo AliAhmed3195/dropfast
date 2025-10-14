@@ -3,12 +3,25 @@
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/Card";
 import { SalesChart, OrdersChart } from "@/components/charts/SalesChart";
+import StripeStatusCard from '@/components/StripeStatusCard';
 
 interface DashboardStats {
   totalStores: number;
   totalProducts: number;
   totalSales: number;
   totalOrders: number;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  business?: {
+    stripeAccountStatus?: string;
+    stripePayoutsEnabled?: boolean;
+    bankStatus?: string;
+    stripeChargesEnabled?: boolean;
+  };
 }
 
 export default function VendorDashboard() {
@@ -18,10 +31,12 @@ export default function VendorDashboard() {
     totalSales: 0,
     totalOrders: 0,
   });
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStats();
+    fetchUser();
   }, []);
 
   const fetchStats = async () => {
@@ -31,6 +46,16 @@ export default function VendorDashboard() {
       setStats(data.stats);
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      const data = await response.json();
+      setUser(data.user);
+    } catch (error) {
+      console.error('Error fetching user:', error);
     } finally {
       setLoading(false);
     }
@@ -79,6 +104,13 @@ export default function VendorDashboard() {
         </Card>
       </div>
 
+      {/* Stripe Status */}
+      {user && (
+        <div className="mb-6">
+          <StripeStatusCard user={user} showDetails={true} />
+        </div>
+      )}
+
       {/* Quick Actions */}
       <div className="mt-6">
         <Card>
@@ -109,10 +141,10 @@ export default function VendorDashboard() {
               Upload Logo
             </a>
             <a
-              href="/vendor/bank-details"
+              href="/vendor/onboarding"
               className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 text-center"
             >
-              Bank Details
+              Stripe Onboarding
             </a>
           </div>
         </Card>

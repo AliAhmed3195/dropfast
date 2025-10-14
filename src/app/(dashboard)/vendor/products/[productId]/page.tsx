@@ -106,7 +106,10 @@ export default function ProductDetailPage() {
       const userData = await userResponse.json();
 
       // Set user currency
-      setUserCurrency(userData.preferredCurrency || 'USD');
+      console.log('Vendor detail user data:', userData); // Debug log
+      const currency = userData.business?.preferredCurrency || 'USD';
+      console.log('Vendor detail currency found:', currency); // Debug log
+      setUserCurrency(currency);
 
       const foundProduct = productData.products?.find((p: Product) => p.id === productId);
       if (foundProduct) {

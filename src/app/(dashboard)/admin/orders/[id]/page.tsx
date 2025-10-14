@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductImageSlider from '@/components/ProductImageSlider';
+import OrderDetailCurrencyDisplay from '@/components/OrderDetailCurrencyDisplay';
 
 interface OrderDetails {
   id: string;
@@ -44,6 +45,11 @@ interface OrderDetails {
   displayPrice?: number;
   displayCurrency?: string;
   settlementCurrency?: string;
+  markupPercentage?: number;
+  markupAmountInVendorCurrency?: number;
+  markupType?: string;
+  vendorCurrency?: string;
+  supplierCurrency?: string;
 }
 
 export default function AdminOrderDetailsPage({ params }: { params: { id: string } }) {
@@ -378,16 +384,59 @@ export default function AdminOrderDetailsPage({ params }: { params: { id: string
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Product Price:</span>
-                  <span className="font-medium">{formatCurrency(order.productPrice * order.quantity)}</span>
+                  <OrderDetailCurrencyDisplay
+                    userRole="ADMIN"
+                    amount={order.productPrice * order.quantity}
+                    showSecondary={false}
+                    className="text-right"
+                  />
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Vendor Markup:</span>
-                  <span className="font-medium">{formatCurrency(order.markupAmount * order.quantity)}</span>
+                  <div className="text-right">
+                    <div className="font-medium">${(order.markupAmount * order.quantity).toFixed(2)} USD</div>
+                    {order.markupAmountInVendorCurrency && order.vendorCurrency && order.vendorCurrency !== 'USD' && (
+                      <div className="text-sm text-gray-500">
+                        {order.markupAmountInVendorCurrency * order.quantity} {order.vendorCurrency}
+                        {order.markupType === 'percentage' && order.markupPercentage && (
+                          <span className="ml-2">({order.markupPercentage}%)</span>
+                        )}
+                        {order.markupType === 'fixed' && (
+                          <span className="ml-2">(Fixed)</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="border-t pt-3">
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total Amount:</span>
-                    <span>{formatCurrency(order.totalAmount)}</span>
+                    <OrderDetailCurrencyDisplay
+                      userRole="ADMIN"
+                      amount={(order.productPrice + order.markupAmount) * order.quantity}
+                      showSecondary={false}
+                      className="text-right"
+                    />
+                  </div>
+                </div>
+                
+                {/* Currency Reference Information */}
+                <div className="border-t pt-3 mt-3">
+                  <div className="text-sm text-gray-500 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Vendor Currency:</span>
+                      <span>{order.vendorCurrency || 'USD'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Supplier Currency:</span>
+                      <span>{order.supplierCurrency || 'USD'}</span>
+                    </div>
+                    {order.markupType && (
+                      <div className="flex justify-between">
+                        <span>Markup Type:</span>
+                        <span className="capitalize">{order.markupType}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

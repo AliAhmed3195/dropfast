@@ -312,7 +312,7 @@ export default function AdminOrderManagementPage() {
                           Quantity: {order.quantity}
                         </p>
                         <p className="text-lg font-semibold text-gray-900">
-                          Total: {formatPrice(order.totalAmount, order.displayCurrency)}
+                          Total: ${(order.lockedUSDPrice || order.totalAmount).toFixed(2)} USD
                         </p>
                         <p className="text-sm text-gray-600">
                           Date: {formatDate(order.createdAt)}
