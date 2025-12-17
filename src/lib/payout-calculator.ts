@@ -68,8 +68,19 @@ export class PayoutCalculator {
       customPlatformFeeRate = null
     } = options;
 
-    const orderTotal = order.totalAmount; // Customer paid amount
+    const orderTotal = order.totalAmount; // Should be locked USD amount
     const quantity = order.quantity;
+
+    console.log('Payout calculation inputs:', {
+      orderId: order.id,
+      orderTotal: orderTotal,
+      quantity: quantity,
+      productPrice: order.productPrice,
+      markupAmount: order.markupAmount,
+      supplierCurrency: order.supplier.preferredCurrency,
+      vendorCurrency: order.vendor.preferredCurrency,
+      expectedTotal: (order.productPrice * quantity) + order.markupAmount
+    });
     
     // Step 1: Calculate Stripe fees (deducted from customer payment)
     const stripeFee = enableTransactionFee ? 
@@ -81,8 +92,14 @@ export class PayoutCalculator {
     // Step 3: Supplier amount (base product cost - no platform fee)
     const supplierAmount = order.productPrice * quantity;
     
-    // Step 4: Vendor gross amount (dynamic markup = net settlement - supplier cost)
-    const vendorGrossAmount = netSettlement - supplierAmount;
+    // Step 4: Vendor gross amount (markup amount from order)
+    const vendorGrossAmount = order.markupAmount;
+    
+    // Validation: Ensure order total matches expected calculation
+    const expectedOrderTotal = supplierAmount + vendorGrossAmount;
+    if (Math.abs(orderTotal - expectedOrderTotal) > 0.01) {
+      console.warn(`Order total mismatch: expected ${expectedOrderTotal}, got ${orderTotal}`);
+    }
     
     // Step 5: Platform fee (only from vendor markup, 5%)
     const platformFeeRate = customPlatformFeeRate || this.platformFeeRate;
@@ -98,7 +115,7 @@ export class PayoutCalculator {
     const finalVendorAmount = vendorGrossAmount - platformFee; // Platform fee deducted from vendor
     const platformRevenue = platformFee; // Platform's revenue from fees
     
-    return {
+    const result = {
       orderTotal,
       supplierAmount,
       vendorGrossAmount,
@@ -127,6 +144,19 @@ export class PayoutCalculator {
         }
       }
     };
+
+    console.log('Payout calculation results:', {
+      orderId: order.id,
+      orderTotal: result.orderTotal,
+      supplierAmount: result.supplierAmount,
+      vendorGrossAmount: result.vendorGrossAmount,
+      platformRevenue: result.platformRevenue,
+      transactionFee: result.transactionFee,
+      finalSupplierAmount: result.finalSupplierAmount,
+      finalVendorAmount: result.finalVendorAmount
+    });
+
+    return result;
   }
 
   /**
@@ -165,45 +195,15 @@ export class PayoutCalculator {
       vendor: number;
     };
   }> {
-    try {
-      // Get live exchange rates
-      const supplierRate = supplierCurrency !== 'USD'
-        ? await currencyService.getRate('USD', supplierCurrency)
-        : 1;
-      
-      const vendorRate = vendorCurrency !== 'USD'
-        ? await currencyService.getRate('USD', vendorCurrency)
-        : 1;
-      
-      // Convert amounts using live rates
-      const supplierConverted = supplierCurrency !== 'USD' 
-        ? supplierAmount * supplierRate
-        : supplierAmount;
-      
-      const vendorConverted = vendorCurrency !== 'USD'
-        ? vendorAmount * vendorRate
-        : vendorAmount;
-      
-      return {
-        supplierAmountConverted: supplierConverted,
-        vendorAmountConverted: vendorConverted,
-        exchangeRates: {
-          supplier: supplierRate,
-          vendor: vendorRate
-        }
-      };
-    } catch (error) {
-      console.error('Currency conversion error:', error);
-      // Return original amounts if conversion fails
-      return {
-        supplierAmountConverted: supplierAmount,
-        vendorAmountConverted: vendorAmount,
-        exchangeRates: {
-          supplier: 1,
-          vendor: 1
-        }
-      };
-    }
+    // Currency is always USD now
+    return {
+      supplierAmountConverted: supplierAmount,
+      vendorAmountConverted: vendorAmount,
+      exchangeRates: {
+        supplier: 1,
+        vendor: 1
+      }
+    };
   }
 
   /**

@@ -21,7 +21,11 @@ export async function GET(
             id: true,
             name: true,
             email: true,
-            preferredCurrency: true
+            business: {
+              select: {
+                preferredCurrency: true
+              }
+            }
           }
         },
         vendor: {
@@ -29,7 +33,11 @@ export async function GET(
             id: true,
             name: true,
             email: true,
-            preferredCurrency: true
+            business: {
+              select: {
+                preferredCurrency: true
+              }
+            }
           }
         },
         order: {
@@ -117,7 +125,11 @@ export async function PUT(
             id: true,
             name: true,
             email: true,
-            preferredCurrency: true
+            business: {
+              select: {
+                preferredCurrency: true
+              }
+            }
           }
         },
         vendor: {
@@ -125,7 +137,11 @@ export async function PUT(
             id: true,
             name: true,
             email: true,
-            preferredCurrency: true
+            business: {
+              select: {
+                preferredCurrency: true
+              }
+            }
           }
         },
         order: {

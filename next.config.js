@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', 'via.placeholder.com', 'fated-stephenie-incisory.ngrok-free.dev', 'picsum.photos', 'images.unsplash.com'],
   },
   async rewrites() {
     return [

@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     // Get store details
     const store = await prisma.store.findUnique({
       where: { id: storeId },
-      select: { currency: true, ownerId: true, name: true }
+      select: { ownerId: true, name: true }
     });
 
     if (!store) {
@@ -149,25 +149,11 @@ export async function POST(request: NextRequest) {
           data: {
             storeId,
             isActive: true,
-            // Update pricing if needed
-            lockedLocalPrice: store.currency === 'USD' 
-              ? (product.lockedUSDPrice || product.price)
-              : await currencyService.convert(
-                  product.lockedUSDPrice || product.price,
-                  'USD',
-                  store.currency
-                ),
-            localCurrency: store.currency,
-            exchangeRateAtImport: store.currency === 'USD' 
-              ? 1 
-              : await currencyService.getRate('USD', store.currency),
-            finalPrice: store.currency === 'USD' 
-              ? (product.lockedUSDPrice || product.price) * (1 + markup / 100)
-              : (await currencyService.convert(
-                  product.lockedUSDPrice || product.price,
-                  'USD',
-                  store.currency
-                )) * (1 + markup / 100),
+            // Pricing is always in USD
+            lockedLocalPrice: product.lockedUSDPrice || product.price,
+            localCurrency: 'USD',
+            exchangeRateAtImport: 1,
+            finalPrice: (product.lockedUSDPrice || product.price) * (1 + markup / 100),
             markup,
           },
           include: {
@@ -210,41 +196,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Convert price to store currency
-    let lockedLocalPrice: number;
-    let exchangeRateAtImport: number;
+    // Price is always in USD
     const usdPrice = product.lockedUSDPrice || product.price;
+    const lockedLocalPrice = usdPrice;
+    const exchangeRateAtImport = 1;
 
-    try {
-      if (store.currency === 'USD') {
-        lockedLocalPrice = usdPrice;
-        exchangeRateAtImport = 1;
-      } else {
-        lockedLocalPrice = await currencyService.convert(
-          usdPrice,
-          'USD',
-          store.currency
-        );
-        exchangeRateAtImport = await currencyService.getRate('USD', store.currency);
-      }
-
-      console.log(`Store import conversion: USD ${usdPrice} -> ${store.currency} ${lockedLocalPrice.toFixed(2)} (rate: ${exchangeRateAtImport})`);
-    } catch (error) {
-      console.error('Currency conversion error during import:', error);
-      console.error('Currency conversion error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        storeCurrency: store.currency,
-        usdPrice,
-        error
-      });
-      return NextResponse.json(
-        { 
-          error: 'Currency conversion failed',
-          details: error instanceof Error ? error.message : 'Unknown currency conversion error'
-        },
-        { status: 400 }
-      );
-    }
+    console.log(`Store import: USD ${usdPrice.toFixed(2)} (always USD)`);
 
     // Calculate and lock markup amounts based on type
     let markupAmountInUSD: number;
@@ -256,14 +213,13 @@ export async function POST(request: NextRequest) {
       console.log('Markup calculation:', { markupType: finalMarkupType, markup: normalizedMarkup, usdPrice, lockedLocalPrice, exchangeRateAtImport });
 
       if (finalMarkupType === 'percentage') {
-        // Percentage-based markup
+        // Percentage-based markup (always in USD)
         markupAmountInUSD = usdPrice * (normalizedMarkup / 100);
-        markupAmountInLocalCurrency = lockedLocalPrice * (normalizedMarkup / 100);
+        markupAmountInLocalCurrency = markupAmountInUSD; // Same as USD
       } else {
-        // Fixed price markup
+        // Fixed price markup (always in USD)
+        markupAmountInUSD = normalizedMarkup;
         markupAmountInLocalCurrency = normalizedMarkup;
-        // Convert fixed markup to USD
-        markupAmountInUSD = markupAmountInLocalCurrency / exchangeRateAtImport;
       }
 
       finalPrice = lockedLocalPrice + markupAmountInLocalCurrency;
@@ -297,7 +253,7 @@ export async function POST(request: NextRequest) {
           storeId,
           lockedUSDPrice: usdPrice,
           lockedLocalPrice,
-          localCurrency: store.currency,
+          localCurrency: 'USD',
           exchangeRateAtImport,
           markup: normalizedMarkup,
           markupType: finalMarkupType,

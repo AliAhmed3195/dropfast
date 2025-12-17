@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Update business status
     await prisma.business.update({
       where: { id: user.business.id },
-      data: { expressOnboardingStatus: onboardingStatus }
+      data: { stripeAccountStatus: onboardingStatus }
     });
 
     return NextResponse.json({

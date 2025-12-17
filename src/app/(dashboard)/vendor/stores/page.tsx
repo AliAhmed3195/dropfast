@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 
 interface Store {
@@ -24,6 +25,7 @@ const STORE_TEMPLATES = [
 ];
 
 export default function VendorStoresPage() {
+  const router = useRouter();
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -50,16 +52,9 @@ export default function VendorStoresPage() {
   }, []);
 
   const fetchUserCurrency = async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const user = await response.json();
-        setUserCurrency(user.preferredCurrency || 'USD');
-        setNewStore(prev => ({ ...prev, currency: user.preferredCurrency || 'USD' }));
-      }
-    } catch (error) {
-      console.error('Error fetching user currency:', error);
-    }
+    // Currency is always USD now
+    setUserCurrency('USD');
+    setNewStore(prev => ({ ...prev, currency: 'USD' }));
   };
 
   const getCurrencyName = (currency: string) => {
@@ -276,7 +271,7 @@ export default function VendorStoresPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">My Stores</h1>
         <button
-          onClick={() => setShowCreateForm(true)}
+          onClick={() => router.push('/vendor/create-store')}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
         >
           Add Store

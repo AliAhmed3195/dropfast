@@ -59,24 +59,64 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, description, slug, template, logo, banner } = body;
+    const { name, description, slug, templateId, logo, banner, overrides } = body;
 
-    // Get user's business currency
+    // Fetch user to get businessId
     const user = await prisma.user.findUnique({
       where: { id: session.id },
-      include: { business: true }
+      select: { businessId: true }
     });
 
-    const currency = user?.business?.preferredCurrency || 'USD';
+    // Currency is always USD
+    const currency = 'USD';
 
-    console.log('Store creation request:', { name, description, slug, template, logo, banner, currency });
+    // Validate templateId exists and is active
+    if (!templateId) {
+      return NextResponse.json(
+        { error: 'Template ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const template = await prisma.template.findUnique({
+      where: { id: templateId, isActive: true }
+    });
+
+    if (!template) {
+      return NextResponse.json(
+        { error: 'Template not found or inactive' },
+        { status: 400 }
+      );
+    }
+
+    // Extract only vendor customizations (overrides)
+    // Vendor can only customize: logo, banner, primaryColor (from baseConfig.colorScheme.primary)
+    const vendorOverrides: any = {};
+    if (logo) vendorOverrides.logo = logo;
+    if (banner) vendorOverrides.banner = banner;
+    if (overrides?.primaryColor) {
+      vendorOverrides.primaryColor = overrides.primaryColor;
+    }
+
+    console.log('Store creation request:', { 
+      name, 
+      description, 
+      slug, 
+      templateId,
+      logo, 
+      banner, 
+      currency,
+      overrides: vendorOverrides,
+      user: user
+    });
 
     const store = await prisma.store.create({
       data: {
         name,
         description,
         slug,
-        template,
+        templateId,
+        overrides: Object.keys(vendorOverrides).length > 0 ? vendorOverrides : null,
         logo: logo || null,
         banner: banner || null,
         currency,

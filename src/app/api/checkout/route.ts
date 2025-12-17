@@ -100,9 +100,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get currencies from business
-    const storeCurrency = storeProduct.store.owner?.business?.preferredCurrency || 'USD';
-    const supplierCurrency = storeProduct.product.supplier?.business?.preferredCurrency || 'USD';
+    // Currency is always USD
+    const storeCurrency = 'USD';
+    const supplierCurrency = 'USD';
 
     // Use locked markup amounts from StoreProduct
     const basePrice = storeProduct.lockedUSDPrice || storeProduct.product.price;
@@ -112,8 +112,21 @@ export async function POST(request: NextRequest) {
     const markupPercentage = storeProduct.markup || 0;
     
     const finalPrice = storeProduct.finalPrice;
+    
+    // Calculate totalAmount correctly: quantity * (basePrice + markupAmount)
+    const calculatedTotalAmount = quantity * (basePrice + markupAmountInUSD);
 
-    console.log('Pricing details:', { basePrice, markupAmountInUSD, markupAmountInVendorCurrency, finalPrice, totalAmount, storeCurrency, supplierCurrency });
+    console.log('Pricing details:', { 
+      basePrice, 
+      markupAmountInUSD, 
+      markupAmountInVendorCurrency, 
+      finalPrice, 
+      quantity,
+      calculatedTotalAmount,
+      frontendTotalAmount: totalAmount,
+      storeCurrency, 
+      supplierCurrency 
+    });
 
     // Check if store requires vendor approval
     const requiresApproval = !storeProduct.store.autoForwardOrders;
@@ -129,23 +142,21 @@ export async function POST(request: NextRequest) {
         quantity,
         productPrice: basePrice,
         markupAmount: markupAmountInUSD, // Store USD equivalent for consistency
-        totalAmount: totalAmount,
+        totalAmount: calculatedTotalAmount,
         selectedVariants: JSON.stringify(selectedVariants),
         status: initialStatus,
         // Vendor approval workflow
         requiresVendorApproval: requiresApproval,
-        // Multi-currency support
+        // Currency is always USD
         lockedUSDPrice: storeProduct.lockedUSDPrice,
         lockedLocalPrice: storeProduct.lockedLocalPrice,
-        displayPrice: totalAmount,
-        displayCurrency: storeCurrency,
         settlementCurrency: 'USD',
         // Markup details
         markupPercentage: markupPercentage,
         markupAmountInVendorCurrency: markupAmountInVendorCurrency,
         markupType: markupType,
-        vendorCurrency: storeCurrency,
-        supplierCurrency: supplierCurrency,
+        vendorCurrency: 'USD',
+        supplierCurrency: 'USD',
         // Address information
         shippingAddress: {
           firstName: customerInfo.firstName,
@@ -200,14 +211,8 @@ export async function POST(request: NextRequest) {
 
     console.log('Order created successfully:', order.id);
 
-    // Create payout record immediately (PENDING status)
-    try {
-      await createPayoutRecord(order, storeProduct);
-      console.log('Payout record created for order:', order.id);
-    } catch (payoutError) {
-      console.error('Error creating payout record:', payoutError);
-      // Don't fail the order if payout creation fails
-    }
+    // Payout will be created when supplier confirms the order
+    // This ensures payout is only created for confirmed orders
 
     // In a real application, you would:
     // 1. Process payment with a payment gateway (Stripe, PayPal, etc.)
@@ -233,87 +238,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to create payout record
-async function createPayoutRecord(order: any, storeProduct: any) {
-  // Get supplier and vendor details
-  const supplier = await prisma.user.findUnique({
-    where: { id: storeProduct.product.supplierId }
-  });
-
-  const vendor = await prisma.user.findUnique({
-    where: { id: storeProduct.store.ownerId }
-  });
-
-  if (!supplier || !vendor) {
-    throw new Error('Supplier or vendor not found');
-  }
-
-  // Prepare order data for calculation
-  const orderData = {
-    id: order.id,
-    totalAmount: order.totalAmount,
-    quantity: order.quantity,
-    productPrice: order.productPrice,
-    markupAmount: order.markupAmount,
-    supplier: {
-      id: supplier.id,
-      preferredCurrency: supplier.preferredCurrency
-    },
-    vendor: {
-      id: vendor.id,
-      preferredCurrency: vendor.preferredCurrency
-    }
-  };
-
-  // Calculate payout with currency conversion
-  const calculation = await payoutCalculator.calculatePayoutWithCurrency(orderData);
-
-  // Create payout record with PENDING status
-  const payout = await prisma.payout.create({
-    data: {
-      orderId: order.id,
-      supplierId: supplier.id,
-      vendorId: vendor.id,
-      // Use new field names from schema
-      grossAmount: calculation.orderTotal,
-      supplierAmount: calculation.supplierAmount,
-      grossVendorAmount: calculation.vendorGrossAmount,
-      platformFee: calculation.platformFee,
-      stripeProcessingFee: calculation.transactionFee,
-      currencyConversionFee: calculation.currencyConversionFee,
-      finalSupplierAmount: calculation.finalSupplierAmount,
-      finalVendorAmount: calculation.finalVendorAmount,
-      platformRevenue: calculation.platformRevenue,
-      baseCurrency: 'USD',
-      supplierCurrency: supplier.preferredCurrency,
-      vendorCurrency: vendor.preferredCurrency,
-      exchangeRateAtPayout: calculation.currencyConversion?.exchangeRates?.supplier || 1,
-      
-      // Payout Locking (not locked yet)
-      isLocked: false,
-      lockedAt: null,
-      lockedExchangeRate: null,
-      lockedSupplierAmount: null,
-      lockedVendorAmount: null,
-      
-      status: 'PENDING', // Created at order placement
-      payoutMethod: 'STRIPE_CONNECT',
-      requiresApproval: false // Will be set to true when order is delivered
-    }
-  });
-
-  // Create initial status history
-  await prisma.payoutStatusHistory.create({
-    data: {
-      id: `psh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
-      payoutId: payout.id,
-      status: 'PENDING',
-      reason: 'Order placed - payout created',
-      changedBy: 'system',
-      notes: 'Payout record created when order was placed'
-    }
-  });
-
-  return payout;
-}
+// Payout creation moved to OrderStatusHandler.handleOrderConfirmed()
+// This ensures payouts are only created when supplier confirms the order
 

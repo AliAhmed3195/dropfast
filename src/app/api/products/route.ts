@@ -90,13 +90,8 @@ export async function POST(request: NextRequest) {
       variants = []
     } = await request.json();
 
-    // Get user's business currency
-    const user = await prisma.user.findUnique({
-      where: { id: session.id },
-      include: { business: true }
-    });
-
-    const currency = user?.business?.preferredCurrency || 'USD';
+    // Currency is always USD
+    const currency = 'USD';
 
     if (!name || !description || !price || !categoryId) {
       return NextResponse.json(
@@ -105,27 +100,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert price to USD and lock it
-    let lockedUSDPrice: number;
-    let exchangeRateAtCreation: number;
+    // Price is always in USD
+    const lockedUSDPrice = parseFloat(price);
+    const exchangeRateAtCreation = 1; // Always 1 since price is already in USD
     
-    try {
-      if (currency === 'USD') {
-        lockedUSDPrice = parseFloat(price);
-        exchangeRateAtCreation = 1;
-      } else {
-        lockedUSDPrice = await currencyService.convertToUSD(parseFloat(price), currency);
-        exchangeRateAtCreation = await currencyService.getRate(currency, 'USD');
-      }
-      
-      console.log(`Currency conversion: ${currency} ${price} -> USD ${lockedUSDPrice.toFixed(2)} (rate: ${exchangeRateAtCreation})`);
-    } catch (error) {
-      console.error('Currency conversion error:', error);
-      return NextResponse.json(
-        { error: 'Currency conversion failed' },
-        { status: 400 }
-      );
-    }
+    console.log(`Product price: USD ${lockedUSDPrice.toFixed(2)}`);
 
     // Prepare variants data
     const variantsData = variants.filter(v => v.name && v.value).map((variant: any) => ({
@@ -136,6 +115,13 @@ export async function POST(request: NextRequest) {
     }));
 
     console.log('Creating product with supplierId:', session.userId || session.id);
+    
+    // Fetch user to get businessId
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId || session.id },
+      select: { businessId: true }
+    });
+    
     let product;
     try {
       // Create product first
@@ -162,8 +148,8 @@ export async function POST(request: NextRequest) {
           storeId: null, // Explicitly set to null for original products
           isActive: true, // Explicitly set to true
           variants: variantsData.length > 0 ? variantsData : null, // Store as JSON
-          // Multi-currency support
-          currency,
+          // Currency is always USD
+          currency: 'USD',
           lockedUSDPrice,
           exchangeRateAtCreation,
         },
@@ -197,6 +183,8 @@ export async function POST(request: NextRequest) {
       }
     } catch (error) {
       console.error('Error creating product with variants:', error);
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
       // If variants column doesn't exist, create without variants
       console.log('Variants column not available, creating product without variants');
       console.log('Fallback - Creating product with supplierId:', session.userId || session.id);
@@ -206,7 +194,8 @@ export async function POST(request: NextRequest) {
           description,
           price: parseFloat(price),
           image,
-          category,
+          categoryId: categoryId || null,
+          subcategoryId: subcategoryId || null,
           sku: sku || null,
           brandName: brandName || null,
           minQuantity: minQuantity || null,
@@ -214,16 +203,16 @@ export async function POST(request: NextRequest) {
           metaTitle: metaTitle || null,
           metaDescription: metaDescription || null,
           metaTags: metaTags || null,
-          type: type || null,
-          subCategory: subCategory || null,
           totalQuantity: totalQuantity || 0,
           availableQuantity: availableQuantity || 0,
           shippingInfo: shippingInfo || null,
           supplierId: session.userId || session.id,
+          businessId: user?.businessId || null,
           storeId: null,
           isActive: true,
-          // Multi-currency support
-          currency,
+          variants: variantsData.length > 0 ? variantsData : null,
+          // Currency is always USD
+          currency: 'USD',
           lockedUSDPrice,
           exchangeRateAtCreation,
         },
@@ -248,8 +237,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ product });
   } catch (error) {
     console.error('Error creating product:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }

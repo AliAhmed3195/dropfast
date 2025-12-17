@@ -371,7 +371,7 @@ export default function SupplierOrdersPage() {
                         orderLockedUSDPrice={order.lockedUSDPrice}
                         showSecondary={true}
                       />
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs font-bold text-green-600 mt-1">
                         Your Revenue: ${order.productPrice.toFixed(2)} USD
                       </div>
                     </td>

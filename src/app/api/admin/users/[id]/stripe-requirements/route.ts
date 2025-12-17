@@ -8,6 +8,8 @@ import { prisma } from '@/lib/prisma';
  */
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    console.log('Stripe requirements API called with params:', params);
+    
     // Check admin session
     const session = await getSession();
     if (!session || session.role !== 'ADMIN') {
@@ -15,6 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     const userId = params.id;
+    console.log('User ID:', userId);
 
     // Get user with business info
     const user = await prisma.user.findUnique({
@@ -23,21 +26,30 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     });
 
     if (!user) {
+      console.log('User not found for ID:', userId);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (!user.business?.stripeAccountId) {
+    console.log('User found:', { id: user.id, name: user.name, businessId: user.business?.id });
+
+    // Check if user has any Stripe account (Express or Connect)
+    const accountId = user.business?.expressAccountId || user.business?.stripeAccountId;
+    console.log('Account ID:', accountId);
+    
+    if (!accountId) {
+      console.log('No Stripe account found for user');
       return NextResponse.json({ 
         error: 'No Stripe account found for this user',
         requirements: null
       }, { status: 400 });
     }
 
+    console.log('Getting requirements from Stripe for account:', accountId);
     // Get requirements from Stripe
-    const requirements = await stripeRequirementsService.getAccountRequirements(
-      user.business.stripeAccountId
-    );
+    const requirements = await stripeRequirementsService.getAccountRequirements(accountId);
+    console.log('Requirements retrieved successfully');
 
+    console.log('Updating database with requirements...');
     // Update database with latest requirements
     await prisma.business.update({
       where: { id: user.business.id },
@@ -47,6 +59,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         stripeLastRequirementsCheck: new Date()
       }
     });
+    console.log('Database updated successfully');
 
     return NextResponse.json({
       success: true,
@@ -56,7 +69,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         name: user.name,
         email: user.email
       },
-      accountId: user.business.stripeAccountId
+      accountId: accountId
     });
 
   } catch (error) {

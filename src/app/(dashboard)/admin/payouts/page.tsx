@@ -42,34 +42,44 @@ interface Payout {
     id: string;
     name: string;
     email: string;
-    preferredCurrency: string;
     bankDetails?: {
       id: string;
       isVerified: boolean;
-      isActive: boolean;
     };
     business?: {
+      id: string;
+      businessName: string;
+      // Currency is always USD
+      kycStatus: string;
+      expressAccountId?: string;
+      stripeAccountId?: string;
       stripeAccountStatus?: string;
       stripePayoutsEnabled?: boolean;
-      bankStatus?: string;
       stripeChargesEnabled?: boolean;
+      bankStatus?: string;
+      stripeLastUpdated?: string;
     };
   };
   vendor: {
     id: string;
     name: string;
     email: string;
-    preferredCurrency: string;
     bankDetails?: {
       id: string;
       isVerified: boolean;
-      isActive: boolean;
     };
     business?: {
+      id: string;
+      businessName: string;
+      // Currency is always USD
+      kycStatus: string;
+      expressAccountId?: string;
+      stripeAccountId?: string;
       stripeAccountStatus?: string;
       stripePayoutsEnabled?: boolean;
-      bankStatus?: string;
       stripeChargesEnabled?: boolean;
+      bankStatus?: string;
+      stripeLastUpdated?: string;
     };
   };
   order: {
@@ -119,6 +129,8 @@ export default function AdminPayoutsPage() {
   const [processingScheduled, setProcessingScheduled] = useState(false);
   const [bulkAction, setBulkAction] = useState('');
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('info');
   const router = useRouter();
 
   useEffect(() => {
@@ -210,10 +222,6 @@ export default function AdminPayoutsPage() {
       return { status: 'Missing', color: 'text-red-600', icon: '❌' };
     }
     
-    if (!bankDetails.isActive) {
-      return { status: 'Inactive', color: 'text-red-600', icon: '❌' };
-    }
-    
     if (bankDetails.isVerified) {
       return { status: 'Verified', color: 'text-green-600', icon: '✅' };
     }
@@ -222,28 +230,14 @@ export default function AdminPayoutsPage() {
   };
 
   const formatLockedAmount = (payout: Payout, type: 'supplier' | 'vendor') => {
-    if (!payout.isLocked) {
-      return {
-        usd: type === 'supplier' ? payout.finalSupplierAmount : payout.finalVendorAmount,
-        local: type === 'supplier' ? payout.finalSupplierAmount : payout.finalVendorAmount,
-        currency: type === 'supplier' ? payout.supplierCurrency : payout.vendorCurrency,
-        isLocked: false
-      };
-    }
-
-    const lockedAmount = type === 'supplier' 
-      ? payout.lockedSupplierAmount 
-      : payout.lockedVendorAmount;
+    // Always return USD amounts only
+    const usdAmount = type === 'supplier' ? payout.supplierAmount : payout.grossVendorAmount;
     
-    const currency = type === 'supplier' 
-      ? payout.supplierCurrency 
-      : payout.vendorCurrency;
-
     return {
-      usd: type === 'supplier' ? payout.finalSupplierAmount : payout.finalVendorAmount,
-      local: lockedAmount || (type === 'supplier' ? payout.finalSupplierAmount : payout.finalVendorAmount),
-      currency,
-      isLocked: true,
+      usd: usdAmount,
+      local: usdAmount, // Always USD
+      currency: 'USD', // Always USD
+      isLocked: payout.isLocked,
       lockedAt: payout.lockedAt
     };
   };
@@ -448,6 +442,25 @@ export default function AdminPayoutsPage() {
 
   return (
     <div className="p-6">
+      {/* Message Display */}
+      {message && (
+        <div className={`mb-4 p-4 rounded-lg ${
+          messageType === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+          messageType === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
+          'bg-blue-100 text-blue-800 border border-blue-200'
+        }`}>
+          <div className="flex justify-between items-center">
+            <span>{message}</span>
+            <button
+              onClick={() => setMessage('')}
+              className="ml-4 text-lg font-bold hover:opacity-70"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-center">
@@ -541,16 +554,19 @@ export default function AdminPayoutsPage() {
             <p className="text-2xl font-bold text-gray-900">{summary.totalPayouts}</p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500">Supplier Amount</h3>
+            <h3 className="text-sm font-medium text-gray-500">Supplier Amount (USD)</h3>
             <p className="text-2xl font-bold text-green-600">${summary.totalSupplierAmount.toFixed(2)}</p>
+            <p className="text-xs text-gray-500 mt-1">Based on locked USD prices</p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500">Vendor Amount</h3>
+            <h3 className="text-sm font-medium text-gray-500">Vendor Amount (USD)</h3>
             <p className="text-2xl font-bold text-blue-600">${summary.totalVendorAmount.toFixed(2)}</p>
+            <p className="text-xs text-gray-500 mt-1">Based on locked USD prices</p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500">Platform Revenue</h3>
+            <h3 className="text-sm font-medium text-gray-500">Platform Revenue (USD)</h3>
             <p className="text-2xl font-bold text-purple-600">${summary.totalPlatformRevenue.toFixed(2)}</p>
+            <p className="text-xs text-gray-500 mt-1">5% of vendor markup</p>
           </div>
         </div>
       )}
@@ -700,14 +716,14 @@ export default function AdminPayoutsPage() {
                     <div>
                       <div className="font-medium">{payout.supplier.name}</div>
                       <div className="text-gray-500">{payout.supplier.email}</div>
-                      <div className="text-xs text-gray-400">{payout.supplier.preferredCurrency}</div>
+                      <div className="text-xs text-gray-400">USD</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div>
                       <div className="font-medium">{payout.vendor.name}</div>
                       <div className="text-gray-500">{payout.vendor.email}</div>
-                      <div className="text-xs text-gray-400">{payout.vendor.preferredCurrency}</div>
+                      <div className="text-xs text-gray-400">USD</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -773,33 +789,15 @@ export default function AdminPayoutsPage() {
                           <>
                             <div className="flex justify-between">
                               <span className="text-gray-500">Supplier:</span>
-                              <div className="text-right">
-                                <div className="font-medium text-green-600">
-                                  {supplierAmount.local.toFixed(2)} {supplierAmount.currency}
-                                </div>
-                                {supplierAmount.isLocked && (
-                                  <div className="text-xs text-gray-400">
-                                    (${supplierAmount.usd.toFixed(2)} USD)
-                                  </div>
-                                )}
-                              </div>
+                              <span className="font-medium text-green-600">${supplierAmount.usd.toFixed(2)} USD</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-500">Vendor:</span>
-                              <div className="text-right">
-                                <div className="font-medium text-blue-600">
-                                  {vendorAmount.local.toFixed(2)} {vendorAmount.currency}
-                                </div>
-                                {vendorAmount.isLocked && (
-                                  <div className="text-xs text-gray-400">
-                                    (${vendorAmount.usd.toFixed(2)} USD)
-                                  </div>
-                                )}
-                              </div>
+                              <span className="font-medium text-blue-600">${vendorAmount.usd.toFixed(2)} USD</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-500">Platform:</span>
-                              <span className="font-medium text-purple-600">${payout.platformRevenue.toFixed(2)}</span>
+                              <span className="font-medium text-purple-600">${payout.platformRevenue.toFixed(2)} USD</span>
                             </div>
                             {payout.isLocked && (
                               <div className="text-xs text-gray-400 mt-1">

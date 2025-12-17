@@ -132,12 +132,15 @@ export class StripeRequirementsService {
         include: { business: true }
       });
 
-      if (!user || !user.business?.stripeAccountId) {
+      // Check if user has any Stripe account (Express or Connect)
+      const accountId = user?.business?.expressAccountId || user?.business?.stripeAccountId;
+      
+      if (!user || !accountId) {
         throw new Error('User or Stripe account not found');
       }
 
       // Get requirements
-      const requirements = await this.getAccountRequirements(user.business.stripeAccountId);
+      const requirements = await this.getAccountRequirements(accountId);
       
       // Check if there are missing requirements
       const hasMissingRequirements = requirements.currentlyDue.length > 0 || requirements.pastDue.length > 0;
@@ -147,7 +150,7 @@ export class StripeRequirementsService {
 
       if (hasMissingRequirements) {
         // Generate new onboarding link
-        onboardingLink = await this.generateOnboardingLink(user.business.stripeAccountId);
+        onboardingLink = await this.generateOnboardingLink(accountId);
         
         // Send email
         await this.sendRequirementsEmail(

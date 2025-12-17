@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       where: { id: user.business.id },
       data: { 
         expressAccountId: result.accountId,
-        expressOnboardingStatus: 'pending'
+        stripeAccountStatus: 'pending'
       }
     });
 

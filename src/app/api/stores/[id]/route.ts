@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(
@@ -8,16 +7,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     
-    if (!session?.user?.id) {
+    if (!session?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const store = await prisma.store.findFirst({
       where: {
-        id: params.id,
-        ownerId: session.user.id
+        OR: [
+          { id: params.id },
+          { slug: params.id }
+        ],
+        ownerId: session.id
       },
       include: {
         storeProducts: {
@@ -48,13 +50,13 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     
-    if (!session?.user?.id) {
+    if (!session?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (session.user.role !== 'VENDOR') {
+    if (session.role !== 'VENDOR_USER') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -64,8 +66,11 @@ export async function PUT(
     // Verify store ownership
     const existingStore = await prisma.store.findFirst({
       where: {
-        id: params.id,
-        ownerId: session.user.id
+        OR: [
+          { id: params.id },
+          { slug: params.id }
+        ],
+        ownerId: session.id
       }
     });
 
@@ -75,7 +80,7 @@ export async function PUT(
 
     // Update store
     const updatedStore = await prisma.store.update({
-      where: { id: params.id },
+      where: { id: existingStore.id },
       data: {
         ...(autoForwardOrders !== undefined && { autoForwardOrders }),
         ...(name && { name }),
@@ -105,21 +110,24 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     
-    if (!session?.user?.id) {
+    if (!session?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (session.user.role !== 'VENDOR') {
+    if (session.role !== 'VENDOR_USER') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Verify store ownership
     const existingStore = await prisma.store.findFirst({
       where: {
-        id: params.id,
-        ownerId: session.user.id
+        OR: [
+          { id: params.id },
+          { slug: params.id }
+        ],
+        ownerId: session.id
       }
     });
 
@@ -129,7 +137,7 @@ export async function DELETE(
 
     // Delete store
     await prisma.store.delete({
-      where: { id: params.id }
+      where: { id: existingStore.id }
     });
 
     return NextResponse.json({

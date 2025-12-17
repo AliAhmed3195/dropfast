@@ -290,15 +290,15 @@ export default function SupplierOrderDetailsPage({ params }: { params: { id: str
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Product Price (per unit):</span>
-                      <span className="font-medium">{formatCurrency(order.productPrice)}</span>
+                      <span className="font-bold text-gray-900">{formatCurrency(order.productPrice)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Markup (per unit):</span>
-                      <span className="font-medium">{formatCurrency(order.markupAmount)}</span>
+                      <span className="font-bold text-gray-900">{formatCurrency(order.markupAmount)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Customer Price (per unit):</span>
-                      <span className="font-medium">{formatCurrency(order.productPrice + order.markupAmount)}</span>
+                      <span className="font-bold text-gray-900">{formatCurrency(order.productPrice + order.markupAmount)}</span>
                     </div>
                   </div>
                 </div>

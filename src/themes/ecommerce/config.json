@@ -1,0 +1,51 @@
+{
+  "name": "E-commerce Pro",
+  "slug": "ecommerce",
+  "description": "Professional template with all features for established businesses",
+  "version": 1,
+  "pages": {
+    "landing": {
+      "sections": ["hero", "featured", "categories", "newsletter", "footer"],
+      "layout": "grid",
+      "gridColumns": 4
+    },
+    "productDetail": {
+      "layout": "single-column",
+      "showRelatedProducts": true,
+      "showReviews": true
+    },
+    "cart": {
+      "layout": "single-column",
+      "showCouponCode": true
+    },
+    "checkout": {
+      "layout": "two-column",
+      "showOrderSummary": true,
+      "showGuestCheckout": true
+    }
+  },
+  "theme": {
+    "colors": {
+      "primary": "#7C3AED",
+      "secondary": "#0891B2",
+      "accent": "#EA580C",
+      "background": "#FFFFFF",
+      "text": "#1F2937"
+    },
+    "typography": {
+      "headingFont": "Inter",
+      "bodyFont": "Inter"
+    },
+    "layout": {
+      "containerWidth": "max-w-7xl",
+      "spacing": "lg"
+    }
+  },
+  "editableFields": {
+    "logo": true,
+    "banner": true,
+    "primaryColor": true
+  }
+}
+
+

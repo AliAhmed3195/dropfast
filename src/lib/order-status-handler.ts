@@ -78,15 +78,137 @@ export class OrderStatusHandler {
   }
 
   /**
-   * Handle order confirmed by supplier
+   * Handle order confirmed by supplier - create payout record
    */
   private static async handleOrderConfirmed(orderId: string) {
-    console.log(`Order confirmed by supplier: ${orderId}`);
+    console.log(`Order confirmed by supplier: ${orderId} - creating payout record`);
     
-    // TODO: Send notification to vendor
-    // TODO: Send notification to customer
-    
-    return null;
+    try {
+      // Check if payout already exists
+      const existingPayout = await prisma.payout.findUnique({
+        where: { orderId }
+      });
+
+      if (existingPayout) {
+        console.log(`Payout already exists for order ${orderId}`);
+        return existingPayout;
+      }
+
+      // Get order with all related data
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          product: {
+            include: {
+              supplier: {
+                include: { business: true }
+              }
+            }
+          },
+          store: {
+            include: {
+              owner: {
+                include: { business: true }
+              }
+            }
+          }
+        }
+      });
+
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Import payout calculator
+      const { payoutCalculator } = await import('@/lib/payout-calculator');
+
+      // Prepare order data for calculation using LOCKED amounts
+      // Use locked USD amounts instead of customer payment amount to ensure accurate payouts
+      const lockedOrderTotal = (order.lockedUSDPrice * order.quantity) + order.markupAmount;
+      
+      const orderData = {
+        id: order.id,
+        totalAmount: lockedOrderTotal, // Use locked amount instead of customer payment
+        quantity: order.quantity,
+        productPrice: order.lockedUSDPrice, // Use locked USD price
+        markupAmount: order.markupAmount, // Already in USD
+        supplier: {
+          id: order.product.supplier.id,
+          preferredCurrency: 'USD'
+        },
+        vendor: {
+          id: order.store.owner.id,
+          preferredCurrency: 'USD'
+        }
+      };
+
+      console.log('Payout calculation using locked amounts:', {
+        orderId: order.id,
+        customerPayment: order.totalAmount,
+        lockedOrderTotal: lockedOrderTotal,
+        lockedUSDPrice: order.lockedUSDPrice,
+        markupAmount: order.markupAmount,
+        quantity: order.quantity
+      });
+
+      // Calculate payout with currency conversion
+      const calculation = await payoutCalculator.calculatePayoutWithCurrency(orderData);
+
+      // Create payout record with PENDING status
+      const payout = await prisma.payout.create({
+        data: {
+          orderId: order.id,
+          supplierId: order.product.supplier.id,
+          vendorId: order.store.owner.id,
+          supplierBusinessId: order.product.supplier.business?.id,
+          vendorBusinessId: order.store.owner.business?.id,
+          // Use new field names from schema
+          grossAmount: calculation.orderTotal,
+          supplierAmount: calculation.supplierAmount,
+          grossVendorAmount: calculation.vendorGrossAmount,
+          platformFee: calculation.platformFee,
+          stripeProcessingFee: calculation.transactionFee,
+          currencyConversionFee: calculation.currencyConversionFee,
+          finalSupplierAmount: calculation.finalSupplierAmount,
+          finalVendorAmount: calculation.finalVendorAmount,
+          platformRevenue: calculation.platformRevenue,
+          baseCurrency: 'USD',
+          supplierCurrency: 'USD',
+          vendorCurrency: 'USD',
+          exchangeRateAtPayout: calculation.currencyConversion?.exchangeRates?.supplier || 1,
+          
+          // Payout Locking (not locked yet)
+          isLocked: false,
+          lockedAt: null,
+          lockedExchangeRate: null,
+          lockedSupplierAmount: null,
+          lockedVendorAmount: null,
+          
+          status: 'PENDING', // Created when supplier confirms
+          payoutMethod: 'STRIPE_CONNECT',
+          requiresApproval: false // Will be set to true when order is delivered
+        }
+      });
+
+      // Create initial status history
+      await prisma.payoutStatusHistory.create({
+        data: {
+          id: `psh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          payoutId: payout.id,
+          status: 'PENDING',
+          reason: 'Order confirmed by supplier - payout created',
+          changedBy: 'system',
+          notes: 'Payout record created when supplier confirmed the order'
+        }
+      });
+
+      console.log(`Payout created successfully for order ${orderId}:`, payout.id);
+      return payout;
+
+    } catch (error) {
+      console.error(`Error creating payout for order ${orderId}:`, error);
+      throw error;
+    }
   }
 
   /**

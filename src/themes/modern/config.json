@@ -1,0 +1,44 @@
+{
+  "name": "Modern",
+  "slug": "modern",
+  "description": "Contemporary design with clean lines and modern aesthetics",
+  "version": 1,
+  "pages": {
+    "landing": {
+      "sections": ["hero", "featured", "categories", "newsletter"],
+      "layout": "grid",
+      "gridColumns": 3
+    },
+    "productDetail": {
+      "layout": "single-column",
+      "showRelatedProducts": true,
+      "showReviews": false
+    }
+  },
+  "theme": {
+    "colors": {
+      "primary": "#3B82F6",
+      "secondary": "#10B981",
+      "accent": "#F59E0B",
+      "background": "#FFFFFF",
+      "text": "#1F2937"
+    },
+    "typography": {
+      "headingFont": "Inter",
+      "bodyFont": "Inter",
+      "headingSize": "lg",
+      "bodySize": "base"
+    },
+    "layout": {
+      "containerWidth": "max-w-7xl",
+      "spacing": "md",
+      "borderRadius": "lg"
+    }
+  },
+  "editableFields": {
+    "logo": true,
+    "banner": true,
+    "primaryColor": true
+  }
+}
+

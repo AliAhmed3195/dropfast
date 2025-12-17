@@ -169,24 +169,16 @@ model Business {
   vatGstNumber        String?
   ntn                 String?              // National Tax Number (Pakistan)
   country             String
-  preferredCurrency   String
   addressStreet       String
   addressCity         String
   addressState        String
-  addressZip          String
   addressCountry      String
   postalCode          String?              // Country-specific postal code
   kycStatus           KycStatus            @default(PENDING)
+  preferredCurrency   String               @default("USD") // UI reference currency
   stripeAccountId     String?              // Stripe Connected Account ID
-  serviceAgreement    String?              // 'full' or 'recipient'
-  payoutStatus        String?              // 'PENDING', 'ACTIVE', 'SUSPENDED', 'FAILED'
-  capabilities        Json?                // Store requested capabilities
-  stripeAccountCreatedAt DateTime?         // When Stripe account was created
-  lastStripeSyncAt    DateTime?            // Last sync with Stripe
-  
   // Express Stripe fields
   expressAccountId        String?          // Express account ID
-  expressOnboardingStatus String?          // 'pending', 'submitted', 'completed'
   
   // Webhook integration fields
   stripeAccountStatus     String?          // 'pending', 'verified', 'restricted', 'rejected'
@@ -194,7 +186,6 @@ model Business {
   stripeRequirements      Json?            // Store requirements
   stripeMissingFields     Json?            // Store missing fields array
   stripeLastRequirementsCheck DateTime?    // Last requirements check timestamp
-  stripeOnboardingLinksSent Int?           // Count of onboarding links sent
   stripeLastUpdated       DateTime?        // Last webhook update
   stripeVerificationLevel String?          // 'unverified', 'pending', 'verified'
   stripePayoutsEnabled    Boolean?         // Payouts status
@@ -247,15 +238,37 @@ model BankDetails {
   updatedAt             DateTime  @updatedAt @default(now())
 }
 
+model Template {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  slug          String   @unique // URL-friendly identifier (e.g. 'modern', 'minimal')
+  description   String?
+  version       Int      @default(1) // Template version for versioning
+  pages         Json     // Multi-page structure (landing, productDetail, contact, about, etc.)
+  theme         Json     // Theme configuration (colors, layout, styles) - renamed from baseConfig
+  editableFields Json    // Which fields vendor can customize (logo, banner, colors, etc.)
+  previewImage  String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt @default(now())
+  
+  // Relations
+  stores        Store[]
+}
+
 model Store {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String?
-  template    String   @default("default")
-  isActive    Boolean  @default(true)
-  owner       User     @relation(fields: [ownerId], references: [id])
-  ownerId     String
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  description     String?
+  template        Template? @relation(fields: [templateId], references: [id])
+  templateId      String?  // FK to Template (nullable temporarily for migration)
+  templateVersion Int?     // Locked template version (for versioning)
+  overrides       Json?    // Vendor customizations only (logo, banner, primaryColor)
+  status          String?  @default("published") // 'draft' | 'published'
+  isActive        Boolean  @default(true)
+  owner           User     @relation(fields: [ownerId], references: [id])
+  ownerId         String
   businessId  String?
   business    Business? @relation(fields: [businessId], references: [id])
   products    Product[]
@@ -270,7 +283,7 @@ model Store {
   email       String?
   taxNumber   String?
   invoiceTemplate String @default("default")
-  // Multi-currency support
+  // Currency is always USD
   currency    String   @default("USD")
   // Vendor approval settings
   autoForwardOrders Boolean  @default(true)
@@ -319,7 +332,7 @@ model Product {
   shippingInfo Json? // Store shipping information as JSON
   // Product images relationship
   images      ProductImage[]
-  // Multi-currency support
+  // Currency is always USD
   currency    String   @default("USD")
   lockedUSDPrice Float? // Locked USD price at creation
   exchangeRateAtCreation Float? // Exchange rate used at creation
@@ -408,7 +421,7 @@ model Order {
   paymentId     String?  // Payment gateway transaction ID
   invoice       Invoice?
   payout        Payout?
-  // Multi-currency support
+  // Currency is always USD
   storeProductId String?
   storeProduct   StoreProduct? @relation(fields: [storeProductId], references: [id])
   lockedUSDPrice Float?
@@ -428,10 +441,10 @@ model Order {
   vendorRejectionReason String?
   // Markup details
   markupPercentage        Float?   // Store percentage (20%)
-  markupAmountInVendorCurrency Float? // A$51.37
+  markupAmountInVendorCurrency Float? // USD amount
   markupType              String?  // "percentage" or "fixed"
-  vendorCurrency          String?  // "AUD"
-  supplierCurrency        String?  // "GBP"
+  vendorCurrency          String?  // Always "USD"
+  supplierCurrency        String?  // Always "USD"
   // Order status history
   statusHistory OrderStatusHistory[]
   createdAt     DateTime @default(now())
@@ -541,10 +554,10 @@ model Payout {
   countryPayoutFee      Float?   // Actual country payout fee used
   stripePayoutFeeUsed   Float?   // Actual Stripe payout fee charged
   
-  // Currency Information
+  // Currency Information (Always USD)
   baseCurrency          String   @default("USD")
-  supplierCurrency      String   // Supplier's preferred currency
-  vendorCurrency        String   // Vendor's preferred currency
+  supplierCurrency      String   @default("USD") // Always USD
+  vendorCurrency        String   @default("USD") // Always USD
   exchangeRateAtPayout  Float?   // Exchange rate used for conversion
   
   // Payout Locking

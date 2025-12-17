@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '@/components/ProductImageSlider';
+import SupplierPriceCalculator from '@/components/SupplierPriceCalculator';
 
 interface Product {
   id: string;
@@ -90,6 +91,7 @@ export default function SupplierProductsPage() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [userCurrency, setUserCurrency] = useState('USD');
+  const [userPreferredCurrency, setUserPreferredCurrency] = useState<string>('USD');
   const [currentExchangeRate, setCurrentExchangeRate] = useState<number>(1);
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -172,39 +174,20 @@ export default function SupplierProductsPage() {
 
   const fetchUserCurrency = async () => {
     try {
-      const response = await fetch('/api/auth/me');
+      const response = await fetch('/api/user/profile');
       if (response.ok) {
-        const user = await response.json();
-        console.log('User data:', user); // Debug log
-        
-        // Fix: Access currency from business object
-        const currency = user.business?.preferredCurrency || 'USD';
-        console.log('Currency found:', currency); // Debug log
-        
-        setUserCurrency(currency);
-        setNewProduct(prev => ({ ...prev, currency }));
-        
-        // Fetch current exchange rate for preview
-        if (currency !== 'USD') {
-          try {
-            const rateResponse = await fetch(`/api/currency/convert?from=${currency}&to=USD&amount=1`);
-            if (rateResponse.ok) {
-              const rateData = await rateResponse.json();
-              setCurrentExchangeRate(rateData.exchangeRate || 1);
-            }
-          } catch (error) {
-            console.error('Error fetching exchange rate:', error);
-            // Use fallback rate
-            const fallbackRates: { [key: string]: number } = {
-              'EUR': 0.85, 'GBP': 0.73, 'PKR': 280.0, 'CAD': 1.35,
-              'AUD': 1.50, 'JPY': 150.0, 'INR': 83.0
-            };
-            setCurrentExchangeRate(fallbackRates[currency] || 1);
-          }
-        }
+        const userData = await response.json();
+        setUserCurrency('USD');
+        setUserPreferredCurrency(userData.business?.preferredCurrency || 'USD');
+        setNewProduct(prev => ({ ...prev, currency: 'USD' }));
+        setCurrentExchangeRate(1);
       }
     } catch (error) {
       console.error('Error fetching user currency:', error);
+      setUserCurrency('USD');
+      setUserPreferredCurrency('USD');
+      setNewProduct(prev => ({ ...prev, currency: 'USD' }));
+      setCurrentExchangeRate(1);
     }
   };
 
@@ -502,22 +485,6 @@ export default function SupplierProductsPage() {
           <h2 className="text-xl font-semibold mb-4">Add New Product</h2>
           
           {/* Currency Information Box */}
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="font-semibold text-blue-900 mb-2">Currency Information</h3>
-            <p className="text-sm text-blue-800">
-              Your business currency is set to <strong>{userCurrency} ({getCurrencyName(userCurrency)})</strong>. 
-              {userCurrency !== 'USD' ? (
-                <>
-                  {' '}Prices will be entered in {userCurrency} and automatically converted to USD for storage.
-                  {currentExchangeRate !== 1 && (
-                    <> Current exchange rate: 1 {userCurrency} = ${currentExchangeRate.toFixed(4)} USD</>
-                  )}
-                </>
-              ) : (
-                ' Prices will be stored directly in USD.'
-              )}
-            </p>
-          </div>
           
           <form onSubmit={handleAddProduct} className="space-y-4">
             <div>
@@ -544,39 +511,17 @@ export default function SupplierProductsPage() {
                 onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price ({userCurrency})
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  value={newProduct.price}
-                  onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                  placeholder={`Enter price in ${userCurrency}`}
+                <SupplierPriceCalculator
+                  onUSDCalculated={(usdAmount) => {
+                    setNewProduct({ ...newProduct, price: usdAmount.toString() });
+                  }}
+                  onSuggestedAmountCalculated={(usdAmount) => {
+                    setNewProduct({ ...newProduct, suggestedAmount: usdAmount.toString() });
+                  }}
+                  defaultCurrency={userPreferredCurrency}
                 />
-                {newProduct.price && userCurrency !== 'USD' && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    This will be converted to USD for storage: ~${(parseFloat(newProduct.price) * currentExchangeRate).toFixed(2)} (rate: {currentExchangeRate.toFixed(4)})
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Currency
-                </label>
-                <select
-                  required
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-blue-50 cursor-default"
-                  value={newProduct.currency}
-                >
-                  <option value={userCurrency}>{userCurrency} - {getCurrencyName(userCurrency)}</option>
-                </select>
-                <p className="text-xs text-blue-600 mt-1">Your currency is locked to {userCurrency}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -705,7 +650,7 @@ export default function SupplierProductsPage() {
                   onChange={(e) => setNewProduct({ ...newProduct, availableQuantity: e.target.value })}
                 />
                 <p className="text-xs text-gray-500 mt-1">Currently available for sale</p>
-            </div>
+              </div>
             </div>
 
             {/* Main Product Image */}
@@ -975,8 +920,8 @@ export default function SupplierProductsPage() {
                 </div>
               </div>
 
-              {/* Min Quantity and Suggested Amount */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              {/* Min Quantity */}
+              <div className="mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Min Quantity Purchasing
@@ -991,22 +936,8 @@ export default function SupplierProductsPage() {
                   />
                   <p className="text-xs text-gray-500 mt-1">Minimum order quantity for this product</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Suggested Amount ($)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="e.g., 25.99"
-                    value={newProduct.suggestedAmount}
-                    onChange={(e) => setNewProduct({ ...newProduct, suggestedAmount: e.target.value })}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Suggested selling price for vendors</p>
-                </div>
               </div>
+
 
               {/* SEO Fields */}
               <div className="space-y-4">
@@ -1355,7 +1286,7 @@ export default function SupplierProductsPage() {
                 <p><span className="font-medium">Min Qty:</span> {product.minQuantity}</p>
               )}
               {product.suggestedAmount && (
-                <p><span className="font-medium">Suggested Price:</span> ${product.suggestedAmount}</p>
+                <p><span className="font-medium">Suggested Price:</span> ${product.suggestedAmount} USD</p>
               )}
             </div>
 

@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
       console.error('No signature provided');
       return NextResponse.json({ error: 'No signature provided' }, { status: 400 });
     }
-    
     // Verify webhook signature
     const event = stripe.webhooks.constructEvent(
       body,
@@ -26,30 +25,24 @@ export async function POST(request: NextRequest) {
     console.log(`Received webhook: ${event.type}`);
     
     // Handle different event types
-    switch (event.type) {
-      case 'account.updated':
-        await handleAccountUpdated(event.data.object);
-        break;
-      case 'account.capabilities.updated':
-        await handleCapabilitiesUpdated(event.data.object);
-        break;
-      case 'account.external_account.updated':
-        await handleExternalAccountUpdated(event.data.object);
-        break;
-      case 'transfer.created':
-        await handleTransferCreated(event.data.object);
-        break;
-      case 'transfer.updated':
-        await handleTransferUpdated(event.data.object);
-        break;
-      case 'payout.paid':
-        await handlePayoutPaid(event.data.object);
-        break;
-      case 'payout.failed':
-        await handlePayoutFailed(event.data.object);
-        break;
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
+    const eventType = event.type as string;
+    
+    if (eventType === 'account.updated') {
+      await handleAccountUpdated(event.data.object as Stripe.Account);
+    } else if (eventType === 'account.capabilities.updated') {
+      await handleCapabilitiesUpdated((event as any).data.object as Stripe.Capability);
+    } else if (eventType === 'account.external_account.updated') {
+      await handleExternalAccountUpdated(event.data.object as Stripe.ExternalAccount);
+    } else if (eventType === 'transfer.created') {
+      await handleTransferCreated(event.data.object as Stripe.Transfer);
+    } else if (eventType === 'transfer.updated') {
+      await handleTransferUpdated(event.data.object as Stripe.Transfer);
+    } else if (eventType === 'payout.paid') {
+      await handlePayoutPaid(event.data.object as Stripe.Payout);
+    } else if (eventType === 'payout.failed') {
+      await handlePayoutFailed(event.data.object as Stripe.Payout);
+    } else {
+      console.log(`Unhandled event type: ${eventType}`);
     }
     
     return NextResponse.json({ received: true });
@@ -64,9 +57,16 @@ export async function POST(request: NextRequest) {
  */
 async function handleAccountUpdated(account: Stripe.Account) {
   try {
-    // Find user by stripeAccountId
+    // Find user by stripeAccountId or expressAccountId
     const user = await prisma.user.findFirst({
-      where: { business: { stripeAccountId: account.id } },
+      where: { 
+        business: { 
+          OR: [
+            { stripeAccountId: account.id },
+            { expressAccountId: account.id }
+          ]
+        } 
+      },
       include: { business: true }
     });
     
@@ -80,17 +80,26 @@ async function handleAccountUpdated(account: Stripe.Account) {
     const verificationLevel = determineVerificationLevel(account);
     
     // Update database
+    const updateData: any = {
+      stripeAccountStatus: accountStatus,
+      stripeVerificationLevel: verificationLevel,
+      stripePayoutsEnabled: account.payouts_enabled,
+      stripeChargesEnabled: account.charges_enabled,
+      stripeCapabilities: account.capabilities,
+      stripeRequirements: account.requirements,
+      stripeLastUpdated: new Date()
+    };
+
+    // If this is an Express account, also update the expressAccountId field
+    if (account.id === user.business.expressAccountId) {
+      updateData.expressAccountId = account.id;
+    } else if (account.id === user.business.stripeAccountId) {
+      updateData.stripeAccountId = account.id;
+    }
+
     await prisma.business.update({
       where: { id: user.business.id },
-      data: {
-        stripeAccountStatus: accountStatus,
-        stripeVerificationLevel: verificationLevel,
-        stripePayoutsEnabled: account.payouts_enabled,
-        stripeChargesEnabled: account.charges_enabled,
-        stripeCapabilities: account.capabilities,
-        stripeRequirements: account.requirements,
-        stripeLastUpdated: new Date()
-      }
+      data: updateData
     });
     
     console.log(`Updated account status for user ${user.id}: ${accountStatus}`);
@@ -104,11 +113,18 @@ async function handleAccountUpdated(account: Stripe.Account) {
  */
 async function handleCapabilitiesUpdated(capability: Stripe.Capability) {
   try {
-    const accountId = capability.account;
+    const accountId = capability.account as string;
     
-    // Find user by account ID
+    // Find user by account ID (stripeAccountId or expressAccountId)
     const user = await prisma.user.findFirst({
-      where: { business: { stripeAccountId: accountId } },
+      where: { 
+        business: { 
+          OR: [
+            { stripeAccountId: accountId },
+            { expressAccountId: accountId }
+          ]
+        } 
+      },
       include: { business: true }
     });
     
@@ -136,11 +152,18 @@ async function handleCapabilitiesUpdated(capability: Stripe.Capability) {
  */
 async function handleExternalAccountUpdated(externalAccount: Stripe.ExternalAccount) {
   try {
-    const accountId = externalAccount.account;
+    const accountId = externalAccount.account as string;
     
-    // Find user by account ID
+    // Find user by account ID (stripeAccountId or expressAccountId)
     const user = await prisma.user.findFirst({
-      where: { business: { stripeAccountId: accountId } },
+      where: { 
+        business: { 
+          OR: [
+            { stripeAccountId: accountId },
+            { expressAccountId: accountId }
+          ]
+        } 
+      },
       include: { business: true }
     });
     
@@ -244,11 +267,11 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
     const updateData: any = {};
     
     if (payout.supplierTransferId === transfer.id) {
-      updateData.supplierTransferStatus = transfer.status;
+      updateData.supplierTransferStatus = (transfer as any).status;
     }
     
     if (payout.vendorTransferId === transfer.id) {
-      updateData.vendorTransferStatus = transfer.status;
+      updateData.vendorTransferStatus = (transfer as any).status;
     }
     
     await prisma.payout.update({
@@ -263,7 +286,7 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
         status: 'PROCESSING',
         reason: `Transfer ${transfer.id} created`,
         changedBy: 'system',
-        notes: `Transfer status: ${transfer.status}`
+        notes: `Transfer status: ${(transfer as any).status}`
       }
     });
     
@@ -299,11 +322,11 @@ async function handleTransferUpdated(transfer: Stripe.Transfer) {
     const updateData: any = {};
     
     if (payout.supplierTransferId === transfer.id) {
-      updateData.supplierTransferStatus = transfer.status;
+      updateData.supplierTransferStatus = (transfer as any).status;
     }
     
     if (payout.vendorTransferId === transfer.id) {
-      updateData.vendorTransferStatus = transfer.status;
+      updateData.vendorTransferStatus = (transfer as any).status;
     }
     
     await prisma.payout.update({
@@ -344,7 +367,7 @@ async function handleTransferUpdated(transfer: Stripe.Transfer) {
       }
     }
     
-    console.log(`Updated payout ${payout.id} with transfer status: ${transfer.status}`);
+    console.log(`Updated payout ${payout.id} with transfer status: ${(transfer as any).status}`);
   } catch (error) {
     console.error('Error handling transfer updated:', error);
   }

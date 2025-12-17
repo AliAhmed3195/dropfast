@@ -475,26 +475,10 @@ export default function VendorProductsPage() {
                   <div className="flex space-x-2 mt-auto">
                     <button
                       onClick={() => router.push(`/vendor/products/${product.id}`)}
-                      className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-center"
+                      className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-center"
                     >
                       View Details
                     </button>
-                    {product.isImported ? (
-                      <button
-                        onClick={() => handleImportProduct(product.id)}
-                        disabled={importing === product.id || !selectedStore}
-                        className="flex-1 bg-orange-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                      >
-                        {importing === product.id ? 'Importing...' : 'Import Again'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => router.push(`/vendor/products/${product.id}`)}
-                        className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-                      >
-                        View Details
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>

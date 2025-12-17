@@ -1,19 +1,90 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
+import TemplateSelector from '@/components/store-templates/TemplateSelector';
+import TemplatePreview from '@/components/store-templates/TemplatePreview';
+import DynamicTemplatePreview from '@/components/store-templates/DynamicTemplatePreview';
+import TemplateCustomizer from '@/components/store-templates/TemplateCustomizer';
+import { StoreTemplate } from '@/lib/store-templates';
 
 export default function CreateStorePage() {
+  const [currentStep, setCurrentStep] = useState<'template' | 'customize' | 'setup'>('template');
+  const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showDynamicPreview, setShowDynamicPreview] = useState(false);
+  const [previewCustomizations, setPreviewCustomizations] = useState<any>(null);
+  const [templateCustomizations, setTemplateCustomizations] = useState<any>({});
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     slug: '',
-    template: 'default',
-    logo: ''
+    templateId: '',
+    logo: '',
+    banner: ''
   });
+  const [primaryColor, setPrimaryColor] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [logoPreview, setLogoPreview] = useState('');
+  const [userCurrency, setUserCurrency] = useState('USD');
+
+  useEffect(() => {
+    fetchUserCurrency();
+  }, []);
+
+  const handleTemplateSelect = (template: any) => {
+    setSelectedTemplate(template);
+    setFormData(prev => ({ ...prev, templateId: template.id }));
+    // Set default primary color from template theme
+    if (template.theme?.colors?.primary) {
+      setPrimaryColor(template.theme.colors.primary);
+    }
+  };
+
+  const handleContinueToCustomize = () => {
+    if (selectedTemplate) {
+      setCurrentStep('customize');
+    }
+  };
+
+  const handleContinueToSetup = () => {
+    setCurrentStep('setup');
+  };
+
+  const handleBackToTemplate = () => {
+    setCurrentStep('template');
+  };
+
+  const handleBackToCustomize = () => {
+    setCurrentStep('customize');
+  };
+
+  const handleCustomizationChange = (customizations: any) => {
+    setTemplateCustomizations(customizations);
+  };
+
+  const handleTemplatePreview = (template: StoreTemplate) => {
+    setSelectedTemplate(template);
+    setShowPreview(true);
+  };
+
+  const handleUseTemplate = (template: StoreTemplate) => {
+    setSelectedTemplate(template);
+    setFormData(prev => ({ ...prev, template: template.id }));
+    setShowPreview(false);
+  };
+
+  const handleDynamicPreview = (template: StoreTemplate, customizations: any) => {
+    setSelectedTemplate(template);
+    setPreviewCustomizations(customizations);
+    setShowDynamicPreview(true);
+  };
+
+  const fetchUserCurrency = async () => {
+    // Currency is always USD now
+    setUserCurrency('USD');
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -88,13 +159,40 @@ export default function CreateStorePage() {
     setLoading(true);
     setError('');
 
+    // Check if we have a selected template
+    if (!selectedTemplate) {
+      setError('Please select a template first');
+      setLoading(false);
+      return;
+    }
+
     try {
+      if (!formData.templateId) {
+        setError('Please select a template');
+        setLoading(false);
+        return;
+      }
+
+      // Vendor can only customize: logo, banner, primaryColor
+      const overrides: any = {};
+      if (formData.logo) overrides.logo = formData.logo;
+      if (formData.banner) overrides.banner = formData.banner;
+      if (primaryColor) overrides.primaryColor = primaryColor;
+
       const response = await fetch('/api/stores', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          slug: formData.slug,
+          templateId: formData.templateId,
+          logo: formData.logo || null,
+          banner: formData.banner || null,
+          overrides: Object.keys(overrides).length > 0 ? overrides : null
+        }),
       });
 
       if (response.ok) {
@@ -105,9 +203,11 @@ export default function CreateStorePage() {
           name: '',
           description: '',
           slug: '',
-          template: 'default',
-          logo: ''
+          templateId: '',
+          logo: '',
+          banner: ''
         });
+        setPrimaryColor('');
         setLogoPreview('');
         // Redirect to stores page
         window.location.href = '/vendor/stores';
@@ -127,8 +227,156 @@ export default function CreateStorePage() {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Create New Store</h1>
-        <p className="text-gray-600">Set up a new store to start selling products</p>
+        <p className="text-gray-600">
+          {currentStep === 'template' 
+            ? 'Choose a template for your store' 
+            : 'Complete your store setup'
+          }
+        </p>
       </div>
+
+      {/* Step Indicator */}
+      <div className="mb-8">
+        <div className="flex items-center space-x-2">
+          <div className={`flex items-center ${currentStep === 'template' ? 'text-blue-600' : currentStep === 'customize' || currentStep === 'setup' ? 'text-green-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              currentStep === 'template' ? 'bg-blue-600 text-white' : 
+              currentStep === 'customize' || currentStep === 'setup' ? 'bg-green-600 text-white' : 
+              'bg-gray-300 text-gray-600'
+            }`}>
+              {currentStep === 'template' ? '1' : '✓'}
+            </div>
+            <span className="ml-2 font-medium">Choose Template</span>
+          </div>
+          <div className={`flex-1 h-1 ${currentStep === 'customize' || currentStep === 'setup' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+          <div className={`flex items-center ${currentStep === 'customize' ? 'text-blue-600' : currentStep === 'setup' ? 'text-green-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              currentStep === 'customize' ? 'bg-blue-600 text-white' : 
+              currentStep === 'setup' ? 'bg-green-600 text-white' : 
+              'bg-gray-300 text-gray-600'
+            }`}>
+              {currentStep === 'customize' ? '2' : currentStep === 'setup' ? '✓' : '2'}
+            </div>
+            <span className="ml-2 font-medium">Customize</span>
+          </div>
+          <div className={`flex-1 h-1 ${currentStep === 'setup' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+          <div className={`flex items-center ${currentStep === 'setup' ? 'text-blue-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              currentStep === 'setup' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'
+            }`}>
+              3
+            </div>
+            <span className="ml-2 font-medium">Store Setup</span>
+          </div>
+        </div>
+      </div>
+
+      {currentStep === 'template' ? (
+        <div>
+          <TemplateSelector
+            onTemplateSelect={handleTemplateSelect}
+            onTemplatePreview={handleTemplatePreview}
+            selectedTemplate={selectedTemplate?.id}
+          />
+          
+          {selectedTemplate && (
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={handleContinueToCustomize}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+              >
+                Continue with {selectedTemplate.name}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : currentStep === 'customize' ? (
+        <div>
+          {/* Back Button */}
+          <div className="mb-6">
+            <button
+              onClick={handleBackToCustomize}
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Customization
+            </button>
+          </div>
+
+          {/* Selected Template Info */}
+          {selectedTemplate && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <span className="text-blue-600 font-semibold text-sm">
+                      {selectedTemplate.name.charAt(0)}
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-semibold text-blue-900">{selectedTemplate.name}</h3>
+                  <p className="text-blue-700">Customize your template settings</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Template Customizer */}
+          {selectedTemplate && (
+            <div className="max-w-4xl">
+              <TemplateCustomizer
+                template={selectedTemplate}
+                onCustomizationsChange={handleCustomizationChange}
+                initialCustomizations={templateCustomizations}
+              />
+              
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={handleContinueToSetup}
+                  className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                >
+                  Continue to Store Setup
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div>
+          {/* Back Button */}
+          <div className="mb-6">
+            <button
+              onClick={handleBackToTemplate}
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Template Selection
+            </button>
+      </div>
+
+          {/* Selected Template Info */}
+          {selectedTemplate && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <span className="text-blue-600 font-semibold text-sm">
+                      {selectedTemplate.name.charAt(0)}
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-semibold text-blue-900">{selectedTemplate.name}</h3>
+                  <p className="text-blue-700">{selectedTemplate.description}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
       <div className="max-w-2xl">
         <Card>
@@ -243,6 +491,26 @@ export default function CreateStorePage() {
               </p>
             </div>
 
+            {/* Store Currency Information */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Store Currency
+                  </h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                 <p>Your store will use <strong>USD</strong> as the default currency.</p>
+                 <p className="mt-1">All prices are displayed in USD for consistency across the platform.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Submit Button */}
             <div className="flex justify-end space-x-3">
               <button
@@ -302,6 +570,29 @@ export default function CreateStorePage() {
           </div>
         </Card>
       </div>
+        </div>
+      )}
+
+      {/* Template Preview Modal */}
+      {selectedTemplate && (
+        <TemplatePreview
+          template={selectedTemplate}
+          isOpen={showPreview}
+          onClose={() => setShowPreview(false)}
+          onUseTemplate={handleUseTemplate}
+        />
+      )}
+
+      {/* Dynamic Template Preview Modal */}
+      {selectedTemplate && (
+        <DynamicTemplatePreview
+          template={selectedTemplate}
+          isOpen={showDynamicPreview}
+          onClose={() => setShowDynamicPreview(false)}
+          onUseTemplate={handleUseTemplate}
+          customizations={previewCustomizations}
+        />
+      )}
     </div>
   );
 }

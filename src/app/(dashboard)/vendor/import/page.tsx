@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '@/components/ProductImageSlider';
+import VendorProfitCalculator from '@/components/VendorProfitCalculator';
 
 interface Product {
   id: string;
@@ -65,6 +66,10 @@ export default function VendorImportPage() {
     status: '' // New filter for product status
   });
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [markupValue, setMarkupValue] = useState<number>(10);
+  const [markupType, setMarkupType] = useState<'percentage' | 'fixed'>('percentage');
 
   useEffect(() => {
     fetchData();
@@ -186,17 +191,33 @@ export default function VendorImportPage() {
   };
 
   const handleImportProduct = async (productId: string) => {
+    const product = [...availableProducts, ...featuredProducts, ...newArrivalProducts].find(p => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+      setShowImportModal(true);
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!selectedProduct) return;
+
     try {
       const response = await fetch('/api/vendor/products/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify({
+          productId: selectedProduct.id,
+          markup: markupValue,
+          markupType: markupType
+        }),
       });
 
       if (response.ok) {
         alert('Product imported successfully!');
+        setShowImportModal(false);
+        setSelectedProduct(null);
         fetchData(); // Refresh data
       } else {
         const error = await response.json();
@@ -376,6 +397,76 @@ export default function VendorImportPage() {
           </Card>
         ))}
       </div>
+
+      {/* Import Modal with Profit Calculator */}
+      {showImportModal && selectedProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Import Product</h2>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Product Info */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Product Details</h3>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <img
+                      src={selectedProduct.image}
+                      alt={selectedProduct.name}
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                    <div>
+                      <h4 className="font-medium">{selectedProduct.name}</h4>
+                      <p className="text-sm text-gray-600">{selectedProduct.category}</p>
+                      <p className="text-lg font-bold text-blue-600">
+                        ${selectedProduct.price.toFixed(2)} USD
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-700 mt-2">{selectedProduct.description}</p>
+                </div>
+              </div>
+
+              {/* Profit Calculator */}
+              <div>
+                <VendorProfitCalculator
+                  supplierPrice={selectedProduct.price}
+                  suggestedAmount={selectedProduct.suggestedAmount}
+                  onMarkupCalculated={(markup, markupType, finalPrice) => {
+                    setMarkupValue(markup);
+                    setMarkupType(markupType);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmImport}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                Import Product
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,50 @@
+{
+  "name": "Basic",
+  "slug": "basic",
+  "description": "Simple, clean design perfect for quick setup and fast loading",
+  "version": 1,
+  "pages": {
+    "landing": {
+      "sections": ["hero", "featured", "categories", "newsletter", "footer"],
+      "layout": "grid",
+      "gridColumns": 3
+    },
+    "productDetail": {
+      "layout": "single-column",
+      "showRelatedProducts": true,
+      "showReviews": false
+    },
+    "cart": {
+      "layout": "single-column",
+      "showCouponCode": false
+    },
+    "checkout": {
+      "layout": "two-column",
+      "showOrderSummary": true
+    }
+  },
+  "theme": {
+    "colors": {
+      "primary": "#3B82F6",
+      "secondary": "#10B981",
+      "accent": "#F59E0B",
+      "background": "#FFFFFF",
+      "text": "#1F2937"
+    },
+    "typography": {
+      "headingFont": "Inter",
+      "bodyFont": "Inter"
+    },
+    "layout": {
+      "containerWidth": "max-w-7xl",
+      "spacing": "md"
+    }
+  },
+  "editableFields": {
+    "logo": true,
+    "banner": true,
+    "primaryColor": true
+  }
+}
+
+

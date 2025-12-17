@@ -108,23 +108,15 @@ export default function OrderDetailCurrencyDisplay({
 
   return (
     <div className={className}>
-      {/* Primary Amount */}
-      <div className="font-medium text-gray-900">
-        {formatAmount(currencyDisplay.primaryAmount, currencyDisplay.primaryCurrency)}
-        {currencyDisplay.primaryCurrency !== 'USD' && (
-          <span className="text-sm text-gray-500 ml-1">
-            {currencyDisplay.primaryCurrency}
-          </span>
-        )}
+      {/* USD Amount (Always Bold and Primary) */}
+      <div className="font-bold text-gray-900">
+        {formatAmount(currencyDisplay.secondaryAmount || currencyDisplay.primaryAmount, 'USD')}
       </div>
 
-      {/* Secondary Amount (USD) */}
-      {showSecondary && currencyDisplay.secondaryAmount && currencyDisplay.secondaryCurrency && (
-        <div className="text-sm text-gray-500">
-          {formatAmount(currencyDisplay.secondaryAmount, currencyDisplay.secondaryCurrency)}
-          {currencyDisplay.secondaryCurrency !== 'USD' && (
-            <span className="ml-1">{currencyDisplay.secondaryCurrency}</span>
-          )}
+      {/* Local Currency Amount (Below, Highlighted) */}
+      {showSecondary && currencyDisplay.primaryCurrency !== 'USD' && (
+        <div className="text-sm bg-blue-50 text-blue-700 px-2 py-1 rounded mt-1 inline-block">
+          {formatAmount(currencyDisplay.primaryAmount, currencyDisplay.primaryCurrency)}
         </div>
       )}
 

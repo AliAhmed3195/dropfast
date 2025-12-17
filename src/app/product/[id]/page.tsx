@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { useCart } from '@/contexts/CartContext';
-import { currencyDetection } from '@/lib/currency-detection';
+import IPBasedCurrencyDisplay from '@/components/IPBasedCurrencyDisplay';
 import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Product {
@@ -111,7 +111,36 @@ export default function ProductDetailPage() {
   const [currencyInfo, setCurrencyInfo] = useState<any>(null);
   const [convertedPrice, setConvertedPrice] = useState<number | null>(null);
   const [converting, setConverting] = useState(false);
+  const [detectedCurrency, setDetectedCurrency] = useState('USD');
   const [showBottomSlider, setShowBottomSlider] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Debug useEffect to monitor state changes
+  useEffect(() => {
+    console.log('State changed:', {
+      customerCurrency,
+      convertedPrice,
+      detectedCurrency,
+      converting
+    });
+  }, [customerCurrency, convertedPrice, detectedCurrency, converting]);
+
+  const getCurrencySymbol = (currency: string) => {
+    const symbols: { [key: string]: string } = {
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'PKR': '₨',
+      'CAD': 'C$',
+      'AUD': 'A$',
+      'JPY': '¥',
+      'INR': '₹',
+      'AED': 'د.إ',
+      'SAR': '﷼',
+      'MYR': 'RM',
+    };
+    return symbols[currency] || currency;
+  };
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
@@ -155,10 +184,28 @@ export default function ProductDetailPage() {
     try {
       setLoading(true);
       
-      // Detect customer currency
-      const detectedCurrencyInfo = await currencyDetection.detectCurrency();
-      setCustomerCurrency(detectedCurrencyInfo.currency);
-      setCurrencyInfo(detectedCurrencyInfo);
+      // Detect customer currency using the same API as store listing
+      console.log('Detecting currency...');
+      const currencyResponse = await fetch(`/api/currency/detect?t=${Date.now()}`);
+      console.log('Currency detection response status:', currencyResponse.status);
+      
+      let currencyData = null;
+      let detected = 'USD';
+      
+      if (currencyResponse.ok) {
+        currencyData = await currencyResponse.json();
+        console.log('Currency detection data:', currencyData);
+        detected = currencyData.currency || 'USD';
+        console.log('Detected currency:', detected);
+        setDetectedCurrency(detected);
+        setCustomerCurrency(detected);
+        setCurrencyInfo({ currency: detected });
+      } else {
+        console.log('Currency detection failed, using USD');
+        setDetectedCurrency('USD');
+        setCustomerCurrency('USD');
+        setCurrencyInfo({ currency: 'USD' });
+      }
       
       // Fetch product data
       const response = await fetch(`/api/products/${productId}`);
@@ -183,7 +230,13 @@ export default function ProductDetailPage() {
       
       // Convert price to customer currency
       if (data.product) {
-        await convertProductPrice(data.product, detectedCurrencyInfo);
+        console.log('About to convert price for currency:', detected);
+        console.log('Product data:', data.product);
+        console.log('Calling convertProductPrice...');
+        await convertProductPrice(data.product, { currency: detected });
+        console.log('convertProductPrice completed');
+      } else {
+        console.log('No product data to convert');
       }
       
     } catch (error) {
@@ -195,21 +248,46 @@ export default function ProductDetailPage() {
   };
 
   const convertProductPrice = async (product: Product, currencyInfo: any) => {
+    console.log('=== convertProductPrice called ===');
+    console.log('Product:', product);
+    console.log('Currency Info:', currencyInfo);
+    
     setConverting(true);
     
     try {
-      const convertedPrice = await currencyDetection.convertPrice(
-        product.finalPrice,
-        product.localCurrency,
-        currencyInfo.currency
-      );
+      console.log('Converting price:', {
+        productPrice: product.finalPrice,
+        targetCurrency: currencyInfo.currency,
+        productId: product.id
+      });
       
-      setConvertedPrice(convertedPrice);
+      if (currencyInfo.currency === 'USD') {
+        setConvertedPrice(product.finalPrice);
+        console.log('No conversion needed - already USD');
+      } else {
+        const url = `/api/currency/convert?from=USD&to=${currencyInfo.currency}&amount=${product.finalPrice}`;
+        console.log('Making request to:', url);
+        
+        const response = await fetch(url);
+        console.log('Currency conversion response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Currency conversion result:', data);
+          console.log('Setting converted price to:', data.convertedAmount);
+          setConvertedPrice(data.convertedAmount);
+        } else {
+          const errorText = await response.text();
+          console.error('Currency conversion failed:', response.status, errorText);
+          setConvertedPrice(null);
+        }
+      }
     } catch (error) {
       console.error('Error converting price:', error);
       setConvertedPrice(product.finalPrice);
     } finally {
       setConverting(false);
+      console.log('=== convertProductPrice finished ===');
     }
   };
 
@@ -318,6 +396,10 @@ export default function ProductDetailPage() {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
+  if (error) {
+    return <div className="min-h-screen flex items-center justify-center text-red-600">Error: {error}</div>;
+  }
+
   if (!product) {
     return <div className="min-h-screen flex items-center justify-center">Product not found</div>;
   }
@@ -386,13 +468,13 @@ export default function ProductDetailPage() {
               <div className="mt-4 flex items-center justify-between">
                 <div className="flex flex-col">
                   <span className="text-3xl font-bold text-indigo-600">
-                    {currencyDetection.getCurrencySymbol(customerCurrency)}
+                    {getCurrencySymbol(customerCurrency)}
                     {convertedPrice ? convertedPrice.toFixed(2) : product.finalPrice.toFixed(2)}
                     {converting && <span className="text-sm text-gray-500 ml-2">(Converting...)</span>}
                   </span>
                   {convertedPrice && customerCurrency !== product.localCurrency && (
                     <span className="text-sm text-gray-500">
-                      Store: {currencyDetection.getCurrencySymbol(product.localCurrency)}{product.finalPrice.toFixed(2)}
+                      Store: {getCurrencySymbol(product.localCurrency)}{product.finalPrice.toFixed(2)}
                     </span>
                   )}
                 </div>
@@ -408,12 +490,17 @@ export default function ProductDetailPage() {
                       setConverting(true);
                       
                       try {
-                        const convertedPrice = await currencyDetection.convertPrice(
-                          product.finalPrice,
-                          product.localCurrency,
-                          newCurrency
-                        );
-                        setConvertedPrice(convertedPrice);
+                        if (newCurrency === 'USD') {
+                          setConvertedPrice(product.finalPrice);
+                        } else {
+                          const response = await fetch(`/api/currency/convert?from=USD&to=${newCurrency}&amount=${product.finalPrice}`);
+                          if (response.ok) {
+                            const data = await response.json();
+                            setConvertedPrice(data.convertedAmount);
+                          } else {
+                            setConvertedPrice(null);
+                          }
+                        }
                       } catch (error) {
                         console.error('Error converting price:', error);
                         setConvertedPrice(product.finalPrice);
@@ -536,7 +623,7 @@ export default function ProductDetailPage() {
               <div className="flex justify-between items-center">
                 <span className="text-lg font-medium">Total:</span>
                 <span className="text-2xl font-bold text-indigo-600">
-                  {currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}
+                  {getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}
                 </span>
               </div>
             </div>
@@ -552,13 +639,13 @@ export default function ProductDetailPage() {
                     : 'bg-indigo-600 text-white hover:bg-indigo-700'
                 }`}
               >
-                {isAddedToCart ? '✓ Added to Cart' : `Add to Cart - ${currencyDetection.getCurrencySymbol(customerCurrency)}${calculateTotalPrice().toFixed(2)}`}
+                {isAddedToCart ? '✓ Added to Cart' : `Add to Cart - ${getCurrencySymbol(customerCurrency)}${calculateTotalPrice().toFixed(2)}`}
               </button>
               <button
                 onClick={handleBuyNow}
                 className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors"
               >
-                Buy Now - {currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}
+                Buy Now - {getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}
               </button>
             </div>
           </div>
@@ -619,7 +706,7 @@ export default function ProductDetailPage() {
                 <div className="bg-gray-100 p-4 rounded-lg mb-6">
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-medium text-gray-900">Total Items: {getTotalItems()}</span>
-                    <span className="text-xl font-bold text-indigo-600">{currencyDetection.getCurrencySymbol(customerCurrency)}{getTotalPrice().toFixed(2)}</span>
+                    <span className="text-xl font-bold text-indigo-600">{getCurrencySymbol(customerCurrency)}{getTotalPrice().toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -962,7 +1049,7 @@ export default function ProductDetailPage() {
                           )}
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-gray-900">{currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}</p>
+                          <p className="font-semibold text-gray-900">{getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}</p>
                         </div>
                       </div>
 
@@ -970,7 +1057,7 @@ export default function ProductDetailPage() {
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Subtotal</span>
-                          <span className="font-medium">{currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}</span>
+                          <span className="font-medium">{getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Shipping</span>
@@ -983,7 +1070,7 @@ export default function ProductDetailPage() {
                         <div className="border-t pt-2">
                           <div className="flex justify-between text-lg font-semibold">
                             <span>Total</span>
-                            <span>{currencyDetection.getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}</span>
+                            <span>{getCurrencySymbol(customerCurrency)}{calculateTotalPrice().toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -995,7 +1082,7 @@ export default function ProductDetailPage() {
                         disabled={processing}
                         className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {processing ? 'Processing...' : `Pay Now - ${currencyDetection.getCurrencySymbol(customerCurrency)}${calculateTotalPrice().toFixed(2)}`}
+                        {processing ? 'Processing...' : `Pay Now - ${getCurrencySymbol(customerCurrency)}${calculateTotalPrice().toFixed(2)}`}
                       </button>
                     </Card>
                   </div>

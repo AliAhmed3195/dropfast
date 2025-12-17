@@ -79,7 +79,6 @@ export async function POST(
       where: { id: user.business.id },
       data: { 
         expressAccountId: result.accountId,
-        expressOnboardingStatus: 'pending'
       }
     });
 
@@ -150,7 +149,7 @@ export async function GET(
         userName: user.name,
         businessCountry: user.business.country,
         accountId: user.business.expressAccountId,
-        onboardingStatus: user.business.expressOnboardingStatus,
+        onboardingStatus: user.business.stripeAccountStatus,
         stripeStatus: status,
         isOnboardingComplete: status.details_submitted && status.payouts_enabled
       }

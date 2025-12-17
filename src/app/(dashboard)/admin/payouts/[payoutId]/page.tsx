@@ -5,15 +5,15 @@ import { useRouter } from 'next/navigation';
 
 interface PayoutDetails {
   id: string;
-  orderTotal: number;
-  supplierAmount: number;
-  vendorGrossAmount: number;
-  platformFee: number;
-  transactionFee: number;
-  currencyConversionFee: number;
-  finalSupplierAmount: number;
-  finalVendorAmount: number;
-  platformRevenue: number;
+  orderTotal?: number;
+  supplierAmount?: number;
+  vendorGrossAmount?: number;
+  platformFee?: number;
+  transactionFee?: number;
+  currencyConversionFee?: number;
+  finalSupplierAmount?: number;
+  finalVendorAmount?: number;
+  platformRevenue?: number;
   baseCurrency: string;
   supplierCurrency: string;
   vendorCurrency: string;
@@ -31,17 +31,21 @@ interface PayoutDetails {
     id: string;
     name: string;
     email: string;
-    preferredCurrency: string;
+    business?: {
+      preferredCurrency: string;
+    };
   };
   vendor: {
     id: string;
     name: string;
     email: string;
-    preferredCurrency: string;
+    business?: {
+      preferredCurrency: string;
+    };
   };
   order: {
     id: string;
-    totalAmount: number;
+    totalAmount?: number;
     status: string;
     product: {
       id: string;
@@ -226,7 +230,7 @@ export default function PayoutDetailsPage({ params }: { params: { payoutId: stri
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">{payout.order.product.name}</h3>
                   <p className="text-sm text-gray-600">Order #{payout.order.id.slice(-8)}</p>
-                  <p className="text-sm text-gray-600">Total: ${payout.order.totalAmount.toFixed(2)}</p>
+                  <p className="text-sm text-gray-600">Total: ${(payout.order?.totalAmount || 0).toFixed(2)}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4 pt-4 border-t">
@@ -236,7 +240,7 @@ export default function PayoutDetailsPage({ params }: { params: { payoutId: stri
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Order Total</p>
-                  <p className="text-sm text-gray-900">${payout.orderTotal.toFixed(2)}</p>
+                  <p className="text-sm text-gray-900">${(payout.orderTotal || payout.order?.totalAmount || 0).toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -256,11 +260,11 @@ export default function PayoutDetailsPage({ params }: { params: { payoutId: stri
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Preferred Currency</p>
-                <p className="text-sm text-gray-900">{payout.supplier.preferredCurrency}</p>
+                <p className="text-sm text-gray-900">{payout.supplier.business?.preferredCurrency || 'USD'}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Amount (USD)</p>
-                <p className="text-lg font-bold text-green-600">${payout.finalSupplierAmount.toFixed(2)}</p>
+                <p className="text-lg font-bold text-green-600">${(payout.finalSupplierAmount || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -279,11 +283,11 @@ export default function PayoutDetailsPage({ params }: { params: { payoutId: stri
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Preferred Currency</p>
-                <p className="text-sm text-gray-900">{payout.vendor.preferredCurrency}</p>
+                <p className="text-sm text-gray-900">{payout.vendor.business?.preferredCurrency || 'USD'}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Amount (USD)</p>
-                <p className="text-lg font-bold text-blue-600">${payout.finalVendorAmount.toFixed(2)}</p>
+                <p className="text-lg font-bold text-blue-600">${(payout.finalVendorAmount || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -297,42 +301,42 @@ export default function PayoutDetailsPage({ params }: { params: { payoutId: stri
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Order Total</span>
-                <span className="text-sm font-medium text-gray-900">${payout.orderTotal.toFixed(2)}</span>
+                <span className="text-sm font-medium text-gray-900">${(payout.orderTotal || payout.order?.totalAmount || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Supplier Amount</span>
-                <span className="text-sm font-medium text-green-600">${payout.supplierAmount.toFixed(2)}</span>
+                <span className="text-sm font-medium text-green-600">${(payout.supplierAmount || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Vendor Gross Amount</span>
-                <span className="text-sm font-medium text-blue-600">${payout.vendorGrossAmount.toFixed(2)}</span>
+                <span className="text-sm font-medium text-blue-600">${(payout.vendorGrossAmount || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Platform Fee (5%)</span>
-                <span className="text-sm font-medium text-purple-600">-${payout.platformFee.toFixed(2)}</span>
+                <span className="text-sm font-medium text-purple-600">-${(payout.platformFee || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Transaction Fee</span>
-                <span className="text-sm font-medium text-gray-600">-${payout.transactionFee.toFixed(2)}</span>
+                <span className="text-sm font-medium text-gray-600">-${(payout.transactionFee || 0).toFixed(2)}</span>
               </div>
               {payout.currencyConversionFee > 0 && (
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Currency Conversion Fee</span>
-                  <span className="text-sm font-medium text-gray-600">-${payout.currencyConversionFee.toFixed(2)}</span>
+                  <span className="text-sm font-medium text-gray-600">-${(payout.currencyConversionFee || 0).toFixed(2)}</span>
                 </div>
               )}
               <div className="border-t pt-3">
                 <div className="flex justify-between">
                   <span className="text-base font-medium text-gray-900">Final Supplier Amount</span>
-                  <span className="text-base font-bold text-green-600">${payout.finalSupplierAmount.toFixed(2)}</span>
+                  <span className="text-base font-bold text-green-600">${(payout.finalSupplierAmount || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-base font-medium text-gray-900">Final Vendor Amount</span>
-                  <span className="text-base font-bold text-blue-600">${payout.finalVendorAmount.toFixed(2)}</span>
+                  <span className="text-base font-bold text-blue-600">${(payout.finalVendorAmount || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-base font-medium text-gray-900">Platform Revenue</span>
-                  <span className="text-base font-bold text-purple-600">${payout.platformRevenue.toFixed(2)}</span>
+                  <span className="text-base font-bold text-purple-600">${(payout.platformRevenue || 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -361,7 +365,7 @@ export default function PayoutDetailsPage({ params }: { params: { payoutId: stri
               {payout.exchangeRateAtPayout && (
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Exchange Rate</span>
-                  <span className="text-sm text-gray-900">{payout.exchangeRateAtPayout.toFixed(4)}</span>
+                  <span className="text-sm text-gray-900">{(payout.exchangeRateAtPayout || 1).toFixed(4)}</span>
                 </div>
               )}
               <div className="flex justify-between">

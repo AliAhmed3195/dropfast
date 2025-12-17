@@ -394,9 +394,9 @@ export default function AdminOrderDetailsPage({ params }: { params: { id: string
                 <div className="flex justify-between">
                   <span className="text-gray-600">Vendor Markup:</span>
                   <div className="text-right">
-                    <div className="font-medium">${(order.markupAmount * order.quantity).toFixed(2)} USD</div>
+                    <div className="font-bold text-gray-900">${(order.markupAmount * order.quantity).toFixed(2)} USD</div>
                     {order.markupAmountInVendorCurrency && order.vendorCurrency && order.vendorCurrency !== 'USD' && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm bg-blue-50 text-blue-700 px-2 py-1 rounded mt-1 inline-block">
                         {order.markupAmountInVendorCurrency * order.quantity} {order.vendorCurrency}
                         {order.markupType === 'percentage' && order.markupPercentage && (
                           <span className="ml-2">({order.markupPercentage}%)</span>

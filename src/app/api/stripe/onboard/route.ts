@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
           line1: user.business.addressStreet,
           city: user.business.addressCity,
           state: user.business.addressState,
-          postal_code: user.business.addressZip,
+          postal_code: user.business.postalCode,
           country: user.business.addressCountry,
         },
         ntn: ntn || user.business.ntn, // Use provided NTN or existing business NTN

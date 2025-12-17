@@ -22,7 +22,6 @@ interface UserFormData {
   addressStreet?: string;
   addressCity?: string;
   addressState?: string;
-  addressZip?: string;
   addressCountry?: string;
   
   // KYC fields (for VENDOR_USER and SUPPLIER_USER)
@@ -64,7 +63,6 @@ export default function AddUserPage() {
     addressStreet: '',
     addressCity: '',
     addressState: '',
-    addressZip: '',
     addressCountry: 'US'
   });
   const [loading, setLoading] = useState(false);
@@ -75,10 +73,20 @@ export default function AddUserPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // Reset currency to USD when role changes to supplier or vendor
+    if (name === 'role' && (value === 'SUPPLIER_USER' || value === 'VENDOR_USER')) {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        preferredCurrency: 'USD'
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleKycSubmit = (kycFormData: any) => {
@@ -133,22 +141,188 @@ export default function AddUserPage() {
   const getCurrencyOptions = (role: string) => {
     switch (role) {
       case 'SUPPLIER_USER':
+        // Supplier always uses USD in database, but can select local currency for UI reference
         return [
-          { value: 'USD', label: 'USD - US Dollar' },
+          { value: 'USD', label: 'USD - US Dollar (Default)' },
           { value: 'EUR', label: 'EUR - Euro' },
           { value: 'GBP', label: 'GBP - British Pound' },
           { value: 'PKR', label: 'PKR - Pakistani Rupee' },
           { value: 'CAD', label: 'CAD - Canadian Dollar' },
-          { value: 'AUD', label: 'AUD - Australian Dollar' }
+          { value: 'AUD', label: 'AUD - Australian Dollar' },
+          { value: 'JPY', label: 'JPY - Japanese Yen' },
+          { value: 'INR', label: 'INR - Indian Rupee' },
+          { value: 'AED', label: 'AED - UAE Dirham' },
+          { value: 'SAR', label: 'SAR - Saudi Riyal' },
+          { value: 'MYR', label: 'MYR - Malaysian Ringgit' },
+          { value: 'CHF', label: 'CHF - Swiss Franc' },
+          { value: 'SEK', label: 'SEK - Swedish Krona' },
+          { value: 'NOK', label: 'NOK - Norwegian Krone' },
+          { value: 'DKK', label: 'DKK - Danish Krone' },
+          { value: 'PLN', label: 'PLN - Polish Zloty' },
+          { value: 'CZK', label: 'CZK - Czech Koruna' },
+          { value: 'HUF', label: 'HUF - Hungarian Forint' },
+          { value: 'RON', label: 'RON - Romanian Leu' },
+          { value: 'BGN', label: 'BGN - Bulgarian Lev' },
+          { value: 'HRK', label: 'HRK - Croatian Kuna' },
+          { value: 'RSD', label: 'RSD - Serbian Dinar' },
+          { value: 'BAM', label: 'BAM - Bosnia-Herzegovina Mark' },
+          { value: 'MKD', label: 'MKD - Macedonian Denar' },
+          { value: 'ALL', label: 'ALL - Albanian Lek' },
+          { value: 'MNT', label: 'MNT - Mongolian Tugrik' },
+          { value: 'KZT', label: 'KZT - Kazakhstani Tenge' },
+          { value: 'UZS', label: 'UZS - Uzbekistani Som' },
+          { value: 'KGS', label: 'KGS - Kyrgyzstani Som' },
+          { value: 'TJS', label: 'TJS - Tajikistani Somoni' },
+          { value: 'TMT', label: 'TMT - Turkmenistani Manat' },
+          { value: 'AFN', label: 'AFN - Afghan Afghani' },
+          { value: 'BDT', label: 'BDT - Bangladeshi Taka' },
+          { value: 'LKR', label: 'LKR - Sri Lankan Rupee' },
+          { value: 'NPR', label: 'NPR - Nepalese Rupee' },
+          { value: 'BTN', label: 'BTN - Bhutanese Ngultrum' },
+          { value: 'MVR', label: 'MVR - Maldivian Rufiyaa' },
+          { value: 'IDR', label: 'IDR - Indonesian Rupiah' },
+          { value: 'THB', label: 'THB - Thai Baht' },
+          { value: 'VND', label: 'VND - Vietnamese Dong' },
+          { value: 'PHP', label: 'PHP - Philippine Peso' },
+          { value: 'SGD', label: 'SGD - Singapore Dollar' },
+          { value: 'BND', label: 'BND - Brunei Dollar' },
+          { value: 'MMK', label: 'MMK - Myanmar Kyat' },
+          { value: 'LAK', label: 'LAK - Lao Kip' },
+          { value: 'KHR', label: 'KHR - Cambodian Riel' },
+          { value: 'KRW', label: 'KRW - South Korean Won' },
+          { value: 'TWD', label: 'TWD - Taiwan Dollar' },
+          { value: 'HKD', label: 'HKD - Hong Kong Dollar' },
+          { value: 'MOP', label: 'MOP - Macanese Pataca' },
+          { value: 'CNY', label: 'CNY - Chinese Yuan' },
+          { value: 'MXN', label: 'MXN - Mexican Peso' },
+          { value: 'BRL', label: 'BRL - Brazilian Real' },
+          { value: 'ARS', label: 'ARS - Argentine Peso' },
+          { value: 'CLP', label: 'CLP - Chilean Peso' },
+          { value: 'COP', label: 'COP - Colombian Peso' },
+          { value: 'PEN', label: 'PEN - Peruvian Sol' },
+          { value: 'UYU', label: 'UYU - Uruguayan Peso' },
+          { value: 'VES', label: 'VES - Venezuelan Bolívar' },
+          { value: 'BOB', label: 'BOB - Bolivian Boliviano' },
+          { value: 'PYG', label: 'PYG - Paraguayan Guarani' },
+          { value: 'ZAR', label: 'ZAR - South African Rand' },
+          { value: 'EGP', label: 'EGP - Egyptian Pound' },
+          { value: 'MAD', label: 'MAD - Moroccan Dirham' },
+          { value: 'TND', label: 'TND - Tunisian Dinar' },
+          { value: 'DZD', label: 'DZD - Algerian Dinar' },
+          { value: 'LYD', label: 'LYD - Libyan Dinar' },
+          { value: 'ETB', label: 'ETB - Ethiopian Birr' },
+          { value: 'KES', label: 'KES - Kenyan Shilling' },
+          { value: 'UGX', label: 'UGX - Ugandan Shilling' },
+          { value: 'TZS', label: 'TZS - Tanzanian Shilling' },
+          { value: 'RWF', label: 'RWF - Rwandan Franc' },
+          { value: 'GHS', label: 'GHS - Ghanaian Cedi' },
+          { value: 'NGN', label: 'NGN - Nigerian Naira' },
+          { value: 'XOF', label: 'XOF - West African CFA Franc' },
+          { value: 'XAF', label: 'XAF - Central African CFA Franc' },
+          { value: 'TRY', label: 'TRY - Turkish Lira' },
+          { value: 'ILS', label: 'ILS - Israeli Shekel' },
+          { value: 'JOD', label: 'JOD - Jordanian Dinar' },
+          { value: 'LBP', label: 'LBP - Lebanese Pound' },
+          { value: 'KWD', label: 'KWD - Kuwaiti Dinar' },
+          { value: 'BHD', label: 'BHD - Bahraini Dinar' },
+          { value: 'QAR', label: 'QAR - Qatari Riyal' },
+          { value: 'OMR', label: 'OMR - Omani Rial' },
+          { value: 'YER', label: 'YER - Yemeni Rial' },
+          { value: 'IRR', label: 'IRR - Iranian Rial' },
+          { value: 'IQD', label: 'IQD - Iraqi Dinar' },
+          { value: 'SYP', label: 'SYP - Syrian Pound' },
         ];
       case 'VENDOR_USER':
+        // Vendor can select local currency for UI reference, but database uses USD
         return [
-          { value: 'USD', label: 'USD - US Dollar' },
+          { value: 'USD', label: 'USD - US Dollar (Default)' },
           { value: 'EUR', label: 'EUR - Euro' },
           { value: 'GBP', label: 'GBP - British Pound' },
           { value: 'PKR', label: 'PKR - Pakistani Rupee' },
           { value: 'CAD', label: 'CAD - Canadian Dollar' },
-          { value: 'AUD', label: 'AUD - Australian Dollar' }
+          { value: 'AUD', label: 'AUD - Australian Dollar' },
+          { value: 'JPY', label: 'JPY - Japanese Yen' },
+          { value: 'INR', label: 'INR - Indian Rupee' },
+          { value: 'AED', label: 'AED - UAE Dirham' },
+          { value: 'SAR', label: 'SAR - Saudi Riyal' },
+          { value: 'MYR', label: 'MYR - Malaysian Ringgit' },
+          { value: 'CHF', label: 'CHF - Swiss Franc' },
+          { value: 'SEK', label: 'SEK - Swedish Krona' },
+          { value: 'NOK', label: 'NOK - Norwegian Krone' },
+          { value: 'DKK', label: 'DKK - Danish Krone' },
+          { value: 'PLN', label: 'PLN - Polish Zloty' },
+          { value: 'CZK', label: 'CZK - Czech Koruna' },
+          { value: 'HUF', label: 'HUF - Hungarian Forint' },
+          { value: 'RON', label: 'RON - Romanian Leu' },
+          { value: 'BGN', label: 'BGN - Bulgarian Lev' },
+          { value: 'HRK', label: 'HRK - Croatian Kuna' },
+          { value: 'RSD', label: 'RSD - Serbian Dinar' },
+          { value: 'BAM', label: 'BAM - Bosnia-Herzegovina Mark' },
+          { value: 'MKD', label: 'MKD - Macedonian Denar' },
+          { value: 'ALL', label: 'ALL - Albanian Lek' },
+          { value: 'MNT', label: 'MNT - Mongolian Tugrik' },
+          { value: 'KZT', label: 'KZT - Kazakhstani Tenge' },
+          { value: 'UZS', label: 'UZS - Uzbekistani Som' },
+          { value: 'KGS', label: 'KGS - Kyrgyzstani Som' },
+          { value: 'TJS', label: 'TJS - Tajikistani Somoni' },
+          { value: 'TMT', label: 'TMT - Turkmenistani Manat' },
+          { value: 'AFN', label: 'AFN - Afghan Afghani' },
+          { value: 'BDT', label: 'BDT - Bangladeshi Taka' },
+          { value: 'LKR', label: 'LKR - Sri Lankan Rupee' },
+          { value: 'NPR', label: 'NPR - Nepalese Rupee' },
+          { value: 'BTN', label: 'BTN - Bhutanese Ngultrum' },
+          { value: 'MVR', label: 'MVR - Maldivian Rufiyaa' },
+          { value: 'IDR', label: 'IDR - Indonesian Rupiah' },
+          { value: 'THB', label: 'THB - Thai Baht' },
+          { value: 'VND', label: 'VND - Vietnamese Dong' },
+          { value: 'PHP', label: 'PHP - Philippine Peso' },
+          { value: 'SGD', label: 'SGD - Singapore Dollar' },
+          { value: 'BND', label: 'BND - Brunei Dollar' },
+          { value: 'MMK', label: 'MMK - Myanmar Kyat' },
+          { value: 'LAK', label: 'LAK - Lao Kip' },
+          { value: 'KHR', label: 'KHR - Cambodian Riel' },
+          { value: 'KRW', label: 'KRW - South Korean Won' },
+          { value: 'TWD', label: 'TWD - Taiwan Dollar' },
+          { value: 'HKD', label: 'HKD - Hong Kong Dollar' },
+          { value: 'MOP', label: 'MOP - Macanese Pataca' },
+          { value: 'CNY', label: 'CNY - Chinese Yuan' },
+          { value: 'MXN', label: 'MXN - Mexican Peso' },
+          { value: 'BRL', label: 'BRL - Brazilian Real' },
+          { value: 'ARS', label: 'ARS - Argentine Peso' },
+          { value: 'CLP', label: 'CLP - Chilean Peso' },
+          { value: 'COP', label: 'COP - Colombian Peso' },
+          { value: 'PEN', label: 'PEN - Peruvian Sol' },
+          { value: 'UYU', label: 'UYU - Uruguayan Peso' },
+          { value: 'VES', label: 'VES - Venezuelan Bolívar' },
+          { value: 'BOB', label: 'BOB - Bolivian Boliviano' },
+          { value: 'PYG', label: 'PYG - Paraguayan Guarani' },
+          { value: 'ZAR', label: 'ZAR - South African Rand' },
+          { value: 'EGP', label: 'EGP - Egyptian Pound' },
+          { value: 'MAD', label: 'MAD - Moroccan Dirham' },
+          { value: 'TND', label: 'TND - Tunisian Dinar' },
+          { value: 'DZD', label: 'DZD - Algerian Dinar' },
+          { value: 'LYD', label: 'LYD - Libyan Dinar' },
+          { value: 'ETB', label: 'ETB - Ethiopian Birr' },
+          { value: 'KES', label: 'KES - Kenyan Shilling' },
+          { value: 'UGX', label: 'UGX - Ugandan Shilling' },
+          { value: 'TZS', label: 'TZS - Tanzanian Shilling' },
+          { value: 'RWF', label: 'RWF - Rwandan Franc' },
+          { value: 'GHS', label: 'GHS - Ghanaian Cedi' },
+          { value: 'NGN', label: 'NGN - Nigerian Naira' },
+          { value: 'XOF', label: 'XOF - West African CFA Franc' },
+          { value: 'XAF', label: 'XAF - Central African CFA Franc' },
+          { value: 'TRY', label: 'TRY - Turkish Lira' },
+          { value: 'ILS', label: 'ILS - Israeli Shekel' },
+          { value: 'JOD', label: 'JOD - Jordanian Dinar' },
+          { value: 'LBP', label: 'LBP - Lebanese Pound' },
+          { value: 'KWD', label: 'KWD - Kuwaiti Dinar' },
+          { value: 'BHD', label: 'BHD - Bahraini Dinar' },
+          { value: 'QAR', label: 'QAR - Qatari Riyal' },
+          { value: 'OMR', label: 'OMR - Omani Rial' },
+          { value: 'YER', label: 'YER - Yemeni Rial' },
+          { value: 'IRR', label: 'IRR - Iranian Rial' },
+          { value: 'IQD', label: 'IQD - Iraqi Dinar' },
+          { value: 'SYP', label: 'SYP - Syrian Pound' },
         ];
       default:
         return [
@@ -356,7 +530,7 @@ export default function AddUserPage() {
 
                     <div>
                       <label htmlFor="preferredCurrency" className="block text-sm font-medium text-gray-700">
-                        Preferred Currency *
+                        {formData.role === 'SUPPLIER_USER' ? 'Local Currency (UI Reference)' : 'Local Currency (UI Reference)'} *
                       </label>
                       <select
                         id="preferredCurrency"
@@ -372,6 +546,12 @@ export default function AddUserPage() {
                           </option>
                         ))}
                       </select>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {formData.role === 'SUPPLIER_USER' 
+                          ? 'This currency will be used for UI display and price calculator. All prices are stored in USD in the database.'
+                          : 'This currency will be used for UI display and profit calculator. All prices are stored in USD in the database.'
+                        }
+                      </p>
                     </div>
                   </div>
 
@@ -424,20 +604,6 @@ export default function AddUserPage() {
                           />
                         </div>
 
-                        <div>
-                          <label htmlFor="addressZip" className="block text-sm font-medium text-gray-700">
-                            ZIP/Postal Code *
-                          </label>
-                          <input
-                            type="text"
-                            id="addressZip"
-                            name="addressZip"
-                            value={formData.addressZip}
-                            onChange={handleInputChange}
-                            required
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
                       </div>
 
                       <div>

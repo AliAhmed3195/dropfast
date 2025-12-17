@@ -36,14 +36,24 @@ export const StripeStatusCard: React.FC<StripeStatusCardProps> = ({
   
   // Determine overall status
   const getOverallStatus = () => {
+    const expressAccountId = user.business?.expressAccountId;
+    const stripeAccountId = user.business?.stripeAccountId;
+    const hasStripeAccount = expressAccountId || stripeAccountId;
+    
     if (stripeAccountStatus === 'verified' && stripePayoutsEnabled && bankStatus === 'verified') {
       return { status: 'active', label: 'Fully Active', color: 'success' };
+    } else if (stripeAccountStatus === 'verified' && stripePayoutsEnabled) {
+      return { status: 'active', label: 'Active', color: 'success' };
+    } else if (stripeAccountStatus === 'verified') {
+      return { status: 'pending', label: 'Verified (Setup Pending)', color: 'warning' };
     } else if (stripeAccountStatus === 'pending' || bankStatus === 'pending') {
       return { status: 'pending', label: 'Pending', color: 'warning' };
     } else if (stripeAccountStatus === 'restricted') {
       return { status: 'restricted', label: 'Restricted', color: 'warning' };
     } else if (stripeAccountStatus === 'rejected' || bankStatus === 'rejected') {
       return { status: 'rejected', label: 'Rejected', color: 'danger' };
+    } else if (hasStripeAccount && !stripeAccountStatus) {
+      return { status: 'onboarding', label: 'Onboarding', color: 'info' };
     } else {
       return { status: 'not-started', label: 'Not Started', color: 'secondary' };
     }
@@ -60,6 +70,8 @@ export const StripeStatusCard: React.FC<StripeStatusCardProps> = ({
         return `${baseClass} bg-yellow-100 text-yellow-800`;
       case 'danger':
         return `${baseClass} bg-red-100 text-red-800`;
+      case 'info':
+        return `${baseClass} bg-blue-100 text-blue-800`;
       case 'secondary':
         return `${baseClass} bg-gray-100 text-gray-800`;
       default:
@@ -74,6 +86,7 @@ export const StripeStatusCard: React.FC<StripeStatusCardProps> = ({
         {overallStatus.status === 'pending' && '⏳ '}
         {overallStatus.status === 'restricted' && '⚠️ '}
         {overallStatus.status === 'rejected' && '❌ '}
+        {overallStatus.status === 'onboarding' && '🔄 '}
         {overallStatus.status === 'not-started' && '❌ '}
         {overallStatus.label}
       </span>

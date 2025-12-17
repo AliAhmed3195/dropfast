@@ -1,0 +1,50 @@
+{
+  "name": "Classic",
+  "slug": "classic",
+  "description": "Traditional e-commerce design with promotional slider",
+  "version": 1,
+  "pages": {
+    "landing": {
+      "sections": ["hero", "featured", "categories", "newsletter", "footer"],
+      "layout": "grid",
+      "gridColumns": 3
+    },
+    "productDetail": {
+      "layout": "single-column",
+      "showRelatedProducts": true,
+      "showReviews": false
+    },
+    "cart": {
+      "layout": "single-column",
+      "showCouponCode": false
+    },
+    "checkout": {
+      "layout": "two-column",
+      "showOrderSummary": true
+    }
+  },
+  "theme": {
+    "colors": {
+      "primary": "#10B981",
+      "secondary": "#059669",
+      "accent": "#DC2626",
+      "background": "#FFFFFF",
+      "text": "#1F2937"
+    },
+    "typography": {
+      "headingFont": "Inter",
+      "bodyFont": "Inter"
+    },
+    "layout": {
+      "containerWidth": "max-w-7xl",
+      "spacing": "md"
+    }
+  },
+  "editableFields": {
+    "logo": true,
+    "banner": true,
+    "primaryColor": true
+  }
+}
+
+

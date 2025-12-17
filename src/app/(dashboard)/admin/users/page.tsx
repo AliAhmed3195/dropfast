@@ -20,7 +20,6 @@ interface User {
     type: string;
     country?: string;
     expressAccountId?: string;
-    expressOnboardingStatus?: string;
     stripeAccountStatus?: string;
     stripePayoutsEnabled?: boolean;
     bankStatus?: string;
@@ -66,12 +65,29 @@ export default function AdminUsersPage() {
     const stripeAccountStatus = user.business?.stripeAccountStatus;
     const stripePayoutsEnabled = user.business?.stripePayoutsEnabled;
     const bankStatus = user.business?.bankStatus;
+    const expressAccountId = user.business?.expressAccountId;
+    const stripeAccountId = user.business?.stripeAccountId;
+    
+    // Check if user has any Stripe account
+    const hasStripeAccount = expressAccountId || stripeAccountId;
     
     // Determine overall status
     if (stripeAccountStatus === 'verified' && stripePayoutsEnabled && bankStatus === 'verified') {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
           ✅ Fully Active
+        </span>
+      );
+    } else if (stripeAccountStatus === 'verified' && stripePayoutsEnabled) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          ✅ Active
+        </span>
+      );
+    } else if (stripeAccountStatus === 'verified') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          ⏳ Verified (Setup Pending)
         </span>
       );
     } else if (stripeAccountStatus === 'pending' || bankStatus === 'pending') {
@@ -90,6 +106,13 @@ export default function AdminUsersPage() {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
           ❌ Rejected
+        </span>
+      );
+    } else if (hasStripeAccount && !stripeAccountStatus) {
+      // User has Stripe account but no status yet (onboarding in progress)
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          🔄 Onboarding
         </span>
       );
     } else {

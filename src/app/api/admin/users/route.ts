@@ -22,7 +22,15 @@ export async function GET() {
             id: true,
             businessName: true,
             preferredCurrency: true,
-            type: true
+            type: true,
+            country: true,
+            expressAccountId: true,
+            stripeAccountId: true,
+            stripeAccountStatus: true,
+            stripePayoutsEnabled: true,
+            stripeChargesEnabled: true,
+            bankStatus: true,
+            stripeLastUpdated: true
           }
         },
         createdAt: true,
@@ -66,7 +74,6 @@ export async function POST(request: NextRequest) {
       addressStreet,
       addressCity,
       addressState,
-      addressZip,
       addressCountry,
       // KYC fields
       kycDetails
@@ -107,13 +114,13 @@ export async function POST(request: NextRequest) {
           registrationNumber: registrationNumber || null,
           vatGstNumber: vatGstNumber || null,
           country: country || 'US',
-          preferredCurrency: preferredCurrency || 'USD',
           addressStreet: addressStreet || 'TBD',
           addressCity: addressCity || 'TBD',
           addressState: addressState || 'TBD',
-          addressZip: addressZip || 'TBD',
+          postalCode: 'TBD',
           addressCountry: addressCountry || 'US',
-          kycStatus: 'PENDING'
+          kycStatus: 'PENDING',
+          preferredCurrency: preferredCurrency || 'USD' // Add this field for UI reference
         }
       });
 
@@ -138,8 +145,7 @@ export async function POST(request: NextRequest) {
           business: {
             select: {
               id: true,
-              businessName: true,
-              preferredCurrency: true
+              businessName: true
             }
           },
           createdAt: true,
