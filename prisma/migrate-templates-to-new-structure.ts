@@ -21,8 +21,8 @@ async function migrateTemplates() {
 
       const slug = slugMap[template.name] || template.name.toLowerCase().replace(/\s+/g, '-');
 
-      // Extract old baseConfig structure
-      const oldConfig = template.baseConfig as any || {};
+      // Extract old baseConfig structure (now using theme field)
+      const oldConfig = (template as any).baseConfig || (template.theme as any) || {};
 
       // Convert to new structure
       const newPages = {

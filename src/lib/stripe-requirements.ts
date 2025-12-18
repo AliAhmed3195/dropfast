@@ -2,8 +2,14 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { emailService } from '@/lib/email-service';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
+// Validate Stripe secret key
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('⚠️ STRIPE_SECRET_KEY is not set in environment variables');
+  throw new Error('STRIPE_SECRET_KEY environment variable is required');
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2025-12-15.clover' as any,
 });
 
 export class StripeRequirementsService {
@@ -53,7 +59,7 @@ export class StripeRequirementsService {
     try {
       const account = await stripe.accounts.retrieve(accountId);
       
-      const requirements = account.requirements || {};
+      const requirements = (account.requirements || {}) as any;
       const currentlyDue = requirements.currently_due || [];
       const pastDue = requirements.past_due || [];
       const eventuallyDue = requirements.eventually_due || [];
@@ -109,7 +115,7 @@ export class StripeRequirementsService {
         accountStatus
       );
 
-      await emailService.sendEmail(user.email, subject, html);
+      await emailService.sendEmail({ to: user.email, subject, html });
       console.log(`Requirements email sent to ${user.email}`);
     } catch (error) {
       console.error('Error sending requirements email:', error);

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { orderCurrencyService, OrderCurrencyDisplay } from '@/lib/order-currency-service';
+import { orderCurrencyService } from '@/lib/order-currency-service';
+import type { OrderCurrencyDisplay } from '@/lib/order-currency-service';
 
 interface OrderCurrencyDisplayProps {
   userRole: 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER';

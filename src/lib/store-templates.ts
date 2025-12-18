@@ -239,16 +239,16 @@ export const getEffectiveConfig = (templateId: string, dbConfig: any = {}) => {
   
   // Extract flat properties from root level (for backward compatibility with old saved configs)
   // Flat properties will be merged with structured config, but structured config takes precedence
-  const flatFeatures = {};
-  if (dbConfig.hasSlider !== undefined) flatFeatures.hasSlider = dbConfig.hasSlider;
-  if (dbConfig.hasFeatured !== undefined) flatFeatures.hasFeatured = dbConfig.hasFeatured;
-  if (dbConfig.hasBestSelling !== undefined) flatFeatures.hasBestSelling = dbConfig.hasBestSelling;
-  if (dbConfig.hasCategories !== undefined) flatFeatures.hasCategories = dbConfig.hasCategories;
+  const flatFeatures: any = {};
+  if ((dbConfig as any).hasSlider !== undefined) (flatFeatures as any).hasSlider = (dbConfig as any).hasSlider;
+  if ((dbConfig as any).hasFeatured !== undefined) (flatFeatures as any).hasFeatured = (dbConfig as any).hasFeatured;
+  if ((dbConfig as any).hasBestSelling !== undefined) (flatFeatures as any).hasBestSelling = (dbConfig as any).hasBestSelling;
+  if ((dbConfig as any).hasCategories !== undefined) (flatFeatures as any).hasCategories = (dbConfig as any).hasCategories;
   if (dbConfig.hasNewsletter !== undefined) flatFeatures.hasNewsletter = dbConfig.hasNewsletter;
   
-  const flatLayout = {};
-  if (dbConfig.gridColumns !== undefined) flatLayout.gridColumns = dbConfig.gridColumns;
-  if (dbConfig.sidebarPosition !== undefined) flatLayout.sidebarPosition = dbConfig.sidebarPosition;
+  const flatLayout: any = {};
+  if ((dbConfig as any).gridColumns !== undefined) (flatLayout as any).gridColumns = (dbConfig as any).gridColumns;
+  if ((dbConfig as any).sidebarPosition !== undefined) (flatLayout as any).sidebarPosition = (dbConfig as any).sidebarPosition;
 
   // Template defaults take precedence - merge order: defaults -> flat -> structured
   // This ensures template features are enabled by default, but allows DB overrides
@@ -293,7 +293,11 @@ export const getDefaultTemplateConfig = (templateId: string): TemplateConfig => 
     hasNewsletter: template.features.hasNewsletter,
     gridColumns: template.layout.gridColumns,
     sidebarPosition: template.layout.sidebarPosition,
-    colorScheme: { ...template.colorScheme },
+    colorScheme: { 
+      ...template.colorScheme,
+      background: (template.colorScheme as any).background || '#ffffff',
+      text: (template.colorScheme as any).text || '#000000'
+    },
     customizations: {
       enableCustomCSS: false,
       enableCustomFonts: false,

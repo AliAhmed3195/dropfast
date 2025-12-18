@@ -53,7 +53,8 @@ export default function SupplierDashboard() {
     try {
       const response = await fetch('/api/auth/me');
       const data = await response.json();
-      setUser(data.user);
+      // Handle both { user: ... } and direct user object formats
+      setUser(data.user || data);
     } catch (error) {
       console.error('Error fetching user:', error);
     } finally {

@@ -12,6 +12,7 @@ interface Store {
   template?: string | { // Legacy: template name/id (string) OR New: template object from DB
     id: string;
     name: string;
+    slug?: string;
     baseHtml?: string;
     baseConfig: any;
   };
@@ -201,11 +202,34 @@ export default function StorePage() {
   // Prepare store data for template renderer
   const storeData = {
     ...store,
+    template: typeof store.template === 'object' && store.template !== null
+      ? {
+          id: store.template.id,
+          name: store.template.name,
+          slug: store.template.slug || 'modern',
+          theme: (store.template as any).theme || store.template.baseConfig || {},
+          pages: (store.template as any).pages || {}
+        }
+      : undefined,
     products: products.map(formatProduct),
     featuredProducts: featuredProducts.map(formatProduct),
     bestSellingProducts: bestSellingProducts.map(formatProduct),
     categories: categories
   };
+
+  // Debug: Log template information
+  console.log('Store template info:', {
+    templateId: store.templateId,
+    template: store.template,
+    templateSlug: typeof store.template === 'object' && store.template !== null ? store.template.slug : undefined,
+    hasTemplate: !!store.template,
+    overrides: store.overrides
+  });
+
+  // Ensure template is passed correctly
+  if (!store.template) {
+    console.error('⚠️ Store has no template! Store ID:', store.id, 'Template ID:', store.templateId);
+  }
 
   return <TemplateRenderer store={storeData} pageType="landing" />;
 }

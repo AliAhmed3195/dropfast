@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
               email: customerInfo.email,
               name: `${customerInfo.firstName} ${customerInfo.lastName}`,
               role: 'CUSTOMER',
-              preferredCurrency: 'USD' // Default currency
+              password: '', // Temporary password, should be set properly
+              status: 'ACTIVE'
             }
           });
           customerId = newCustomer.id;

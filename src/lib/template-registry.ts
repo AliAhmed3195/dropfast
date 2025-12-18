@@ -52,9 +52,9 @@ export interface StoreTemplateProps {
 
 // Dynamic template registry with lazy loading
 export const storeTemplateRegistry: Record<string, () => Promise<ComponentType<StoreTemplateProps>>> = {
-  basic: () => import('@/components/store-templates/BasicStoreTemplate').then(mod => ({ default: mod.default })),
-  classic: () => import('@/components/store-templates/ClassicStoreTemplate').then(mod => ({ default: mod.default })),
-  ecommerce: () => import('@/components/store-templates/EcommerceStoreTemplate').then(mod => ({ default: mod.default })),
+  basic: () => import('@/components/store-templates/BasicStoreTemplate').then(mod => ({ default: mod.default })) as Promise<ComponentType<StoreTemplateProps>>,
+  classic: () => import('@/components/store-templates/ClassicStoreTemplate').then(mod => ({ default: mod.default })) as Promise<ComponentType<StoreTemplateProps>>,
+  ecommerce: () => import('@/components/store-templates/EcommerceStoreTemplate').then(mod => ({ default: mod.default })) as Promise<ComponentType<StoreTemplateProps>>,
 };
 
 // Template loader utility
@@ -67,7 +67,7 @@ export const loadTemplate = async (templateId: string): Promise<ComponentType<St
     }
 
     const TemplateComponent = await templateLoader();
-    return TemplateComponent.default;
+    return (TemplateComponent as any).default || TemplateComponent;
   } catch (error) {
     console.error(`Failed to load template ${templateId}:`, error);
     return null;

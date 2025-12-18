@@ -53,7 +53,8 @@ export default function VendorDashboard() {
     try {
       const response = await fetch('/api/auth/me');
       const data = await response.json();
-      setUser(data.user);
+      // Handle both { user: ... } and direct user object formats
+      setUser(data.user || data);
     } catch (error) {
       console.error('Error fetching user:', error);
     } finally {
@@ -135,7 +136,7 @@ export default function VendorDashboard() {
               Import Products
             </a>
             <a
-              href="/vendor/logo-upload"
+              href="/vendor/create-store"
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-center"
             >
               Upload Logo

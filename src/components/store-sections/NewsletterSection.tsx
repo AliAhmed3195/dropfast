@@ -115,9 +115,7 @@ const NewsletterSection: React.FC<NewsletterSectionProps> = ({
                 placeholder={placeholder}
                 required
                 className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                style={{ 
-                  focusRingColor: colors.primary 
-                }}
+                style={{}}
               />
               <button
                 type="submit"

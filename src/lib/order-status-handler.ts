@@ -293,7 +293,7 @@ export class OrderStatusHandler {
     const updatedPayout = await prisma.payout.update({
       where: { id: existingPayout.id },
       data: {
-        status: newStatus,
+        status: newStatus as any,
         isLocked: true,
         lockedAt: new Date(),
         requiresApproval: newStatus === 'APPROVAL_REQUIRED'
@@ -304,12 +304,12 @@ export class OrderStatusHandler {
     await prisma.payoutStatusHistory.create({
       data: {
         payoutId: existingPayout.id,
-        status: newStatus,
+        status: newStatus as any,
         reason: statusReason,
-        changedBy: changedBy,
+        changedBy: 'SYSTEM',
         notes: newStatus === 'ON_HOLD' 
-          ? `Payout is on hold. Missing bank details for ${!supplierHasBankDetails ? 'supplier' : ''}${!supplierHasBankDetails && !vendorHasBankDetails ? ' and ' : ''}${!vendorHasBankDetails ? 'vendor' : ''}. ${reason || ''}`
-          : `Payout is now ready for admin review. Order was delivered. ${reason || ''}`
+          ? `Payout is on hold. Missing bank details for ${!supplierHasBankDetails ? 'supplier' : ''}${!supplierHasBankDetails && !vendorHasBankDetails ? ' and ' : ''}${!vendorHasBankDetails ? 'vendor' : ''}. ${statusReason || ''}`
+          : `Payout is now ready for admin review. Order was delivered. ${statusReason || ''}`
       }
     });
 
@@ -338,8 +338,8 @@ export class OrderStatusHandler {
           payoutId: payout.id,
           status: 'CANCELLED',
           reason: 'Order cancelled',
-          changedBy: changedBy,
-          notes: `Payout cancelled because order was cancelled. ${reason || ''}`
+          changedBy: 'SYSTEM',
+          notes: `Payout cancelled because order was cancelled.`
         }
       });
 
@@ -368,8 +368,8 @@ export class OrderStatusHandler {
           payoutId: payout.id,
           status: 'REFUNDED',
           reason: 'Order refunded',
-          changedBy: changedBy,
-          notes: `Payout refunded because order was refunded. ${reason || ''}`
+          changedBy: 'SYSTEM',
+          notes: `Payout refunded because order was refunded.`
         }
       });
 

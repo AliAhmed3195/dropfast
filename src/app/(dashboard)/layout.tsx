@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import Sidebar from '@/components/navigation/Sidebar';
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function DashboardLayout({
   children,
@@ -10,6 +12,7 @@ export default function DashboardLayout({
 }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -25,7 +28,8 @@ export default function DashboardLayout({
       if (response.ok) {
         const data = await response.json();
         console.log('User data:', data);
-        setUser(data);
+        // Handle both { user: ... } and direct user object formats
+        setUser(data.user || data);
         
         // Redirect based on role and current path
         const role = data.role;
@@ -72,93 +76,84 @@ export default function DashboardLayout({
     return null;
   }
 
-  const navigation = [
-    { name: 'Dashboard', href: `/${user.role.toLowerCase().replace('_user', '')}`, current: pathname === `/${user.role.toLowerCase().replace('_user', '')}` },
-  ];
-
-  if (user.role === 'SUPPLIER_USER') {
-    navigation.push(
-      { name: 'Products', href: '/supplier/products', current: pathname === '/supplier/products' },
-      { name: 'Orders', href: '/supplier/orders', current: pathname === '/supplier/orders' },
-      { name: 'Bank Details', href: '/supplier/bank-details', current: pathname === '/supplier/bank-details' }
-    );
-  }
-
-  if (user.role === 'VENDOR_USER') {
-    navigation.push(
-      { name: 'Stores', href: '/vendor/stores', current: pathname === '/vendor/stores' },
-      { name: 'Available Products', href: '/vendor/products', current: pathname === '/vendor/products' },
-      { name: 'Imported Products', href: '/vendor/imported-products', current: pathname === '/vendor/imported-products' },
-      { name: 'Orders', href: '/vendor/orders', current: pathname === '/vendor/orders' },
-      { name: 'Pending Approval', href: '/vendor/orders/pending-approval', current: pathname === '/vendor/orders/pending-approval' },
-      { name: 'Invoices', href: '/vendor/invoices', current: pathname === '/vendor/invoices' },
-      { name: 'Invoice Templates', href: '/vendor/invoice-templates', current: pathname === '/vendor/invoice-templates' },
-      { name: 'Bank Details', href: '/vendor/bank-details', current: pathname === '/vendor/bank-details' },
-      { name: 'Settings', href: '/vendor/settings', current: pathname === '/vendor/settings' }
-    );
-  }
-
-  if (user.role === 'ADMIN') {
-    navigation.push(
-      { name: 'Users', href: '/admin/users', current: pathname === '/admin/users' },
-      { name: 'Products', href: '/admin/products', current: pathname === '/admin/products' },
-      { name: 'Categories', href: '/admin/categories', current: pathname === '/admin/categories' },
-      { name: 'Tags', href: '/admin/tags', current: pathname === '/admin/tags' },
-      { name: 'Orders', href: '/admin/orders', current: pathname === '/admin/orders' },
-      { name: 'Order Management', href: '/admin/orders/management', current: pathname === '/admin/orders/management' },
-      { name: 'Payouts', href: '/admin/payouts', current: pathname === '/admin/payouts' },
-      { name: 'Invoice Templates', href: '/admin/invoice-templates', current: pathname === '/admin/invoice-templates' }
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-indigo-600">Fastdrop</h1>
-              </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {navigation.map((item) => (
-                  <a
-                    key={item.name}
-                    href={item.href}
-                    className={`${
-                      item.current
-                        ? 'border-indigo-500 text-gray-900'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
-                  >
-                    {item.name}
-                  </a>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center">
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-75 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`
+          fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out lg:translate-x-0
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
+        <Sidebar role={user.role} userName={user.name} />
+      </div>
+
+      {/* Main content area */}
+      <div className="lg:pl-64 flex flex-col flex-1 w-full">
+        {/* Top Header */}
+        <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">
-                  Welcome, {user.name}
-                </span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                  {user.role}
-                </span>
+                {/* Mobile menu button */}
+                <button
+                  type="button"
+                  className="lg:hidden -m-2.5 p-2.5 text-gray-700"
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                >
+                  <span className="sr-only">Open sidebar</span>
+                  {sidebarOpen ? (
+                    <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                  ) : (
+                    <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+                  )}
+                </button>
+                <div className="flex-1">
+                  <h1 className="text-2xl font-semibold text-gray-900">
+                    {pathname.split('/').pop()?.charAt(0).toUpperCase() + pathname.split('/').pop()?.slice(1) || 'Dashboard'}
+                  </h1>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="hidden sm:flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                    <p className="text-xs text-gray-500">{user.role.replace('_USER', '').replace('_', ' ')}</p>
+                  </div>
+                  <div className="h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <span className="text-indigo-600 font-semibold text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                </div>
                 <button
                   onClick={handleLogout}
-                  className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150"
                 >
                   Logout
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </header>
 
-      {/* Main content */}
-      <main>{children}</main>
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="py-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              {children}
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ interface Order {
   productPrice: number;
   markupAmount: number;
   totalAmount: number;
+  lockedUSDPrice?: number;
   status: string;
   createdAt: string;
   product: {

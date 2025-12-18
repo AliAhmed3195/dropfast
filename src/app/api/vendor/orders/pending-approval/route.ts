@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const whereClause: any = {
       store: {
-        ownerId: session.user.id
+        ownerId: session.id
       },
       status: 'PENDING_VENDOR_APPROVAL'
     };

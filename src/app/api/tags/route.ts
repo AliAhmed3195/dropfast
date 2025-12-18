@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
 
-    const whereClause = search 
+    const whereClause: any = search 
       ? { 
           isActive: true,
           name: { contains: search, mode: 'insensitive' }

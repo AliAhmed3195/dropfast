@@ -227,7 +227,8 @@ export default function VendorStoresPage() {
           slug: '',
           template: 'default',
           logo: '',
-          banner: ''
+          banner: '',
+          currency: 'USD'
         });
         setLogoPreview('');
         setBannerPreview('');

@@ -12,6 +12,7 @@ interface CheckoutItem {
 
 interface CheckoutPageProps {
   store: {
+    id?: string;
     name: string;
     slug: string;
     logo?: string;
@@ -48,8 +49,75 @@ export default function EcommerceCheckoutPage({ store, checkout, theme }: Checko
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle checkout logic here
-    alert('Order placed successfully!');
+    
+    if (items.length === 0) {
+      alert('Your cart is empty');
+      return;
+    }
+
+    try {
+      // Get store ID first
+      const storeResponse = await fetch(`/api/stores/public/${store.slug}`);
+      if (!storeResponse.ok) {
+        throw new Error('Store not found');
+      }
+      const storeData = await storeResponse.json();
+      const storeId = storeData.store.id;
+
+      // Create orders for each item in cart
+      const orderPromises = items.map(async (item) => {
+        const response = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productId: item.id,
+            storeId: storeId,
+            quantity: item.quantity,
+            selectedVariants: {},
+            customerInfo: {
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              email: formData.email,
+              phone: formData.phone,
+            },
+            shippingInfo: {
+              address: formData.address,
+              city: formData.city,
+              state: formData.city, // Using city as state if not provided
+              zipCode: formData.zipCode,
+              country: formData.country,
+            },
+            paymentInfo: {
+              method: 'card',
+              cardName: `${formData.firstName} ${formData.lastName}`,
+              cardNumber: '****', // In real app, this would come from payment form
+            },
+            totalAmount: item.price * item.quantity,
+          }),
+        });
+
+        return response.json();
+      });
+
+      const results = await Promise.all(orderPromises);
+      const failedOrders = results.filter(r => !r.success);
+
+      if (failedOrders.length === 0) {
+        alert('All orders placed successfully!');
+        // Clear cart and redirect
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('cart');
+        }
+        router.push(`/store/${store.slug}?order=success`);
+      } else {
+        alert(`Some orders failed. ${results.length - failedOrders.length} orders placed successfully.`);
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      alert('An error occurred. Please try again.');
+    }
   };
 
   return (

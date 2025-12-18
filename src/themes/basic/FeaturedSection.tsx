@@ -18,6 +18,9 @@ interface FeaturedSectionProps {
       primary?: string;
     };
   };
+  store?: {
+    slug?: string;
+  };
 }
 
 export default function BasicFeaturedSection({ products, theme, store }: FeaturedSectionProps) {

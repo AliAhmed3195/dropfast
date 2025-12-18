@@ -323,7 +323,10 @@ export default function ImportedProductsPage() {
               <div key={storeProduct.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative">
                   {storeProduct.product?.images && storeProduct.product.images.length > 0 ? (
-                    <ProductImageSlider images={storeProduct.product.images} />
+                    <ProductImageSlider 
+                      images={storeProduct.product.images} 
+                      productName={storeProduct.product?.name || 'Product'}
+                    />
                   ) : (
                     <div className="h-48 bg-gray-200 flex items-center justify-center">
                       <span className="text-gray-500">No Image</span>

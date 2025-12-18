@@ -18,9 +18,9 @@ export class TemplateManager {
     if (storeId) {
       const store = await prisma.store.findUnique({
         where: { id: storeId },
-        select: { templateConfig: true }
+        select: { overrides: true }
       });
-      storeCustomizations = store?.templateConfig || {};
+      storeCustomizations = (store?.overrides as any) || {};
     }
 
     // Use getEffectiveConfig from store-templates.ts for proper merging
@@ -59,7 +59,7 @@ export class TemplateManager {
     await prisma.store.update({
       where: { id: storeId },
       data: {
-        templateConfig: customizations
+        overrides: customizations as any
       }
     });
   }

@@ -52,7 +52,7 @@ export async function GET(
     const feeBreakdown = StripeFeeCalculator.calculatePayoutBreakdown(
       order.totalAmount,
       supplierBaseCost,
-      order.customer?.country || 'US',
+      (order.customer as any)?.country || 'US',
       order.product.supplier.business?.country || 'US',
       order.store.owner.business?.country || 'US',
       1 // Exchange rate - implement currency conversion if needed
@@ -118,7 +118,7 @@ export async function GET(
             stripeAccountStatus: order.store.owner.business?.stripeAccountStatus
           },
           customer: {
-            country: order.customer?.country || 'US'
+            country: (order.customer as any)?.country || 'US'
           }
         },
         feeBreakdown: feeBreakdown,

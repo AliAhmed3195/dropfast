@@ -181,10 +181,8 @@ export async function POST(request: NextRequest) {
       where: { id: user.business.id },
       select: {
         stripeAccountId: true,
-        serviceAgreement: true,
-        capabilities: true,
         kycStatus: true,
-        stripeAccountCreatedAt: true,
+        stripeLastUpdated: true,
       }
     });
 
@@ -193,14 +191,12 @@ export async function POST(request: NextRequest) {
       message: 'Bank details submitted successfully and sent to Stripe for verification',
       stripeAccountId,
       kycStatus: 'PENDING',
-      serviceAgreement: updatedBusiness?.serviceAgreement,
-      capabilities: updatedBusiness?.capabilities,
-      accountCreatedAt: updatedBusiness?.stripeAccountCreatedAt,
+      accountCreatedAt: updatedBusiness?.stripeLastUpdated,
       nextSteps: 'Your bank account is being verified by Stripe. You will receive updates on the verification status.',
       additionalInfo: {
         country: countryCode,
         businessType: user.business.businessType,
-        accountType: updatedBusiness?.serviceAgreement === 'recipient' ? 'Payout-only Account' : 'Full Service Account'
+        accountType: 'Full Service Account'
       }
     });
   } catch (error) {

@@ -44,14 +44,14 @@ export async function PUT(
         name,
         email,
         role,
-        isActive: isActive !== undefined ? isActive : true,
+        status: isActive !== undefined ? (isActive ? 'ACTIVE' : 'SUSPENDED') : undefined,
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
-        isActive: true,
+        status: true,
         createdAt: true,
       },
     });

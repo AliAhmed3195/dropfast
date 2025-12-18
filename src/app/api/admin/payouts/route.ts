@@ -88,11 +88,7 @@ export async function GET(request: NextRequest) {
               select: {
                 id: true,
                 businessName: true,
-                business: {
-                  select: {
-                    preferredCurrency: true
-                  }
-                },
+                preferredCurrency: true,
                 kycStatus: true,
                 expressAccountId: true,
                 stripeAccountId: true,
@@ -120,11 +116,7 @@ export async function GET(request: NextRequest) {
               select: {
                 id: true,
                 businessName: true,
-                business: {
-                  select: {
-                    preferredCurrency: true
-                  }
-                },
+                preferredCurrency: true,
                 kycStatus: true,
                 expressAccountId: true,
                 stripeAccountId: true,

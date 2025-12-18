@@ -36,8 +36,8 @@ export const StripeStatusCard: React.FC<StripeStatusCardProps> = ({
   
   // Determine overall status
   const getOverallStatus = () => {
-    const expressAccountId = user.business?.expressAccountId;
-    const stripeAccountId = user.business?.stripeAccountId;
+    const expressAccountId = (user.business as any)?.expressAccountId;
+    const stripeAccountId = (user.business as any)?.stripeAccountId;
     const hasStripeAccount = expressAccountId || stripeAccountId;
     
     if (stripeAccountStatus === 'verified' && stripePayoutsEnabled && bankStatus === 'verified') {

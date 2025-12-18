@@ -25,8 +25,7 @@ export async function POST(request: NextRequest) {
       include: {
         supplier: {
           select: {
-            id: true,
-            preferredCurrency: true,
+            id: true
           }
         },
         category: true,
@@ -56,7 +55,7 @@ export async function POST(request: NextRequest) {
     // Get vendor's preferred currency
     const vendor = await prisma.user.findUnique({
       where: { id: session.id },
-      select: { preferredCurrency: true }
+      select: { id: true }
     });
 
     if (!vendor) {
@@ -66,7 +65,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const vendorCurrency = vendor.preferredCurrency || 'USD';
+    const vendorCurrency = 'USD'; // Currency is always USD
 
     // Check if product already exists in vendor's My Products
     const existingStoreProduct = await prisma.storeProduct.findFirst({

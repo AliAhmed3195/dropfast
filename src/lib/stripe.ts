@@ -1,14 +1,24 @@
 import Stripe from 'stripe';
 
+// Validate Stripe secret key
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('⚠️ STRIPE_SECRET_KEY is not set in environment variables');
+  throw new Error('STRIPE_SECRET_KEY environment variable is required');
+}
+
 // Server-side Stripe instance
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2025-12-15.clover' as any,
 });
 
 // Client-side Stripe loader
 export const loadStripe = async () => {
+  if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+    console.error('⚠️ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set in environment variables');
+    throw new Error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY environment variable is required');
+  }
   const { loadStripe: loadStripeJS } = await import('@stripe/stripe-js');
-  return loadStripeJS(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+  return loadStripeJS(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 };
 
 // Calculate Stripe fees (2.9% + 30¢ for most cards)

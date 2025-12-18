@@ -100,6 +100,11 @@ model User {
   phone       String?
   dob         DateTime?   // For KYC
   status      UserStatus  @default(ACTIVE)
+  
+  // Password Reset Fields
+  resetToken        String?   @unique
+  resetTokenExpiry  DateTime?
+  
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt @default(now())
   

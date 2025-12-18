@@ -38,7 +38,7 @@ export class PayoutService {
           supplierId: payoutData.supplierId,
           vendorId: payoutData.vendorId,
           supplierAmount: payoutData.supplierAmount,
-          vendorAmount: payoutData.vendorAmount,
+          netVendorAmount: payoutData.vendorAmount || 0,
           platformFee: payoutData.platformFee,
           status: 'PENDING',
         },
@@ -47,15 +47,17 @@ export class PayoutService {
       // Get supplier and vendor Stripe Connect accounts
       const supplier = await prisma.user.findUnique({
         where: { id: payoutData.supplierId },
-        select: { stripeAccountId: true, email: true, name: true },
+        include: { business: true },
       });
 
       const vendor = await prisma.user.findUnique({
         where: { id: payoutData.vendorId },
-        select: { stripeAccountId: true, email: true, name: true },
+        include: { business: true },
       });
 
-      if (!supplier?.stripeAccountId || !vendor?.stripeAccountId) {
+      const supplierStripeAccountId = supplier?.business?.stripeAccountId;
+      const vendorStripeAccountId = vendor?.business?.stripeAccountId;
+      if (!supplierStripeAccountId || !vendorStripeAccountId) {
         throw new Error('Missing Stripe Connect accounts for supplier or vendor');
       }
 
@@ -67,12 +69,12 @@ export class PayoutService {
 
       // Process supplier payout
       if (payoutData.supplierAmount > 0) {
-        await this.processSupplierPayout(payout.id, supplier.stripeAccountId, payoutData.supplierAmount);
+        await this.processSupplierPayout(payout.id, supplierStripeAccountId, payoutData.supplierAmount);
       }
 
       // Process vendor payout
       if (payoutData.vendorAmount > 0) {
-        await this.processVendorPayout(payout.id, vendor.stripeAccountId, payoutData.vendorAmount);
+        await this.processVendorPayout(payout.id, vendorStripeAccountId, payoutData.vendorAmount);
       }
 
       // Mark payout as completed
@@ -243,19 +245,19 @@ export class PayoutService {
 
     const totalPayouts = payouts.length;
     const totalAmount = payouts.reduce((sum, payout) => {
-      return sum + (userRole === 'SUPPLIER' ? payout.supplierAmount : payout.vendorAmount);
+      return sum + (userRole === 'SUPPLIER' ? payout.supplierAmount : payout.netVendorAmount || 0);
     }, 0);
 
     const pendingAmount = payouts
       .filter(p => p.status === 'PENDING')
       .reduce((sum, payout) => {
-        return sum + (userRole === 'SUPPLIER' ? payout.supplierAmount : payout.vendorAmount);
+        return sum + (userRole === 'SUPPLIER' ? payout.supplierAmount : payout.netVendorAmount || 0);
       }, 0);
 
     const completedAmount = payouts
       .filter(p => p.status === 'COMPLETED')
       .reduce((sum, payout) => {
-        return sum + (userRole === 'SUPPLIER' ? payout.supplierAmount : payout.vendorAmount);
+        return sum + (userRole === 'SUPPLIER' ? payout.supplierAmount : payout.netVendorAmount || 0);
       }, 0);
 
     return {

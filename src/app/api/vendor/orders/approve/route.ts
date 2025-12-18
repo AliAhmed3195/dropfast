@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       where: {
         id: orderId,
         store: {
-          ownerId: session.user.id
+          ownerId: session.id
         },
         status: 'PENDING_VENDOR_APPROVAL'
       },
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         status: 'AWAITING_SUPPLIER_CONFIRMATION',
         requiresVendorApproval: false,
         vendorApprovedAt: new Date(),
-        vendorApprovedBy: session.user.id,
+        vendorApprovedBy: session.id,
         vendorRejectedAt: null,
         vendorRejectedBy: null,
         vendorRejectionReason: null
@@ -59,10 +59,10 @@ export async function POST(request: NextRequest) {
         orderId: orderId,
         status: 'AWAITING_SUPPLIER_CONFIRMATION',
         reason: 'Vendor approved order',
-        changedBy: session.user.id,
+        changedBy: session.id,
         notes: notes || 'Order approved by vendor',
         metadata: {
-          approvedBy: session.user.email,
+          approvedBy: session.email,
           approvedAt: new Date().toISOString()
         }
       }

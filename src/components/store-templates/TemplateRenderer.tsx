@@ -56,8 +56,43 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get template slug
-  const templateSlug = store.template?.slug || 'modern';
+  // Available theme folders (must match exactly)
+  const validThemeSlugs = ['basic', 'classic', 'ecommerce', 'modern'];
+  
+  // Template slug mapping (in case database has different slugs)
+  const templateSlugMap: Record<string, string> = {
+    'ecommerce-pro': 'ecommerce',
+    'modern-store': 'modern',
+    'basic-template': 'basic',
+    'classic-design': 'classic',
+    'minimal': 'modern', // Fallback for minimal
+  };
+
+  // Get template slug from store, with mapping and validation
+  const getTemplateSlug = (): string => {
+    const dbSlug = store.template?.slug;
+    if (!dbSlug) {
+      console.warn('No template slug found, using modern as fallback');
+      return 'modern';
+    }
+
+    // Check if slug needs mapping
+    if (templateSlugMap[dbSlug]) {
+      console.log(`Mapping template slug: ${dbSlug} -> ${templateSlugMap[dbSlug]}`);
+      return templateSlugMap[dbSlug];
+    }
+
+    // Check if slug is valid
+    if (validThemeSlugs.includes(dbSlug)) {
+      return dbSlug;
+    }
+
+    // Invalid slug, use fallback
+    console.warn(`Invalid template slug: ${dbSlug}. Available: ${validThemeSlugs.join(', ')}. Using modern as fallback.`);
+    return 'modern';
+  };
+
+  const templateSlug = getTemplateSlug();
 
   // Load theme dynamically based on template slug
   useEffect(() => {
@@ -66,11 +101,14 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
         setLoading(true);
         setError(null);
 
+        console.log(`Loading theme for template slug: ${templateSlug}`);
+
         // Dynamically import theme from src/themes/{slug}/index.ts
         const themeModule = await import(`@/themes/${templateSlug}/index`);
         
         if (themeModule?.sectionMap) {
           setSectionMap(themeModule.sectionMap);
+          console.log(`✅ Theme ${templateSlug} loaded successfully`);
         } else {
           throw new Error(`Theme ${templateSlug} does not export sectionMap`);
         }
@@ -80,18 +118,27 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
           const component = themeModule.pageComponents[pageType as keyof typeof themeModule.pageComponents];
           if (component) {
             setPageComponent(() => component);
+          } else {
+            console.warn(`Page component for ${pageType} not found in theme ${templateSlug}`);
           }
         }
       } catch (error) {
-        console.error('Error loading theme:', error);
+        console.error(`❌ Error loading theme ${templateSlug}:`, error);
         setError(error instanceof Error ? error.message : 'Failed to load theme');
         
         // Fallback to modern theme
+        console.log('Attempting fallback to modern theme...');
         try {
           const fallbackTheme = await import('@/themes/modern/index');
-          setSectionMap(fallbackTheme.sectionMap);
+          if (fallbackTheme?.sectionMap) {
+            setSectionMap(fallbackTheme.sectionMap);
+            console.log('✅ Fallback to modern theme successful');
+          } else {
+            throw new Error('Modern theme also failed to load');
+          }
         } catch (fallbackError) {
-          console.error('Fallback theme also failed:', fallbackError);
+          console.error('❌ Fallback theme also failed:', fallbackError);
+          setError('Failed to load any theme. Please contact support.');
         }
       } finally {
         setLoading(false);

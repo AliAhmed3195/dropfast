@@ -37,8 +37,7 @@ export async function POST(request: NextRequest) {
       data: {
         isVerified: verified,
         verifiedAt: verified ? new Date() : null,
-        verifiedBy: verified ? session.id : null,
-        notes: notes || null
+        verifiedBy: verified ? session.id : null
       }
     });
 
@@ -49,8 +48,7 @@ export async function POST(request: NextRequest) {
         id: updatedBankDetails.id,
         isVerified: updatedBankDetails.isVerified,
         verifiedAt: updatedBankDetails.verifiedAt,
-        verifiedBy: updatedBankDetails.verifiedBy,
-        notes: updatedBankDetails.notes
+        verifiedBy: updatedBankDetails.verifiedBy
       }
     });
 
@@ -93,8 +91,7 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
-            role: true,
-            preferredCurrency: true
+            role: true
           }
         }
       },

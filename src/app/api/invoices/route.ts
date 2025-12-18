@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     let whereClause: any = {};
     
-    if (session.role === 'VENDOR' && storeId) {
+    if (session.role === 'VENDOR_USER' && storeId) {
       whereClause.storeId = storeId;
     } else if (session.role === 'ADMIN') {
       // Admin can see all invoices

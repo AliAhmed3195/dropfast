@@ -68,10 +68,9 @@ export async function POST(request: NextRequest) {
         description: originalProduct.description,
         price: finalPrice,
         image: originalProduct.image,
-        category: originalProduct.category,
+        categoryId: originalProduct.categoryId || null,
         markup: markup,
         supplierId: originalProduct.supplierId,
-        storeId: storeId,
         variants: originalProduct.variants, // Copy variants from original product
         hostedLink: null, // Will be updated after creation
       },

@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       where: {
         id: orderId,
         store: {
-          ownerId: session.user.id
+          ownerId: session.id
         },
         status: 'PENDING_VENDOR_APPROVAL'
       },
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         status: 'CANCELLED',
         requiresVendorApproval: false,
         vendorRejectedAt: new Date(),
-        vendorRejectedBy: session.user.id,
+        vendorRejectedBy: session.id,
         vendorRejectionReason: reason,
         vendorApprovedAt: null,
         vendorApprovedBy: null
@@ -63,10 +63,10 @@ export async function POST(request: NextRequest) {
         orderId: orderId,
         status: 'CANCELLED',
         reason: 'Vendor rejected order',
-        changedBy: session.user.id,
+        changedBy: session.id,
         notes: notes || `Order rejected: ${reason}`,
         metadata: {
-          rejectedBy: session.user.email,
+          rejectedBy: session.email,
           rejectedAt: new Date().toISOString(),
           rejectionReason: reason
         }

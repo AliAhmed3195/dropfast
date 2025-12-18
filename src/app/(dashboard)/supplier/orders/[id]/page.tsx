@@ -269,7 +269,13 @@ export default function SupplierOrderDetailsPage({ params }: { params: { id: str
                 <div className="flex-shrink-0">
                   {order.product.images && order.product.images.length > 0 ? (
                     <ProductImageSlider
-                      images={order.product.images}
+                      images={((order.product.images as any[]) || []).map((img: any, index: number) => ({
+                        id: img.id || `img-${index}`,
+                        url: img.url,
+                        isMain: img.isMain || index === 0,
+                        order: img.order || index,
+                        alt: img.alt || order.product.name
+                      }))}
                       productName={order.product.name}
                     />
                   ) : (

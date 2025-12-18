@@ -77,10 +77,9 @@ export async function POST(request: NextRequest) {
             description: originalProduct.description,
             price: finalPrice,
             image: originalProduct.image,
-            category: originalProduct.category,
+            categoryId: originalProduct.categoryId || null,
             markup: markup,
             supplierId: originalProduct.supplierId,
-            storeId: storeId,
             hostedLink: '', // Will be updated below
             variants: originalProduct.variants, // Copy variants from original product
           },
@@ -94,10 +93,9 @@ export async function POST(request: NextRequest) {
             description: originalProduct.description,
             price: finalPrice,
             image: originalProduct.image,
-            category: originalProduct.category,
+            categoryId: originalProduct.categoryId || null,
             markup: markup,
             supplierId: originalProduct.supplierId,
-            storeId: storeId,
             hostedLink: '', // Will be updated below
           },
         });

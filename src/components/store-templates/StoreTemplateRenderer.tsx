@@ -175,7 +175,10 @@ const StoreTemplateRenderer: React.FC<StoreTemplateRendererProps> = ({ store }) 
 
   // Loading state - show skeleton while template component is being loaded
   if (isLoading) {
-    return <TemplateLoadingSkeleton templateName={store.template} />;
+    const templateName = typeof store.template === 'string' 
+      ? store.template 
+      : (typeof store.template === 'object' && store.template !== null ? store.template.name : 'default');
+    return <TemplateLoadingSkeleton templateName={templateName} />;
   }
 
   // Error state

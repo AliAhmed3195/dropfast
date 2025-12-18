@@ -3,9 +3,11 @@
 import React from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useCart } from '@/contexts/CartContext';
 
 interface CartItem {
   id: string;
+  productId: string;
   name: string;
   price: number;
   quantity: number;
@@ -30,8 +32,11 @@ interface CartPageProps {
 
 export default function EcommerceCartPage({ store, cart, theme }: CartPageProps) {
   const router = useRouter();
+  const { items: cartItems, updateQuantity, removeFromCart } = useCart();
   const primaryColor = theme?.colors?.primary || '#7C3AED';
-  const items = cart?.items || [];
+  
+  // Use cart from context if available, otherwise use prop
+  const items = cart?.items || cartItems.filter(item => item.store?.slug === store.slug) || [];
 
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const total = subtotal;
@@ -75,7 +80,7 @@ export default function EcommerceCartPage({ store, cart, theme }: CartPageProps)
             <div className="lg:col-span-2 space-y-4">
               {items.map((item) => (
                 <div key={item.id} className="bg-white rounded-lg p-6 flex items-center gap-6 shadow-sm">
-                  <div className="relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
+                  <div className="relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                     {item.image ? (
                       <Image
                         src={item.image}
@@ -85,14 +90,46 @@ export default function EcommerceCartPage({ store, cart, theme }: CartPageProps)
                       />
                     ) : null}
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-lg mb-2">{item.name}</h3>
-                    <p className="text-gray-600">Quantity: {item.quantity}</p>
+                    <div className="flex items-center space-x-4">
+                      <span className="text-gray-600">Quantity:</span>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            const productId = (item as any).productId || item.id;
+                            updateQuantity(productId, item.quantity - 1);
+                          }}
+                          className="px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                        >
+                          -
+                        </button>
+                        <span className="w-8 text-center">{item.quantity}</span>
+                        <button
+                          onClick={() => {
+                            const productId = (item as any).productId || item.id;
+                            updateQuantity(productId, item.quantity + 1);
+                          }}
+                          className="px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-lg" style={{ color: primaryColor }}>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-lg mb-2" style={{ color: primaryColor }}>
                       ${(item.price * item.quantity).toFixed(2)}
                     </p>
+                    <button
+                      onClick={() => {
+                        const productId = (item as any).productId || item.id;
+                        removeFromCart(productId);
+                      }}
+                      className="text-red-600 hover:text-red-800 text-sm"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
               ))}

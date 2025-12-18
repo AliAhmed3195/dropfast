@@ -30,8 +30,7 @@ export async function GET(request: NextRequest) {
       const response = await fetch(
         `https://api.exchangerate-api.com/v4/latest/${from}`,
         { 
-          headers: { 'User-Agent': 'FastDrop/1.0' },
-          timeout: 5000 
+          headers: { 'User-Agent': 'FastDrop/1.0' }
         }
       );
 

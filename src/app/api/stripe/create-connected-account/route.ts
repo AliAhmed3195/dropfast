@@ -56,12 +56,12 @@ export async function POST(request: NextRequest) {
       phone: kycDetails.phone,
       address: {
         line1: kycDetails.addressLine1,
-        line2: kycDetails.addressLine2,
+        ...(kycDetails.addressLine2 && { line2: kycDetails.addressLine2 }),
         city: kycDetails.city,
         state: kycDetails.state,
         postal_code: kycDetails.postalCode,
         country: kycDetails.countryCode,
-      },
+      } as any,
       kycDetails: {
         countryCode: kycDetails.countryCode,
         accountType: kycDetails.accountType,

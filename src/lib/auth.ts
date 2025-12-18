@@ -64,7 +64,7 @@ export async function authenticateUser(email: string, password: string): Promise
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role,
+    role: user.role === 'SUPPLIER' ? 'SUPPLIER_USER' : user.role === 'VENDOR' ? 'VENDOR_USER' : user.role as 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER' | 'CUSTOMER',
     status: user.status,
     businessId: user.businessId,
   };
@@ -83,5 +83,14 @@ export async function getUserById(id: string): Promise<User | null> {
     },
   });
 
-  return user;
+  if (!user) return null;
+  
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role === 'SUPPLIER' ? 'SUPPLIER_USER' : user.role === 'VENDOR' ? 'VENDOR_USER' : user.role as 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER' | 'CUSTOMER',
+    status: user.status,
+    businessId: user.businessId,
+  };
 }

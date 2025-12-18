@@ -3,8 +3,14 @@ import { prisma } from '@/lib/prisma';
 import StripeFeeCalculator, { PayoutBreakdown } from '@/lib/stripe-fee-calculator';
 import { payoutErrorHandler, PayoutError, ErrorContext } from '@/lib/error-handler';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
+// Validate Stripe secret key
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('⚠️ STRIPE_SECRET_KEY is not set in environment variables');
+  throw new Error('STRIPE_SECRET_KEY environment variable is required');
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2025-12-15.clover' as any,
 });
 
 export interface PayoutResult {
@@ -91,7 +97,9 @@ export class PaymentService {
       }
 
       // Check Stripe accounts
-      if (!order.supplier.stripeAccountId || !order.vendor.stripeAccountId) {
+      const supplierStripeAccountId = (order.product as any)?.supplier?.business?.stripeAccountId;
+      const vendorStripeAccountId = (order.store as any)?.owner?.business?.stripeAccountId;
+      if (!supplierStripeAccountId || !vendorStripeAccountId) {
         throw new Error('Missing Stripe Connect accounts');
       }
 
@@ -233,7 +241,7 @@ export class PaymentService {
       return {
         success: true,
         transferId: transfer.id,
-        status: transfer.status,
+        status: (transfer as any).status || 'pending',
         amount,
         currency
       };
@@ -289,7 +297,7 @@ export class PaymentService {
       return {
         success: true,
         transferId: transfer.id,
-        status: transfer.status,
+        status: (transfer as any).status || 'pending',
         amount,
         currency
       };
@@ -367,7 +375,7 @@ export class PaymentService {
           stripePayoutFee: fees.stripePayoutFee,
           netVendorAmount: fees.netVendorAmount,
           platformRevenue: fees.platformRevenue,
-          feeBreakdown: fees,
+          feeBreakdown: fees as any,
           updatedAt: new Date()
         }
       });
@@ -386,7 +394,7 @@ export class PaymentService {
           stripePayoutFee: fees.stripePayoutFee,
           netVendorAmount: fees.netVendorAmount,
           platformRevenue: fees.platformRevenue,
-          feeBreakdown: fees,
+          feeBreakdown: fees as any,
           status: 'PENDING',
           payoutMethod: 'STRIPE_CONNECT',
           baseCurrency: 'USD',
@@ -490,7 +498,7 @@ export class PaymentService {
       const transfer = await stripe.transfers.retrieve(transferId);
       return {
         id: transfer.id,
-        status: transfer.status,
+        status: (transfer as any).status || 'pending',
         amount: transfer.amount / 100, // Convert from cents
         currency: transfer.currency,
         destination: transfer.destination,

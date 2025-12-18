@@ -1,7 +1,13 @@
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
+// Validate Stripe secret key
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('⚠️ STRIPE_SECRET_KEY is not set in environment variables');
+  throw new Error('STRIPE_SECRET_KEY environment variable is required');
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2025-12-15.clover' as any,
 });
 
 export interface CountrySpecs {
@@ -71,9 +77,9 @@ export class StripeCountrySpecsService {
       const countrySpecs = await stripe.countrySpecs.retrieve(countryCode.toUpperCase());
       
       // Cache the result
-      this.cache.set(cacheKey, countrySpecs as CountrySpecs);
-      
-      return countrySpecs as CountrySpecs;
+      this.cache.set(cacheKey, countrySpecs as unknown as CountrySpecs);
+
+      return countrySpecs as unknown as CountrySpecs;
     } catch (error) {
       console.error(`Error fetching country specs for ${countryCode}:`, error);
       throw new Error(`Failed to fetch country specifications for ${countryCode}`);

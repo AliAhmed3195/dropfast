@@ -64,7 +64,7 @@ export default function CreateStorePage() {
     setTemplateCustomizations(customizations);
   };
 
-  const handleTemplatePreview = (template: StoreTemplate) => {
+  const handleTemplatePreview = (template: any) => {
     setSelectedTemplate(template);
     setShowPreview(true);
   };
@@ -478,7 +478,7 @@ export default function CreateStorePage() {
               <select
                 name="template"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                value={formData.template}
+                value={formData.templateId}
                 onChange={handleInputChange}
               >
                 <option value="default">Default Template</option>

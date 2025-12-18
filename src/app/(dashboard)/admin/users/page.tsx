@@ -66,7 +66,7 @@ export default function AdminUsersPage() {
     const stripePayoutsEnabled = user.business?.stripePayoutsEnabled;
     const bankStatus = user.business?.bankStatus;
     const expressAccountId = user.business?.expressAccountId;
-    const stripeAccountId = user.business?.stripeAccountId;
+    const stripeAccountId = (user.business as any)?.stripeAccountId;
     
     // Check if user has any Stripe account
     const hasStripeAccount = expressAccountId || stripeAccountId;
@@ -315,14 +315,14 @@ export default function AdminUsersPage() {
     }
   };
 
-  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+  const toggleUserStatus = async (userId: string, currentStatus: string | boolean) => {
     try {
       const response = await fetch(`/api/admin/users/${userId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' }),
+        body: JSON.stringify({ status: (currentStatus === 'ACTIVE' || currentStatus === true) ? 'SUSPENDED' : 'ACTIVE' }),
       });
 
       if (response.ok) {
@@ -413,10 +413,10 @@ export default function AdminUsersPage() {
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   value={editingUser.role}
-                  onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as 'ADMIN' | 'SUPPLIER' | 'VENDOR' })}
+                  onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as 'ADMIN' | 'SUPPLIER_USER' | 'VENDOR_USER' | 'CUSTOMER' })}
                 >
-                  <option value="SUPPLIER">Supplier</option>
-                  <option value="VENDOR">Vendor</option>
+                  <option value="SUPPLIER_USER">Supplier</option>
+                  <option value="VENDOR_USER">Vendor</option>
                   <option value="ADMIN">Admin</option>
                 </select>
               </div>
@@ -498,7 +498,7 @@ export default function AdminUsersPage() {
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                       user.role === 'ADMIN' 
                         ? 'bg-purple-100 text-purple-800'
-                        : user.role === 'SUPPLIER'
+                        : user.role === 'SUPPLIER_USER'
                         ? 'bg-blue-100 text-blue-800'
                         : 'bg-green-100 text-green-800'
                     }`}>

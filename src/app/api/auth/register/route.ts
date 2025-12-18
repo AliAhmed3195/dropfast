@@ -22,8 +22,15 @@ export async function POST(request: NextRequest) {
 
     const user = await createUser(email, password, name, role, businessId);
 
-    // Create session
-    await createSession(user);
+    // Create session - map role if needed
+    await createSession({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role as 'ADMIN' | 'VENDOR_USER' | 'SUPPLIER_USER' | 'CUSTOMER',
+      status: user.status,
+      businessId: user.businessId
+    });
 
     return NextResponse.json({
       message: 'Registration successful',

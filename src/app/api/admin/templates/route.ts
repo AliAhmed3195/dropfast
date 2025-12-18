@@ -55,12 +55,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate slug from name
+    const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    
     const template = await prisma.template.create({
       data: {
         name,
+        slug,
         description: description || null,
-        baseHtml,
-        baseConfig,
+        theme: baseConfig || {},
+        pages: {},
+        editableFields: {},
         previewImage: previewImage || null,
         isActive: true
       }

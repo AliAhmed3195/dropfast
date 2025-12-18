@@ -12,7 +12,7 @@ export async function GET() {
 
     const products = await prisma.product.findMany({
       where: {
-        supplierId: session.userId || session.id,
+        supplierId: session.id,
         storeId: null, // Only show original products, not vendor-created copies
       },
       include: {
@@ -114,11 +114,11 @@ export async function POST(request: NextRequest) {
       priceModifier: parseFloat(variant.priceModifier) || 0,
     }));
 
-    console.log('Creating product with supplierId:', session.userId || session.id);
+    console.log('Creating product with supplierId:', session.id);
     
     // Fetch user to get businessId
     const user = await prisma.user.findUnique({
-      where: { id: session.userId || session.id },
+      where: { id: session.id },
       select: { businessId: true }
     });
     
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
           totalQuantity: totalQuantity || 0,
           availableQuantity: availableQuantity || 0,
           shippingInfo: shippingInfo || null,
-          supplierId: session.userId || session.id,
+          supplierId: session.id,
           businessId: user?.businessId || null,
           storeId: null, // Explicitly set to null for original products
           isActive: true, // Explicitly set to true
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
       console.error('Error stack:', error.stack);
       // If variants column doesn't exist, create without variants
       console.log('Variants column not available, creating product without variants');
-      console.log('Fallback - Creating product with supplierId:', session.userId || session.id);
+      console.log('Fallback - Creating product with supplierId:', session.id);
       product = await prisma.product.create({
         data: {
           name,
@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
           totalQuantity: totalQuantity || 0,
           availableQuantity: availableQuantity || 0,
           shippingInfo: shippingInfo || null,
-          supplierId: session.userId || session.id,
+          supplierId: session.id,
           businessId: user?.businessId || null,
           storeId: null,
           isActive: true,

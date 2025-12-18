@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     // Get store details
     const store = await prisma.store.findUnique({
       where: { id: storeId },
-      select: { ownerId: true, name: true }
+      select: { ownerId: true, name: true, currency: true }
     });
 
     if (!store) {

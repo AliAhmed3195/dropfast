@@ -36,11 +36,10 @@ export async function GET(request: NextRequest) {
       bankCity: bankDetails.bankCity,
       bankCountry: bankDetails.bankCountry,
       bankPostalCode: bankDetails.bankPostalCode,
-      taxId: bankDetails.taxId,
-      taxIdType: bankDetails.taxIdType,
+      taxId: (bankDetails as any).taxId,
+      taxIdType: (bankDetails as any).taxIdType,
       isVerified: bankDetails.isVerified,
       verifiedAt: bankDetails.verifiedAt,
-      isActive: bankDetails.isActive,
       createdAt: bankDetails.createdAt,
       updatedAt: bankDetails.updatedAt
     };
@@ -113,12 +112,9 @@ export async function POST(request: NextRequest) {
           bankCity,
           bankCountry,
           bankPostalCode,
-          taxId,
-          taxIdType,
           isVerified: false, // Reset verification status
           verifiedAt: null,
           verifiedBy: null,
-          notes: null,
           updatedAt: new Date()
         }
       });
@@ -126,7 +122,9 @@ export async function POST(request: NextRequest) {
       // Create new bank details
       bankDetails = await prisma.bankDetails.create({
         data: {
-          userId: session.id,
+          user: { connect: { id: session.id } },
+          countryCode: bankCountry || 'US',
+          fields: {},
           bankName,
           accountHolderName,
           accountNumber,
@@ -136,9 +134,7 @@ export async function POST(request: NextRequest) {
           bankAddress,
           bankCity,
           bankCountry,
-          bankPostalCode,
-          taxId,
-          taxIdType
+          bankPostalCode
         }
       });
     }
@@ -189,8 +185,8 @@ async function checkAndUpdateOnHoldPayouts(userId: string) {
 
     // Check each payout
     for (const payout of onHoldPayouts) {
-      const supplierHasBankDetails = payout.supplier.bankDetails?.isActive || false;
-      const vendorHasBankDetails = payout.vendor.bankDetails?.isActive || false;
+      const supplierHasBankDetails = !!payout.supplier.bankDetails;
+      const vendorHasBankDetails = !!payout.vendor.bankDetails;
 
       if (supplierHasBankDetails && vendorHasBankDetails) {
         // Update payout status to APPROVAL_REQUIRED

@@ -41,6 +41,7 @@ interface Product {
   createdAt: string;
   updatedAt: string;
   isImported: boolean;
+  featured?: boolean;
   importedStores: Array<{
     id: string;
     name: string;
@@ -394,7 +395,10 @@ export default function VendorProductsPage() {
                 {/* Product Image */}
                 <div className="relative overflow-hidden rounded-t-lg">
                   {product.images && product.images.length > 0 ? (
-                    <ProductImageSlider images={product.images} />
+                    <ProductImageSlider 
+                      images={product.images} 
+                      productName={product.name || 'Product'}
+                    />
                   ) : (
                     <div className="h-48 bg-gray-200 flex items-center justify-center">
                       <span className="text-gray-500">No Image</span>

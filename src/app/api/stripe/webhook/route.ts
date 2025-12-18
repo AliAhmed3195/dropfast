@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
+// Validate Stripe secret key
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('⚠️ STRIPE_SECRET_KEY is not set in environment variables');
+  throw new Error('STRIPE_SECRET_KEY environment variable is required');
+}
+
+if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  console.error('⚠️ STRIPE_WEBHOOK_SECRET is not set in environment variables');
+  throw new Error('STRIPE_WEBHOOK_SECRET environment variable is required');
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2025-12-15.clover' as any,
 });
 
 export async function POST(request: NextRequest) {

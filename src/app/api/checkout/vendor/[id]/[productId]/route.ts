@@ -100,8 +100,8 @@ export async function POST(
           email: customerEmail,
           name: customerName,
           password: 'temp-password', // Temporary password for customers
-          role: 'VENDOR', // We'll need to add CUSTOMER role later
-          isActive: true,
+          role: 'CUSTOMER',
+          status: 'ACTIVE',
         },
       });
     }
@@ -158,7 +158,7 @@ export async function POST(
         invoice,
         {
           ...product.store,
-          invoiceTemplate: product.store.template
+          invoiceTemplate: (product.store as any).template || 'default'
         }
       );
       await sendEmail({

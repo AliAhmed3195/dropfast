@@ -33,13 +33,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Handle status change
-    await OrderStatusHandler.handleStatusChange({
-      orderId: orderId,
-      oldStatus: order.status,
-      newStatus: newStatus,
-      changedBy: 'test-user',
-      reason: 'Test status change'
-    });
+    await OrderStatusHandler.handleStatusChange(orderId, newStatus);
 
     // Check if payout was created
     const payout = await prisma.payout.findUnique({
@@ -47,14 +41,12 @@ export async function POST(request: NextRequest) {
       include: {
         supplier: {
           select: {
-            name: true,
-            preferredCurrency: true
+            name: true
           }
         },
         vendor: {
           select: {
-            name: true,
-            preferredCurrency: true
+            name: true
           }
         }
       }

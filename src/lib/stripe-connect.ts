@@ -2,8 +2,14 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { validatePostalCode } from '@/lib/postal-code-utils';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
+// Validate Stripe secret key
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('⚠️ STRIPE_SECRET_KEY is not set in environment variables');
+  throw new Error('STRIPE_SECRET_KEY environment variable is required');
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2025-12-15.clover' as any,
 });
 
 export interface CreateConnectedAccountParams {
@@ -303,7 +309,7 @@ export class StripeConnectService {
           name: useKycData ? useKycData.businessName : params.businessName,
           address: {
             line1: useKycData ? useKycData.addressLine1 : params.address.line1,
-            line2: useKycData ? useKycData.addressLine2 : params.address.line2,
+            ...(useKycData?.addressLine2 || (params.address as any).line2 ? { line2: useKycData?.addressLine2 || (params.address as any).line2 } : {}),
             city: useKycData ? useKycData.city : params.address.city,
             state: useKycData ? useKycData.state : params.address.state,
             postal_code: validPostalCode,
@@ -323,7 +329,7 @@ export class StripeConnectService {
           } : undefined,
           address: {
             line1: useKycData ? useKycData.addressLine1 : params.address.line1,
-            line2: useKycData ? useKycData.addressLine2 : params.address.line2,
+            ...(useKycData?.addressLine2 || (params.address as any).line2 ? { line2: useKycData?.addressLine2 || (params.address as any).line2 } : {}),
             city: useKycData ? useKycData.city : params.address.city,
             state: useKycData ? useKycData.state : params.address.state,
             postal_code: validPostalCode,
@@ -372,10 +378,6 @@ export class StripeConnectService {
         where: { id: params.businessId },
         data: { 
           stripeAccountId: account.id,
-          serviceAgreement: serviceAgreement,
-          capabilities: capabilities,
-          stripeAccountCreatedAt: new Date(),
-          lastStripeSyncAt: new Date(),
         }
       });
 

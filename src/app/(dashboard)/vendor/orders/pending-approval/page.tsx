@@ -28,6 +28,8 @@ interface Order {
   };
   quantity: number;
   totalAmount: number;
+  lockedUSDPrice?: number;
+  status: string;
   displayCurrency: string;
   createdAt: string;
   statusHistory: Array<{
@@ -248,7 +250,13 @@ export default function PendingApprovalOrdersPage() {
                   <div className="flex-shrink-0">
                     <div className="w-32 h-32 rounded-lg overflow-hidden">
                       <ProductImageSlider
-                        images={order.product.images}
+                        images={((order.product.images as any[]) || []).map((img: any, index: number) => ({
+                          id: img.id || `img-${index}`,
+                          url: img.url,
+                          isMain: img.isMain || index === 0,
+                          order: img.order || index,
+                          alt: img.alt || order.product.name
+                        }))}
                         productName={order.product.name}
                         className="w-full h-full object-cover"
                       />

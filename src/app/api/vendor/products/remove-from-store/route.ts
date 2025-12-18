@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     if (!myProductsStore) {
       const vendor = await prisma.user.findUnique({
         where: { id: session.id },
-        select: { preferredCurrency: true }
+        select: { id: true }
       });
 
       myProductsStore = await prisma.store.create({
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
           slug: `my-products-${session.id}`,
           description: 'Private collection of imported products',
           ownerId: session.id,
-          currency: vendor?.preferredCurrency || 'USD',
+          currency: 'USD',
           isActive: false,
         }
       });

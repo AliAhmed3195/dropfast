@@ -12,6 +12,7 @@ interface CheckoutItem {
 
 interface CheckoutPageProps {
   store: {
+    id?: string;
     name: string;
     slug: string;
     logo?: string;
@@ -30,6 +31,8 @@ export default function ClassicCheckoutPage({ store, checkout, theme }: Checkout
   const router = useRouter();
   const primaryColor = theme?.colors?.primary || '#10B981';
   const items = checkout?.items || [];
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -48,8 +51,80 @@ export default function ClassicCheckoutPage({ store, checkout, theme }: Checkout
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle checkout logic here
-    alert('Order placed successfully!');
+    setProcessing(true);
+    setError(null);
+    
+    if (items.length === 0) {
+      setError('Your cart is empty');
+      setProcessing(false);
+      return;
+    }
+
+    try {
+      // Get store ID first
+      const storeResponse = await fetch(`/api/stores/public/${store.slug}`);
+      if (!storeResponse.ok) {
+        throw new Error('Store not found');
+      }
+      const storeData = await storeResponse.json();
+      const storeId = storeData.store.id;
+
+      // Create orders for each item in cart
+      const orderPromises = items.map(async (item) => {
+        const productId = (item as any).productId || item.id;
+        const response = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productId: productId,
+            storeId: storeId,
+            quantity: item.quantity,
+            selectedVariants: {},
+            customerInfo: {
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              email: formData.email,
+              phone: formData.phone,
+            },
+            shippingInfo: {
+              address: formData.address,
+              city: formData.city,
+              state: formData.city,
+              zipCode: formData.zipCode,
+              country: formData.country,
+            },
+            paymentInfo: {
+              method: 'card',
+              cardName: `${formData.firstName} ${formData.lastName}`,
+              cardNumber: '****',
+            },
+            totalAmount: item.price * item.quantity,
+          }),
+        });
+
+        return response.json();
+      });
+
+      const results = await Promise.all(orderPromises);
+      const failedOrders = results.filter(r => !r.success);
+
+      if (failedOrders.length === 0) {
+        alert('All orders placed successfully!');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('cart');
+        }
+        router.push(`/store/${store.slug}?order=success`);
+      } else {
+        setError(`Some orders failed. ${results.length - failedOrders.length} orders placed successfully.`);
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      setError('An error occurred. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -168,12 +243,19 @@ export default function ClassicCheckoutPage({ store, checkout, theme }: Checkout
               </div>
             </div>
 
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                {error}
+              </div>
+            )}
+            
             <button
               type="submit"
-              className="w-full py-4 rounded-lg font-bold text-white text-lg"
+              disabled={processing}
+              className="w-full py-4 rounded-lg font-bold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: primaryColor }}
             >
-              Place Order
+              {processing ? 'Processing...' : 'Place Order'}
             </button>
           </form>
 
