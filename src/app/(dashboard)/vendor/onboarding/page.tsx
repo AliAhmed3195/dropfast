@@ -17,7 +17,6 @@ interface OnboardingStatus {
 export default function VendorOnboardingPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [accountLink, setAccountLink] = useState('');
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -59,23 +58,36 @@ export default function VendorOnboardingPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setAccountLink(data.accountLink);
-        // Redirect to Stripe onboarding
-        window.location.href = data.accountLink;
+        // Directly redirect to Stripe onboarding without page refresh
+        window.location.replace(data.accountLink);
       } else {
         setError(data.error || 'Failed to create Express account');
+        setCreating(false);
       }
     } catch (error) {
       console.error('Error creating Express account:', error);
       setError('Failed to create Express account');
-    } finally {
       setCreating(false);
     }
   };
 
-  const continueOnboarding = () => {
-    if (accountLink) {
-      window.location.href = accountLink;
+  const continueOnboarding = async () => {
+    try {
+      // Fetch fresh account link for existing account
+      const response = await fetch('/api/stripe/express/link', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      
+      if (response.ok && data.accountLink) {
+        // Directly redirect without page refresh
+        window.location.replace(data.accountLink);
+      } else {
+        setError(data.error || 'Failed to get onboarding link');
+      }
+    } catch (error) {
+      console.error('Error getting onboarding link:', error);
+      setError('Failed to get onboarding link');
     }
   };
 
