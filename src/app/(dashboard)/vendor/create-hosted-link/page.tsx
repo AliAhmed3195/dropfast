@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 
 interface Store {
@@ -31,12 +31,13 @@ export default function CreateHostedLinkPage() {
   const [generatedLink, setGeneratedLink] = useState<string>('');
   const [showLink, setShowLink] = useState(false);
 
-  useEffect(() => {
-    fetchStores();
-    fetchAvailableProducts();
-  }, []);
+  const hasFetchedStores = useRef(false);
+  const hasFetchedProducts = useRef(false);
 
-  const fetchStores = async () => {
+  const fetchStores = useCallback(async () => {
+    if (hasFetchedStores.current) return;
+    hasFetchedStores.current = true;
+    
     try {
       const response = await fetch('/api/stores');
       const data = await response.json();
@@ -46,18 +47,28 @@ export default function CreateHostedLinkPage() {
       }
     } catch (error) {
       console.error('Error fetching stores:', error);
+      hasFetchedStores.current = false;
     }
-  };
+  }, []);
 
-  const fetchAvailableProducts = async () => {
+  const fetchAvailableProducts = useCallback(async () => {
+    if (hasFetchedProducts.current) return;
+    hasFetchedProducts.current = true;
+    
     try {
       const response = await fetch('/api/products/available');
       const data = await response.json();
       setProducts(data.products || []);
     } catch (error) {
       console.error('Error fetching products:', error);
+      hasFetchedProducts.current = false;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStores();
+    fetchAvailableProducts();
+  }, [fetchStores, fetchAvailableProducts]);
 
   const calculateFinalPrice = () => {
     const product = products.find(p => p.id === selectedProduct);

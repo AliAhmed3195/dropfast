@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 import InvoiceRenderer from '@/components/invoices/InvoiceRenderer';
 import TemplateSelector from '@/components/invoices/TemplateSelector';
@@ -23,11 +23,12 @@ export default function InvoicePreviewPage() {
   const [selectedTemplate, setSelectedTemplate] = useState('default');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchStores();
-  }, []);
+  const hasFetchedStores = useRef(false);
 
-  const fetchStores = async () => {
+  const fetchStores = useCallback(async () => {
+    if (hasFetchedStores.current) return;
+    hasFetchedStores.current = true;
+    
     try {
       const response = await fetch('/api/stores');
       const data = await response.json();
@@ -38,10 +39,15 @@ export default function InvoicePreviewPage() {
       }
     } catch (error) {
       console.error('Error fetching stores:', error);
+      hasFetchedStores.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStores();
+  }, [fetchStores]);
 
   // Mock data for preview
   const mockInvoice = {

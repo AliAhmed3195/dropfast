@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '@/components/ProductImageSlider';
 
@@ -53,22 +53,27 @@ export default function AdminProductsPage() {
   const [showFeaturedManager, setShowFeaturedManager] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState('');
+  const hasFetchedProducts = useRef(false);
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
+    if (hasFetchedProducts.current) return;
+    hasFetchedProducts.current = true;
+    
     try {
       const response = await fetch('/api/admin/products');
       const data = await response.json();
       setProducts(data.products || []);
     } catch (error) {
       console.error('Error fetching products:', error);
+      hasFetchedProducts.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const toggleProductStatus = async (productId: string, currentStatus: boolean) => {
     try {

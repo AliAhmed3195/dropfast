@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductImageSlider from '@/components/ProductImageSlider';
 import OrderDetailCurrencyDisplay from '@/components/OrderDetailCurrencyDisplay';
@@ -60,12 +60,13 @@ export default function SupplierOrderDetailsPage({ params }: { params: { id: str
   const [userCurrency, setUserCurrency] = useState<string>('USD');
   const router = useRouter();
 
-  useEffect(() => {
-    fetchOrderDetails();
-    fetchUserCurrency();
-  }, [params.id]);
+  const hasFetchedOrder = useRef<string>('');
+  const hasFetchedCurrency = useRef(false);
 
-  const fetchUserCurrency = async () => {
+  const fetchUserCurrency = useCallback(async () => {
+    if (hasFetchedCurrency.current) return;
+    hasFetchedCurrency.current = true;
+    
     try {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
@@ -74,10 +75,14 @@ export default function SupplierOrderDetailsPage({ params }: { params: { id: str
       }
     } catch (error) {
       console.error('Error fetching user currency:', error);
+      hasFetchedCurrency.current = false;
     }
-  };
+  }, []);
 
-  const fetchOrderDetails = async () => {
+  const fetchOrderDetails = useCallback(async () => {
+    if (hasFetchedOrder.current === params.id) return;
+    hasFetchedOrder.current = params.id;
+    
     try {
       setLoading(true);
       const response = await fetch(`/api/supplier/orders/${params.id}`);
@@ -90,6 +95,7 @@ export default function SupplierOrderDetailsPage({ params }: { params: { id: str
         } else {
           setError('Failed to fetch order details');
         }
+        hasFetchedOrder.current = ''; // Reset on error
         return;
       }
 
@@ -98,10 +104,16 @@ export default function SupplierOrderDetailsPage({ params }: { params: { id: str
     } catch (error) {
       console.error('Error fetching order details:', error);
       setError('Failed to fetch order details');
+      hasFetchedOrder.current = ''; // Reset on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchOrderDetails();
+    fetchUserCurrency();
+  }, [fetchOrderDetails, fetchUserCurrency]);
 
   const updateOrderStatus = async (newStatus: string) => {
     try {

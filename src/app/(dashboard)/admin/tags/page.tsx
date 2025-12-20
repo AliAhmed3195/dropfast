@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 
 interface Tag {
@@ -21,21 +21,27 @@ export default function AdminTagsPage() {
     color: '#3B82F6',
   });
 
-  useEffect(() => {
-    fetchTags();
-  }, []);
+  const hasFetchedTags = useRef(false);
 
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async () => {
+    if (hasFetchedTags.current) return;
+    hasFetchedTags.current = true;
+    
     try {
       const response = await fetch('/api/tags');
       const data = await response.json();
       setTags(data.tags || []);
     } catch (error) {
       console.error('Error fetching tags:', error);
+      hasFetchedTags.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchTags();
+  }, [fetchTags]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

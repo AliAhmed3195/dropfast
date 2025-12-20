@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '@/components/ProductImageSlider';
 import SupplierPriceCalculator from '@/components/SupplierPriceCalculator';
@@ -139,12 +139,93 @@ export default function SupplierProductsPage() {
     maxOrderQuantity: '',
   });
 
+  const hasFetchedProducts = useRef(false);
+  const hasFetchedCurrency = useRef(false);
+  const hasFetchedCategories = useRef(false);
+  const hasFetchedTags = useRef(false);
+
+  const fetchProducts = useCallback(async () => {
+    if (hasFetchedProducts.current) return;
+    hasFetchedProducts.current = true;
+    
+    try {
+      const response = await fetch('/api/products');
+      const data = await response.json();
+      setProducts(data.products || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      hasFetchedProducts.current = false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchUserCurrency = useCallback(async () => {
+    if (hasFetchedCurrency.current) return;
+    hasFetchedCurrency.current = true;
+    
+    try {
+      const response = await fetch('/api/user/profile');
+      if (response.ok) {
+        const userData = await response.json();
+        setUserCurrency('USD');
+        setUserPreferredCurrency(userData.business?.preferredCurrency || 'USD');
+        setNewProduct(prev => ({ ...prev, currency: 'USD' }));
+        setCurrentExchangeRate(1);
+      } else {
+        setUserCurrency('USD');
+        setUserPreferredCurrency('USD');
+        setNewProduct(prev => ({ ...prev, currency: 'USD' }));
+        setCurrentExchangeRate(1);
+      }
+    } catch (error) {
+      console.error('Error fetching user currency:', error);
+      setUserCurrency('USD');
+      setUserPreferredCurrency('USD');
+      setNewProduct(prev => ({ ...prev, currency: 'USD' }));
+      setCurrentExchangeRate(1);
+      hasFetchedCurrency.current = false;
+    }
+  }, []);
+
+  const fetchCategories = useCallback(async () => {
+    if (hasFetchedCategories.current) return;
+    hasFetchedCategories.current = true;
+    
+    try {
+      const response = await fetch('/api/categories');
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.categories || data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      hasFetchedCategories.current = false;
+    }
+  }, []);
+
+  const fetchTags = useCallback(async () => {
+    if (hasFetchedTags.current) return;
+    hasFetchedTags.current = true;
+    
+    try {
+      const response = await fetch('/api/tags');
+      if (response.ok) {
+        const data = await response.json();
+        setTags(data.tags || data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      hasFetchedTags.current = false;
+    }
+  }, []);
+
   useEffect(() => {
     fetchProducts();
     fetchUserCurrency();
     fetchCategories();
     fetchTags();
-  }, []);
+  }, [fetchProducts, fetchUserCurrency, fetchCategories, fetchTags]);
 
   // Persist form data to localStorage
   useEffect(() => {
@@ -172,25 +253,6 @@ export default function SupplierProductsPage() {
     }
   }, [newProduct]);
 
-  const fetchUserCurrency = async () => {
-    try {
-      const response = await fetch('/api/user/profile');
-      if (response.ok) {
-        const userData = await response.json();
-        setUserCurrency('USD');
-        setUserPreferredCurrency(userData.business?.preferredCurrency || 'USD');
-        setNewProduct(prev => ({ ...prev, currency: 'USD' }));
-        setCurrentExchangeRate(1);
-      }
-    } catch (error) {
-      console.error('Error fetching user currency:', error);
-      setUserCurrency('USD');
-      setUserPreferredCurrency('USD');
-      setNewProduct(prev => ({ ...prev, currency: 'USD' }));
-      setCurrentExchangeRate(1);
-    }
-  };
-
   const getCurrencyName = (currency: string) => {
     const currencyNames: { [key: string]: string } = {
       'USD': 'US Dollar',
@@ -209,18 +271,6 @@ export default function SupplierProductsPage() {
     return currencyNames[currency] || currency;
   };
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/categories');
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
-
   const fetchSubcategories = async (categoryId: string) => {
     try {
       const response = await fetch(`/api/subcategories?categoryId=${categoryId}`);
@@ -233,30 +283,7 @@ export default function SupplierProductsPage() {
     }
   };
 
-  const fetchTags = async () => {
-    try {
-      const response = await fetch('/api/tags');
-      if (response.ok) {
-        const data = await response.json();
-        setTags(data);
-      }
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-    }
-  };
 
-
-  const fetchProducts = async () => {
-    try {
-      const response = await fetch('/api/products');
-      const data = await response.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleFileUpload = async (file: File) => {
     setUploading(true);

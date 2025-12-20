@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '@/components/ProductImageSlider';
@@ -71,9 +71,62 @@ export default function VendorImportPage() {
   const [markupValue, setMarkupValue] = useState<number>(10);
   const [markupType, setMarkupType] = useState<'percentage' | 'fixed'>('percentage');
 
+  const hasFetchedData = useRef(false);
+
+  const fetchData = useCallback(async () => {
+    if (hasFetchedData.current) return;
+    hasFetchedData.current = true;
+    
+    try {
+      const [productsResponse, storesResponse, importedProductsResponse] = await Promise.all([
+        fetch('/api/products/available'),
+        fetch('/api/stores'),
+        fetch('/api/vendor/products/imported'),
+      ]);
+
+      const productsData = await productsResponse.json();
+      const storesData = await storesResponse.json();
+      const importedData = await importedProductsResponse.json();
+
+      const products = productsData.products || [];
+      const imported = importedData.products || [];
+
+      // Separate products into categories
+      const featured = products.filter((product: Product) => product.featured);
+      const newArrival = products.filter((product: Product) => {
+        const productDate = new Date(product.createdAt);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return productDate >= sevenDaysAgo;
+      });
+      const regular = products.filter((product: Product) => 
+        !product.featured && !isNewArrival(product)
+      );
+
+      setAvailableProducts(regular);
+      setFeaturedProducts(featured);
+      setNewArrivalProducts(newArrival);
+      setStores(storesData.stores || []);
+      setImportedProducts(imported);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      hasFetchedData.current = false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Helper function to check if product is new arrival (last 7 days)
+  const isNewArrival = (product: Product) => {
+    const productDate = new Date(product.createdAt);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return productDate >= sevenDaysAgo;
+  };
+
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Filter products based on current filters
   useEffect(() => {
@@ -143,52 +196,6 @@ export default function VendorImportPage() {
     setFilteredProducts(filtered);
   }, [availableProducts, featuredProducts, newArrivalProducts, filters]);
 
-  // Helper function to check if product is new arrival (last 7 days)
-  const isNewArrival = (product: Product) => {
-    const productDate = new Date(product.createdAt);
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return productDate >= sevenDaysAgo;
-  };
-
-  const fetchData = async () => {
-    try {
-      const [productsResponse, storesResponse, importedProductsResponse] = await Promise.all([
-        fetch('/api/products/available'),
-        fetch('/api/stores'),
-        fetch('/api/vendor/products/imported'),
-      ]);
-
-      const productsData = await productsResponse.json();
-      const storesData = await storesResponse.json();
-      const importedData = await importedProductsResponse.json();
-
-      const products = productsData.products || [];
-      const imported = importedData.products || [];
-
-      // Separate products into categories
-      const featured = products.filter((product: Product) => product.featured);
-      const newArrival = products.filter((product: Product) => {
-        const productDate = new Date(product.createdAt);
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        return productDate >= sevenDaysAgo;
-      });
-      const regular = products.filter((product: Product) => 
-        !product.featured && !isNewArrival(product)
-      );
-
-      setAvailableProducts(regular);
-      setFeaturedProducts(featured);
-      setNewArrivalProducts(newArrival);
-      setStores(storesData.stores || []);
-      setImportedProducts(imported);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleImportProduct = async (productId: string) => {
     const product = [...availableProducts, ...featuredProducts, ...newArrivalProducts].find(p => p.id === productId);
@@ -218,6 +225,7 @@ export default function VendorImportPage() {
         alert('Product imported successfully!');
         setShowImportModal(false);
         setSelectedProduct(null);
+        hasFetchedData.current = false; // Reset to allow refresh
         fetchData(); // Refresh data
       } else {
         const error = await response.json();

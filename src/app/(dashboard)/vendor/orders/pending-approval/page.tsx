@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductImageSlider from '@/components/ProductImageSlider';
 
@@ -63,19 +63,22 @@ export default function PendingApprovalOrdersPage() {
   const [rejectionNotes, setRejectionNotes] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchOrders();
-  }, [currentPage, searchQuery]);
+  const lastFetchParams = useRef<string>('');
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    const params = new URLSearchParams({
+      page: currentPage.toString(),
+      limit: '10',
+      search: searchQuery
+    });
+    const paramsString = params.toString();
+    
+    // Prevent duplicate calls with same parameters
+    if (lastFetchParams.current === paramsString && orders.length > 0) return;
+    lastFetchParams.current = paramsString;
+    
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '10',
-        search: searchQuery
-      });
-
       const response = await fetch(`/api/vendor/orders/pending-approval?${params}`);
       const data: PendingApprovalOrdersResponse = await response.json();
 
@@ -84,13 +87,19 @@ export default function PendingApprovalOrdersPage() {
         setTotalPages(data.pagination.pages);
       } else {
         console.error('Error fetching orders:', data);
+        lastFetchParams.current = ''; // Reset on error
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
+      lastFetchParams.current = ''; // Reset on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchQuery, orders.length]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const handleApprove = async (orderId: string) => {
     try {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '@/components/ProductImageSlider';
@@ -56,21 +56,27 @@ export default function AdminOrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  const hasFetchedOrders = useRef(false);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    if (hasFetchedOrders.current) return;
+    hasFetchedOrders.current = true;
+    
     try {
       const response = await fetch('/api/admin/orders');
       const data = await response.json();
       setOrders(data.orders || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
+      hasFetchedOrders.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {

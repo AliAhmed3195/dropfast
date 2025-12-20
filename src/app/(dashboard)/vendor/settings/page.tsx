@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface Store {
   id: string;
@@ -16,11 +16,12 @@ export default function VendorSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchStores();
-  }, []);
+  const hasFetchedStores = useRef(false);
 
-  const fetchStores = async () => {
+  const fetchStores = useCallback(async () => {
+    if (hasFetchedStores.current) return;
+    hasFetchedStores.current = true;
+    
     try {
       setLoading(true);
       const response = await fetch('/api/stores');
@@ -30,13 +31,19 @@ export default function VendorSettingsPage() {
         setStores(data.stores || []);
       } else {
         console.error('Error fetching stores:', data);
+        hasFetchedStores.current = false;
       }
     } catch (error) {
       console.error('Error fetching stores:', error);
+      hasFetchedStores.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStores();
+  }, [fetchStores]);
 
   const updateAutoForwardSetting = async (storeId: string, autoForward: boolean) => {
     try {

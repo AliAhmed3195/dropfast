@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 import InvoiceRenderer from '@/components/invoices/InvoiceRenderer';
 
@@ -63,11 +63,12 @@ export default function VendorInvoiceTemplatesPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchStores();
-  }, []);
+  const hasFetchedStores = useRef(false);
 
-  const fetchStores = async () => {
+  const fetchStores = useCallback(async () => {
+    if (hasFetchedStores.current) return;
+    hasFetchedStores.current = true;
+    
     try {
       const response = await fetch('/api/stores');
       const data = await response.json();
@@ -78,10 +79,15 @@ export default function VendorInvoiceTemplatesPage() {
       }
     } catch (error) {
       console.error('Error fetching stores:', error);
+      hasFetchedStores.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStores();
+  }, [fetchStores]);
 
   const updateStoreTemplate = async (storeId: string, templateId: string) => {
     try {

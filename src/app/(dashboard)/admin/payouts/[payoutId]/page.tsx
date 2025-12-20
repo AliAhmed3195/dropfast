@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface PayoutDetails {
@@ -72,11 +72,12 @@ export default function PayoutDetailsPage({ params }: { params: { payoutId: stri
   const [actionNotes, setActionNotes] = useState('');
   const router = useRouter();
 
-  useEffect(() => {
-    fetchPayoutDetails();
-  }, [params.payoutId]);
+  const hasFetchedPayout = useRef<string>('');
 
-  const fetchPayoutDetails = async () => {
+  const fetchPayoutDetails = useCallback(async () => {
+    if (hasFetchedPayout.current === params.payoutId) return;
+    hasFetchedPayout.current = params.payoutId;
+    
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/payouts/${params.payoutId}`);
@@ -85,14 +86,20 @@ export default function PayoutDetailsPage({ params }: { params: { payoutId: stri
         setPayout(data.payout);
       } else {
         setError('Payout not found');
+        hasFetchedPayout.current = ''; // Reset on error
       }
     } catch (error) {
       console.error('Error fetching payout details:', error);
       setError('Failed to load payout details');
+      hasFetchedPayout.current = ''; // Reset on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.payoutId]);
+
+  useEffect(() => {
+    fetchPayoutDetails();
+  }, [fetchPayoutDetails]);
 
   const handleStatusUpdate = async () => {
     if (!newStatus || !payout) return;

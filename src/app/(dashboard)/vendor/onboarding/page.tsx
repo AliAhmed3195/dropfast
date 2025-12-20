@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface OnboardingStatus {
@@ -21,11 +21,12 @@ export default function VendorOnboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    checkAccountStatus();
-  }, []);
+  const hasCheckedStatus = useRef(false);
 
-  const checkAccountStatus = async () => {
+  const checkAccountStatus = useCallback(async () => {
+    if (hasCheckedStatus.current) return;
+    hasCheckedStatus.current = true;
+    
     try {
       const response = await fetch('/api/stripe/express/status');
       if (response.ok) {
@@ -41,10 +42,15 @@ export default function VendorOnboardingPage() {
     } catch (error) {
       console.error('Error checking status:', error);
       setError('Failed to check account status');
+      hasCheckedStatus.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    checkAccountStatus();
+  }, [checkAccountStatus]);
 
   const createExpressAccount = async () => {
     setCreating(true);

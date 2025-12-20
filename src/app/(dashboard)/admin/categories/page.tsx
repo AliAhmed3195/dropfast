@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 import { useRouter } from 'next/navigation';
 
@@ -32,22 +32,27 @@ export default function AdminCategoriesPage() {
     order: 0,
   });
   const router = useRouter();
+  const hasFetchedCategories = useRef(false);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
+    if (hasFetchedCategories.current) return;
+    hasFetchedCategories.current = true;
+    
     try {
       const response = await fetch('/api/categories');
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
+      hasFetchedCategories.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

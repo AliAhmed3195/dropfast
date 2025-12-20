@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import StripeStatusCard from '@/components/StripeStatusCard';
 
@@ -133,13 +133,14 @@ export default function AdminPayoutsPage() {
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('info');
   const router = useRouter();
 
-  useEffect(() => {
-    fetchPayouts();
-    fetchAutomatedStatus();
-  }, [filters, pagination.page]);
+  const lastFetchParams = useRef<string>('');
+  const hasFetchedAutomatedStatus = useRef(false);
 
   // Fetch automated processing status
-  const fetchAutomatedStatus = async () => {
+  const fetchAutomatedStatus = useCallback(async () => {
+    if (hasFetchedAutomatedStatus.current) return;
+    hasFetchedAutomatedStatus.current = true;
+    
     try {
       const response = await fetch('/api/admin/payouts/automated/status');
       if (response.ok) {
@@ -149,18 +150,24 @@ export default function AdminPayoutsPage() {
       }
     } catch (error) {
       console.error('Error fetching automated status:', error);
+      hasFetchedAutomatedStatus.current = false;
     }
-  };
+  }, []);
 
-  const fetchPayouts = async () => {
+  const fetchPayouts = useCallback(async () => {
+    const queryParams = new URLSearchParams({
+      page: pagination.page.toString(),
+      limit: pagination.limit.toString(),
+      ...filters
+    });
+    const paramsString = queryParams.toString();
+    
+    // Prevent duplicate calls with same parameters
+    if (lastFetchParams.current === paramsString && payouts.length > 0) return;
+    lastFetchParams.current = paramsString;
+    
     try {
       setLoading(true);
-      const queryParams = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        ...filters
-      });
-
       const response = await fetch(`/api/admin/payouts?${queryParams}`);
       if (response.ok) {
         const data = await response.json();
@@ -170,10 +177,16 @@ export default function AdminPayoutsPage() {
       }
     } catch (error) {
       console.error('Error fetching payouts:', error);
+      lastFetchParams.current = ''; // Reset on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, pagination.page, pagination.limit, payouts.length]);
+
+  useEffect(() => {
+    fetchPayouts();
+    fetchAutomatedStatus();
+  }, [fetchPayouts, fetchAutomatedStatus]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

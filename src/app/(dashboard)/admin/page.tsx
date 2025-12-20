@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from "@/components/ui/Card";
 import { SalesChart, OrdersChart } from "@/components/charts/SalesChart";
 
@@ -25,22 +25,27 @@ export default function AdminDashboard() {
     totalRevenue: 0,
   });
   const [loading, setLoading] = useState(true);
+  const hasFetched = useRef(false);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+    
     try {
       const response = await fetch('/api/admin/stats');
       const data = await response.json();
       setStats(data.stats || stats);
     } catch (error) {
       console.error('Error fetching stats:', error);
+      hasFetched.current = false; // Reset on error to allow retry
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   if (loading) {
     return <div className="p-6">Loading...</div>;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import StripeStatusCard from '@/components/StripeStatusCard';
@@ -44,22 +44,27 @@ export default function AdminUsersPage() {
   const [selectedUserForRequirements, setSelectedUserForRequirements] = useState<User | null>(null);
   
   const router = useRouter();
+  const hasFetchedUsers = useRef(false);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    if (hasFetchedUsers.current) return;
+    hasFetchedUsers.current = true;
+    
     try {
       const response = await fetch('/api/admin/users');
       const data = await response.json();
       setUsers(data.users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
+      hasFetchedUsers.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const getStripeStatusBadge = (user: User) => {
     const stripeAccountStatus = user.business?.stripeAccountStatus;

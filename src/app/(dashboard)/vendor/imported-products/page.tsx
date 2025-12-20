@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ProductImageSlider from '../../../../components/ProductImageSlider';
 
 interface StoreProduct {
@@ -57,20 +57,15 @@ export default function ImportedProductsPage() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [markup, setMarkup] = useState<{ [storeProductId: string]: number }>({});
 
-  useEffect(() => {
-    fetchImportedProducts();
-  }, []);
+  const hasFetchedProducts = useRef(false);
 
-  const fetchImportedProducts = async () => {
+  const fetchImportedProducts = useCallback(async () => {
+    if (hasFetchedProducts.current) return;
+    hasFetchedProducts.current = true;
+    
     try {
       const response = await fetch('/api/vendor/products/imported');
       const data = await response.json();
-      console.log('Imported products data:', data);
-      console.log('Products count:', data.products?.length || 0);
-      if (data.products && data.products.length > 0) {
-        console.log('First product structure:', data.products[0]);
-        console.log('First product images:', data.products[0].product?.images);
-      }
       setStoreProducts(data.products || []);
       
       // Initialize markup state
@@ -81,10 +76,15 @@ export default function ImportedProductsPage() {
       setMarkup(markupState);
     } catch (error) {
       console.error('Error fetching imported products:', error);
+      hasFetchedProducts.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchImportedProducts();
+  }, [fetchImportedProducts]);
 
   const getCurrencySymbol = (currency: string) => {
     const symbols: { [key: string]: string } = {

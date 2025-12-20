@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 import { InvoiceTemplate } from '@/components/invoices/InvoiceTemplate';
 
@@ -49,21 +49,27 @@ export default function VendorInvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
-  useEffect(() => {
-    fetchInvoices();
-  }, []);
+  const hasFetchedInvoices = useRef(false);
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
+    if (hasFetchedInvoices.current) return;
+    hasFetchedInvoices.current = true;
+    
     try {
       const response = await fetch('/api/vendor/invoices');
       const data = await response.json();
       setInvoices(data.invoices || []);
     } catch (error) {
       console.error('Error fetching invoices:', error);
+      hasFetchedInvoices.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   const handlePreviewInvoice = (invoice: Invoice) => {
     setSelectedInvoice(invoice);

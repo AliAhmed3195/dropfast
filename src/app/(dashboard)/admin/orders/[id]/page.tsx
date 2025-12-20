@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductImageSlider from '@/components/ProductImageSlider';
 
@@ -67,11 +67,12 @@ export default function AdminOrderDetailsPage({ params }: { params: { id: string
   const [updating, setUpdating] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    fetchOrderDetails();
-  }, [params.id]);
+  const hasFetchedOrder = useRef<string>('');
 
-  const fetchOrderDetails = async () => {
+  const fetchOrderDetails = useCallback(async () => {
+    if (hasFetchedOrder.current === params.id) return;
+    hasFetchedOrder.current = params.id;
+    
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/orders/${params.id}`);
@@ -84,6 +85,7 @@ export default function AdminOrderDetailsPage({ params }: { params: { id: string
         } else {
           setError('Failed to fetch order details');
         }
+        hasFetchedOrder.current = ''; // Reset on error
         return;
       }
 
@@ -92,10 +94,15 @@ export default function AdminOrderDetailsPage({ params }: { params: { id: string
     } catch (error) {
       console.error('Error fetching order details:', error);
       setError('Failed to fetch order details');
+      hasFetchedOrder.current = ''; // Reset on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchOrderDetails();
+  }, [fetchOrderDetails]);
 
   const updateOrderStatus = async (newStatus: string) => {
     try {

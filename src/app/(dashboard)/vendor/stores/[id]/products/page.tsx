@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '@/components/ProductImageSlider';
@@ -41,13 +41,12 @@ export default function StoreProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (storeId) {
-      fetchStoreAndProducts();
-    }
-  }, [storeId]);
+  const hasFetchedStore = useRef<string>('');
 
-  const fetchStoreAndProducts = async () => {
+  const fetchStoreAndProducts = useCallback(async () => {
+    if (!storeId || hasFetchedStore.current === storeId) return;
+    hasFetchedStore.current = storeId;
+    
     try {
       const [storeResponse, productsResponse] = await Promise.all([
         fetch(`/api/stores/by-id/${storeId}`),
@@ -61,10 +60,17 @@ export default function StoreProductsPage() {
       setProducts(productsData.products);
     } catch (error) {
       console.error('Error fetching store and products:', error);
+      hasFetchedStore.current = ''; // Reset on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [storeId]);
+
+  useEffect(() => {
+    if (storeId) {
+      fetchStoreAndProducts();
+    }
+  }, [storeId, fetchStoreAndProducts]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);

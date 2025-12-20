@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 import TemplateSelector from '@/components/store-templates/TemplateSelector';
 import TemplatePreview from '@/components/store-templates/TemplatePreview';
@@ -29,9 +29,19 @@ export default function CreateStorePage() {
   const [logoPreview, setLogoPreview] = useState('');
   const [userCurrency, setUserCurrency] = useState('USD');
 
+  const hasFetchedCurrency = useRef(false);
+
+  const fetchUserCurrency = useCallback(async () => {
+    if (hasFetchedCurrency.current) return;
+    hasFetchedCurrency.current = true;
+    
+    // Currency is always USD now
+    setUserCurrency('USD');
+  }, []);
+
   useEffect(() => {
     fetchUserCurrency();
-  }, []);
+  }, [fetchUserCurrency]);
 
   const handleTemplateSelect = (template: any) => {
     setSelectedTemplate(template);
@@ -81,10 +91,6 @@ export default function CreateStorePage() {
     setShowDynamicPreview(true);
   };
 
-  const fetchUserCurrency = async () => {
-    // Currency is always USD now
-    setUserCurrency('USD');
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

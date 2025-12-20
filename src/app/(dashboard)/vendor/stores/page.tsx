@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 
@@ -46,16 +46,38 @@ export default function VendorStoresPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedBannerFile, setSelectedBannerFile] = useState<File | null>(null);
 
-  useEffect(() => {
-    fetchStores();
-    fetchUserCurrency();
-  }, []);
+  const hasFetchedStores = useRef(false);
+  const hasFetchedCurrency = useRef(false);
 
-  const fetchUserCurrency = async () => {
+  const fetchUserCurrency = useCallback(async () => {
+    if (hasFetchedCurrency.current) return;
+    hasFetchedCurrency.current = true;
+    
     // Currency is always USD now
     setUserCurrency('USD');
     setNewStore(prev => ({ ...prev, currency: 'USD' }));
-  };
+  }, []);
+
+  const fetchStores = useCallback(async () => {
+    if (hasFetchedStores.current) return;
+    hasFetchedStores.current = true;
+    
+    try {
+      const response = await fetch('/api/stores');
+      const data = await response.json();
+      setStores(data.stores || []);
+    } catch (error) {
+      console.error('Error fetching stores:', error);
+      hasFetchedStores.current = false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStores();
+    fetchUserCurrency();
+  }, [fetchStores, fetchUserCurrency]);
 
   const getCurrencyName = (currency: string) => {
     const currencyNames: { [key: string]: string } = {
@@ -184,18 +206,6 @@ export default function VendorStoresPage() {
     }
   };
 
-  const fetchStores = async () => {
-    try {
-      const response = await fetch('/api/stores');
-      const data = await response.json();
-      console.log('Fetched stores for vendor:', data.stores);
-      setStores(data.stores || []);
-    } catch (error) {
-      console.error('Error fetching stores:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreateStore = async (e: React.FormEvent) => {
     e.preventDefault();

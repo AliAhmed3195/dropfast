@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductImageSlider from '../../../../components/ProductImageSlider';
 
@@ -73,38 +73,68 @@ export default function VendorProductsPage() {
   const [markup, setMarkup] = useState<{ [productId: string]: number }>({});
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(false);
 
-  useEffect(() => {
-    fetchUserCurrency();
-    fetchProducts();
-    fetchStores();
-  }, []);
+  const hasFetchedCurrency = useRef(false);
+  const hasFetchedProducts = useRef(false);
+  const hasFetchedStores = useRef(false);
+  const hasFetchedRates = useRef<string>('');
 
-  useEffect(() => {
-    if (userCurrency && userCurrency !== 'USD') {
-      fetchExchangeRates();
-    }
-  }, [userCurrency]);
-
-  const fetchUserCurrency = async () => {
+  const fetchUserCurrency = useCallback(async () => {
+    if (hasFetchedCurrency.current) return;
+    hasFetchedCurrency.current = true;
+    
     try {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
         const user = await response.json();
-        console.log('Vendor user data:', user); // Debug log
-        
-        // Fix: Access currency from business object
         const currency = user.business?.preferredCurrency || 'USD';
-        console.log('Vendor currency found:', currency); // Debug log
-        
         setUserCurrency(currency);
       }
     } catch (error) {
       console.error('Error fetching user currency:', error);
+      hasFetchedCurrency.current = false;
     }
-  };
+  }, []);
 
-  const fetchExchangeRates = async () => {
-    if (userCurrency === 'USD') return;
+  const fetchProducts = useCallback(async () => {
+    if (hasFetchedProducts.current) return;
+    hasFetchedProducts.current = true;
+    
+    try {
+      const response = await fetch('/api/products/available');
+      if (response.ok) {
+        const data = await response.json();
+        setProducts(data.products || []);
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      hasFetchedProducts.current = false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchStores = useCallback(async () => {
+    if (hasFetchedStores.current) return;
+    hasFetchedStores.current = true;
+    
+    try {
+      const response = await fetch('/api/stores');
+      if (response.ok) {
+        const data = await response.json();
+        setStores(data.stores || []);
+        if (data.stores && data.stores.length > 0) {
+          setSelectedStore(data.stores[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching stores:', error);
+      hasFetchedStores.current = false;
+    }
+  }, []);
+
+  const fetchExchangeRates = useCallback(async () => {
+    if (userCurrency === 'USD' || hasFetchedRates.current === userCurrency) return;
+    hasFetchedRates.current = userCurrency;
     
     try {
       setConverting(true);
@@ -160,32 +190,7 @@ export default function VendorProductsPage() {
     } finally {
       setConverting(false);
     }
-  };
-
-  const fetchProducts = async () => {
-    try {
-      const response = await fetch('/api/products/available');
-      const data = await response.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStores = async () => {
-    try {
-      const response = await fetch('/api/stores');
-      const data = await response.json();
-      setStores(data.stores || []);
-      if (data.stores && data.stores.length > 0) {
-        setSelectedStore(data.stores[0].id);
-      }
-    } catch (error) {
-      console.error('Error fetching stores:', error);
-    }
-  };
+  }, [userCurrency]);
 
   const convertPrice = (usdPrice: number | null, originalPrice?: number) => {
     const priceToUse = usdPrice || originalPrice || 0;

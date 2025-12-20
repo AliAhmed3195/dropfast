@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import OrderCurrencyDisplay from '@/components/OrderCurrencyDisplay';
 
@@ -42,12 +42,13 @@ export default function VendorOrdersPage() {
   const [userCurrency, setUserCurrency] = useState('USD');
   const router = useRouter();
 
-  useEffect(() => {
-    fetchOrders();
-    fetchUserCurrency();
-  }, []);
+  const hasFetchedOrders = useRef(false);
+  const hasFetchedCurrency = useRef(false);
 
-  const fetchUserCurrency = async () => {
+  const fetchUserCurrency = useCallback(async () => {
+    if (hasFetchedCurrency.current) return;
+    hasFetchedCurrency.current = true;
+    
     try {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
@@ -57,22 +58,32 @@ export default function VendorOrdersPage() {
       }
     } catch (error) {
       console.error('Error fetching user currency:', error);
+      hasFetchedCurrency.current = false;
     }
-  };
+  }, []);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    if (hasFetchedOrders.current) return;
+    hasFetchedOrders.current = true;
+    
     try {
       const response = await fetch('/api/vendor/orders');
       if (response.ok) {
-      const data = await response.json();
+        const data = await response.json();
         setOrders(data.orders);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
+      hasFetchedOrders.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+    fetchUserCurrency();
+  }, [fetchOrders, fetchUserCurrency]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

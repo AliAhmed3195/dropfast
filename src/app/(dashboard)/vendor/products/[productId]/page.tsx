@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '@/components/ProductImageSlider';
@@ -89,11 +89,12 @@ export default function ProductDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, [productId]);
+  const hasFetchedData = useRef<string>('');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (hasFetchedData.current === productId) return;
+    hasFetchedData.current = productId;
+    
     try {
       const [productResponse, storesResponse, userResponse] = await Promise.all([
         fetch(`/api/products/available`),
@@ -106,9 +107,7 @@ export default function ProductDetailPage() {
       const userData = await userResponse.json();
 
       // Set user currency
-      console.log('Vendor detail user data:', userData); // Debug log
       const currency = userData.business?.preferredCurrency || 'USD';
-      console.log('Vendor detail currency found:', currency); // Debug log
       setUserCurrency(currency);
 
       const foundProduct = productData.products?.find((p: Product) => p.id === productId);
@@ -123,10 +122,15 @@ export default function ProductDetailPage() {
       }
     } catch (error) {
       console.error('Error fetching data:', error);
+      hasFetchedData.current = ''; // Reset on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [productId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const calculateFinalPrice = (basePrice: number, margin?: number) => {
     const marginToUse = margin !== undefined ? margin : markupPercentage;

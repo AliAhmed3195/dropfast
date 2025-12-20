@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 
@@ -51,11 +51,12 @@ export default function EditProductPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  useEffect(() => {
-    fetchProduct();
-  }, [productId]);
+  const hasFetchedProduct = useRef<string>('');
 
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
+    if (hasFetchedProduct.current === productId) return;
+    hasFetchedProduct.current = productId;
+    
     try {
       const response = await fetch(`/api/products/${productId}`);
       const data = await response.json();
@@ -63,10 +64,15 @@ export default function EditProductPage() {
     } catch (error) {
       console.error('Error fetching product:', error);
       alert('Failed to fetch product');
+      hasFetchedProduct.current = ''; // Reset on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [productId]);
+
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
 
   const handleMultipleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);

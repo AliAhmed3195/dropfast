@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductImageSlider from '@/components/ProductImageSlider';
 
@@ -74,20 +74,23 @@ export default function AdminOrderManagementPage() {
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideNotes, setOverrideNotes] = useState('');
 
-  useEffect(() => {
-    fetchOrders();
-  }, [currentPage, searchQuery, statusFilter]);
+  const lastFetchParams = useRef<string>('');
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    const params = new URLSearchParams({
+      page: currentPage.toString(),
+      limit: '10',
+      search: searchQuery,
+      status: statusFilter === 'all' ? '' : statusFilter
+    });
+    const paramsString = params.toString();
+    
+    // Prevent duplicate calls with same parameters
+    if (lastFetchParams.current === paramsString && orders.length > 0) return;
+    lastFetchParams.current = paramsString;
+    
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '10',
-        search: searchQuery,
-        status: statusFilter === 'all' ? '' : statusFilter
-      });
-
       const response = await fetch(`/api/admin/orders?${params}`);
       const data: AdminOrdersResponse = await response.json();
 
@@ -96,13 +99,19 @@ export default function AdminOrderManagementPage() {
         setTotalPages(data.pagination.pages);
       } else {
         console.error('Error fetching orders:', data);
+        lastFetchParams.current = ''; // Reset on error
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
+      lastFetchParams.current = ''; // Reset on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchQuery, statusFilter, orders.length]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const handleAdminOverride = async (orderId: string) => {
     if (!overrideAction) {
