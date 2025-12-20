@@ -44,7 +44,7 @@ export async function GET() {
             phone: true,
             email: true,
             taxNumber: true,
-            template: true,
+            invoiceTemplate: true,
           }
         },
         customer: {

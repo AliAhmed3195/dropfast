@@ -5,22 +5,27 @@ import { prisma } from '@/lib/prisma';
 // GET /api/tags - Get all tags
 export async function GET(request: NextRequest) {
   try {
+    const session = await getSession();
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
 
+    // For admin, show all tags (active and inactive)
+    // For public, show only active
+    const baseWhere: any = session?.role === 'ADMIN' ? {} : { isActive: true };
+    
     const whereClause: any = search 
       ? { 
-          isActive: true,
+          ...baseWhere,
           name: { contains: search, mode: 'insensitive' }
         }
-      : { isActive: true };
+      : baseWhere;
 
     const tags = await prisma.tag.findMany({
       where: whereClause,
       orderBy: { name: 'asc' }
     });
 
-    return NextResponse.json(tags);
+    return NextResponse.json({ tags });
   } catch (error) {
     console.error('Error fetching tags:', error);
     return NextResponse.json(

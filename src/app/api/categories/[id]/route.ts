@@ -2,8 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
-// PATCH /api/categories/[id] - Update category
+// PUT /api/categories/[id] - Update category (full update)
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  return updateCategory(request, { params });
+}
+
+// PATCH /api/categories/[id] - Update category (partial update)
 export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  return updateCategory(request, { params });
+}
+
+async function updateCategory(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {

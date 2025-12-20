@@ -35,7 +35,7 @@ interface Invoice {
     phone?: string;
     email?: string;
     taxNumber?: string;
-    template: string;
+    invoiceTemplate: string;
   };
   customer: {
     name: string;
@@ -127,9 +127,9 @@ export default function VendorInvoicesPage() {
               <InvoiceTemplate 
                 invoice={{
                   ...selectedInvoice,
-                  template: selectedInvoice.store.template
+                  template: selectedInvoice.store.invoiceTemplate || 'default'
                 }} 
-                template={selectedInvoice.store.template as 'default' | 'modern' | 'minimal' | 'professional'} 
+                template={(selectedInvoice.store.invoiceTemplate || 'default') as 'default' | 'modern' | 'minimal' | 'professional'} 
               />
             </div>
           </div>

@@ -5,18 +5,23 @@ import { prisma } from '@/lib/prisma';
 // GET /api/categories - Get all categories with subcategories
 export async function GET(request: NextRequest) {
   try {
+    const session = await getSession();
+    // For admin, show all categories (active and inactive)
+    // For public, show only active
+    const whereClause = session?.role === 'ADMIN' ? {} : { isActive: true };
+    
     const categories = await prisma.category.findMany({
-      where: { isActive: true },
+      where: whereClause,
       include: {
         subcategories: {
-          where: { isActive: true },
+          where: session?.role === 'ADMIN' ? {} : { isActive: true },
           orderBy: { order: 'asc' }
         }
       },
       orderBy: { order: 'asc' }
     });
 
-    return NextResponse.json(categories);
+    return NextResponse.json({ categories });
   } catch (error) {
     console.error('Error fetching categories:', error);
     return NextResponse.json(
