@@ -129,6 +129,7 @@ export default function SupplierOrderDetailsPage({ params }: { params: { id: str
 
       if (response.ok) {
         // Refresh order details
+        hasFetchedOrder.current = ''; // Reset to allow refetch
         await fetchOrderDetails();
         alert('Order status updated successfully!');
       } else {

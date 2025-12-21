@@ -48,6 +48,19 @@ interface Product {
   } | null;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface Tag {
+  id: string;
+  name: string;
+  slug: string;
+  color?: string;
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,10 +68,16 @@ export default function AdminProductsPage() {
   const [showDetails, setShowDetails] = useState(false);
   const [filter, setFilter] = useState('all'); // all, active, inactive, featured, best-selling, new-arrivals, with-store, without-store
   const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [showFeaturedManager, setShowFeaturedManager] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState('');
   const hasFetchedProducts = useRef(false);
+  const hasFetchedCategories = useRef(false);
+  const hasFetchedTags = useRef(false);
 
   const fetchProducts = useCallback(async () => {
     if (hasFetchedProducts.current) return;
@@ -208,33 +227,60 @@ export default function AdminProductsPage() {
   const filteredProducts = products.filter(product => {
     // Search matching - handle category as object or string
     const categoryName = product.category?.name || product.category || '';
+    const productTags = (product as any).tags || [];
+    const tagNames = Array.isArray(productTags) 
+      ? productTags.map((t: any) => t.tag?.name || t.name || '').filter(Boolean)
+      : [];
+    
     const matchesSearch = searchTerm === '' || 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      categoryName.toString().toLowerCase().includes(searchTerm.toLowerCase());
+      categoryName.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tagNames.some((tagName: string) => tagName.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Category filter
+    const matchesCategory = categoryFilter === 'all' || 
+      product.category?.id === categoryFilter;
+    
+    // Tag filter
+    const matchesTag = tagFilter === 'all' || 
+      (productTags && productTags.some((t: any) => {
+        const tagId = t.tag?.id || t.id;
+        return tagId === tagFilter;
+      }));
     
     // Apply filter
+    let matchesFilter = true;
     switch (filter) {
       case 'active':
-        return matchesSearch && product.isActive === true;
+        matchesFilter = product.isActive === true;
+        break;
       case 'inactive':
-        return matchesSearch && product.isActive === false;
+        matchesFilter = product.isActive === false;
+        break;
       case 'featured':
-        return matchesSearch && product.featured === true;
+        matchesFilter = product.featured === true;
+        break;
       case 'best-selling':
-        return matchesSearch && (product.totalSales || 0) > 0;
+        matchesFilter = (product.totalSales || 0) > 0;
+        break;
       case 'new-arrivals':
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const productDate = new Date(product.createdAt);
-        return matchesSearch && productDate >= thirtyDaysAgo;
+        matchesFilter = productDate >= thirtyDaysAgo;
+        break;
       case 'with-store':
-        return matchesSearch && product.store !== null && product.store !== undefined;
+        matchesFilter = product.store !== null && product.store !== undefined;
+        break;
       case 'without-store':
-        return matchesSearch && (product.store === null || product.store === undefined);
+        matchesFilter = (product.store === null || product.store === undefined);
+        break;
       default:
-        return matchesSearch;
+        matchesFilter = true;
     }
+    
+    return matchesSearch && matchesCategory && matchesTag && matchesFilter;
   }).sort((a, b) => {
     // Sort best selling products by sales count (descending)
     if (filter === 'best-selling') {
@@ -287,7 +333,7 @@ export default function AdminProductsPage() {
       {/* Filters and Search */}
       <Card className="mb-6">
         <div className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -295,7 +341,7 @@ export default function AdminProductsPage() {
               </label>
               <input
                 type="text"
-                placeholder="Search by name, supplier, or category..."
+                placeholder="Search by name, supplier, category, or tags..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -320,6 +366,44 @@ export default function AdminProductsPage() {
                 <option value="new-arrivals">🆕 New Arrivals (Last 30 Days)</option>
                 <option value="with-store">Products in Stores</option>
                 <option value="without-store">Products Not in Stores</option>
+              </select>
+            </div>
+
+            {/* Category Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter by Category
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="all">All Categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Tag Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter by Tag
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+              >
+                <option value="all">All Tags</option>
+                {tags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

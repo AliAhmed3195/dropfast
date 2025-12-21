@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Loading } from '@/components/ui/Loading';
 import ProductImageSlider from '@/components/ProductImageSlider';
@@ -84,12 +85,14 @@ interface Tag {
 }
 
 export default function SupplierProductsPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all, active, inactive
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -480,6 +483,7 @@ export default function SupplierProductsPage() {
         setSelectedFile(null);
         setSelectedFiles([]);
         setShowAddForm(false);
+        hasFetchedProducts.current = false;
         fetchProducts();
       } else {
         const error = await response.json();
@@ -492,7 +496,33 @@ export default function SupplierProductsPage() {
   };
 
   const handleEditProduct = (productId: string) => {
-    window.location.href = `/supplier/products/${productId}/edit`;
+    router.push(`/supplier/products/${productId}/edit`);
+  };
+
+  const toggleProductStatus = async (productId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/products/${productId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isActive: !currentStatus }),
+      });
+
+      if (response.ok) {
+        // Update local state
+        setProducts(products.map(p => 
+          p.id === productId ? { ...p, isActive: !currentStatus } : p
+        ));
+        // No need to refetch - state is updated locally
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to update product status');
+      }
+    } catch (error) {
+      console.error('Error updating product status:', error);
+      alert('Failed to update product status');
+    }
   };
 
   if (loading) {
@@ -517,7 +547,7 @@ export default function SupplierProductsPage() {
           
           {/* Currency Information Box */}
           
-          <form onSubmit={handleAddProduct} className="space-y-4">
+          <form onSubmit={handleAddProduct} className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Product Name
@@ -920,8 +950,8 @@ export default function SupplierProductsPage() {
             </div>
 
             {/* New Product Fields */}
-            <div className="border-t pt-6 mt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800">Additional Product Information</h3>
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-md font-semibold mb-3 text-gray-800">Additional Product Information</h3>
               
               {/* SKU and Brand Name */}
               <div className="grid grid-cols-2 gap-4 mb-4">
@@ -971,8 +1001,8 @@ export default function SupplierProductsPage() {
 
 
               {/* SEO Fields */}
-              <div className="space-y-4">
-                <h4 className="text-md font-medium text-gray-700">SEO Information (Optional)</h4>
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-gray-700">SEO Information (Optional)</h4>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -994,7 +1024,7 @@ export default function SupplierProductsPage() {
                     Meta Description
                   </label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     maxLength={160}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                     placeholder="SEO optimized description (max 160 characters)"
@@ -1021,8 +1051,8 @@ export default function SupplierProductsPage() {
             </div>
 
             {/* Shipping Information */}
-            <div className="border-t pt-6 mt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800">Shipping Information</h3>
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-md font-semibold mb-3 text-gray-800">Shipping Information</h3>
               
               {/* Ship From */}
               <div className="mb-6">
@@ -1070,9 +1100,9 @@ export default function SupplierProductsPage() {
               </div>
 
               {/* Shipping Methods */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-md font-medium text-gray-700">Available Shipping Methods</h4>
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-gray-700">Available Shipping Methods</h4>
                   <button
                     type="button"
                     onClick={() => setShippingInfo({
@@ -1090,7 +1120,7 @@ export default function SupplierProductsPage() {
                   </button>
                 </div>
                 
-                <div className="space-y-3">
+                <div className="space-y-2 max-h-[250px] overflow-y-auto">
                   {shippingInfo.shippingMethods.map((method, index) => (
                     <div key={index} className="grid grid-cols-4 gap-2 p-3 border border-gray-200 rounded-md">
                       <div>
@@ -1212,7 +1242,7 @@ export default function SupplierProductsPage() {
               </div>
 
               {/* Tracking and Max Quantity */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -1263,7 +1293,7 @@ export default function SupplierProductsPage() {
       {!showAddForm && (
         <Card className="mb-6">
           <div className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Search */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1271,7 +1301,7 @@ export default function SupplierProductsPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="Search by name, SKU, or brand..."
+                  placeholder="Search by name, SKU, brand, category, or tags..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -1312,6 +1342,25 @@ export default function SupplierProductsPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Tag Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Filter by Tag
+                </label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                >
+                  <option value="all">All Tags</option>
+                  {tags.map((tag) => (
+                    <option key={tag.id} value={tag.id}>
+                      {tag.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </Card>
@@ -1337,144 +1386,153 @@ export default function SupplierProductsPage() {
               return matchesSearch && matchesStatus && matchesCategory;
             }).length}
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {products.filter(product => {
-              const matchesSearch = searchTerm === '' || 
-                product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (product.brandName && product.brandName.toLowerCase().includes(searchTerm.toLowerCase()));
-              
-              const matchesStatus = statusFilter === 'all' || 
-                (statusFilter === 'active' && product.isActive) ||
-                (statusFilter === 'inactive' && !product.isActive);
-              
-              const matchesCategory = categoryFilter === 'all' || 
-                product.category?.id === categoryFilter;
-              
-              return matchesSearch && matchesStatus && matchesCategory;
-            }).map((product) => (
-          <Card key={product.id}>
-            <ProductImageSlider
-              images={product.images || []}
-              fallbackImage={product.image}
-              productName={product.name}
-              className="w-full h-32 object-cover rounded-md mb-3"
-            />
-            <h3 className="text-base font-semibold mb-2 line-clamp-2">{product.name}</h3>
-            <p className="text-gray-600 text-xs mb-2 line-clamp-2">{product.description}</p>
-            <div className="mb-2">
-              <p className="text-base font-bold text-indigo-600">
-                {product.currency} {product.price}
-              </p>
-              {product.lockedUSDPrice && product.currency !== 'USD' && (
-                <p className="text-xs text-gray-500">
-                  Locked USD: ${product.lockedUSDPrice.toFixed(2)}
-                </p>
-              )}
-              {product.exchangeRateAtCreation && product.currency !== 'USD' && (
-                <p className="text-xs text-gray-400">
-                  Rate used: {product.exchangeRateAtCreation.toFixed(4)}
-                </p>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mb-2">
-              Category: {product.category?.name || 'N/A'}
-              {product.subcategory && ` > ${product.subcategory.name}`}
-            </p>
-            
-            {/* New Product Fields Display */}
-            <div className="space-y-1 mb-3 text-xs text-gray-600">
-              {product.sku && (
-                <p><span className="font-medium">SKU:</span> {product.sku}</p>
-              )}
-              {product.brandName && (
-                <p><span className="font-medium">Brand:</span> {product.brandName}</p>
-              )}
-              {product.tags && product.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  <span className="font-medium">Tags:</span>
-                  {product.tags.map((tag) => (
-                    <span
-                      key={tag.id}
-                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white"
-                      style={{ backgroundColor: tag.color || '#6B7280' }}
-                    >
-                      {tag.name}
-                    </span>
+          <Card>
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Product
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Category
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Price
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Inventory
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {products.filter(product => {
+                    const matchesSearch = searchTerm === '' || 
+                      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                      (product.brandName && product.brandName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                      (product.category?.name && product.category.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                      (product.tags && product.tags.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase())));
+                    
+                    const matchesStatus = statusFilter === 'all' || 
+                      (statusFilter === 'active' && product.isActive) ||
+                      (statusFilter === 'inactive' && !product.isActive);
+                    
+                    const matchesCategory = categoryFilter === 'all' || 
+                      product.category?.id === categoryFilter;
+                    
+                    const matchesTag = tagFilter === 'all' || 
+                      (product.tags && product.tags.some(tag => tag.id === tagFilter));
+                    
+                    return matchesSearch && matchesStatus && matchesCategory && matchesTag;
+                  }).map((product) => (
+                    <tr key={product.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-12 h-12 mr-3">
+                            <ProductImageSlider
+                              images={product.images || []}
+                              fallbackImage={product.image}
+                              productName={product.name}
+                              className="w-12 h-12 object-cover rounded-md"
+                            />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                            <div className="text-sm text-gray-500 line-clamp-2 max-w-xs">{product.description}</div>
+                            {product.sku && (
+                              <div className="text-xs text-gray-400">SKU: {product.sku}</div>
+                            )}
+                            {product.brandName && (
+                              <div className="text-xs text-gray-400">Brand: {product.brandName}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                          {product.category?.name || 'Uncategorized'}
+                        </span>
+                        {product.subcategory && (
+                          <div className="text-xs text-gray-500 mt-1">{product.subcategory.name}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {product.currency} {product.price.toFixed(2)}
+                        </div>
+                        {product.lockedUSDPrice && product.currency !== 'USD' && (
+                          <div className="text-xs text-gray-500">
+                            USD: ${product.lockedUSDPrice.toFixed(2)}
+                          </div>
+                        )}
+                        {product.suggestedAmount && (
+                          <div className="text-xs text-green-600">
+                            Suggested: ${product.suggestedAmount} USD
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {product.availableQuantity} / {product.totalQuantity}
+                        </div>
+                        <div className="w-24 bg-gray-200 rounded-full h-1.5 mt-1">
+                          <div 
+                            className="bg-blue-600 h-1.5 rounded-full" 
+                            style={{ 
+                              width: `${product.totalQuantity > 0 ? (product.availableQuantity / product.totalQuantity) * 100 : 0}%` 
+                            }}
+                          ></div>
+                        </div>
+                        {product.minQuantity && (
+                          <div className="text-xs text-gray-500 mt-1">Min: {product.minQuantity}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          product.isActive 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {product.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(product.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-1">
+                        <button
+                          onClick={() => handleEditProduct(product.id)}
+                          className="px-2 py-1 text-xs rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => toggleProductStatus(product.id, product.isActive)}
+                          className={`px-2 py-1 text-xs rounded-md ${
+                            product.isActive
+                              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          }`}
+                        >
+                          {product.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              )}
-              {product.minQuantity && (
-                <p><span className="font-medium">Min Qty:</span> {product.minQuantity}</p>
-              )}
-              {product.suggestedAmount && (
-                <p><span className="font-medium">Suggested Price:</span> ${product.suggestedAmount} USD</p>
-              )}
-            </div>
-
-            {/* Inventory Status */}
-            <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-medium text-blue-800">Inventory Status:</span>
-                <span className="text-blue-600">
-                  {product.availableQuantity} / {product.totalQuantity} available
-                </span>
-              </div>
-              <div className="w-full bg-blue-200 rounded-full h-1.5 mt-1">
-                <div 
-                  className="bg-blue-600 h-1.5 rounded-full" 
-                  style={{ 
-                    width: `${product.totalQuantity > 0 ? (product.availableQuantity / product.totalQuantity) * 100 : 0}%` 
-                  }}
-                ></div>
-              </div>
-            </div>
-            
-            {/* Product Variants */}
-            {product.variants && product.variants.length > 0 && (
-              <div className="mb-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">Variants:</p>
-                <div className="space-y-1">
-                  {product.variants.map((variant: any, index: number) => (
-                    <div key={index} className="text-xs bg-gray-100 px-2 py-1 rounded">
-                      <span className="font-medium">{variant.name}:</span> {variant.value}
-                      {variant.priceModifier > 0 && (
-                        <span className="text-green-600 ml-1">(+${variant.priceModifier})</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* Show message when no variants */}
-            {(!product.variants || product.variants.length === 0) && (
-              <div className="mb-4">
-                <p className="text-xs text-gray-500 italic">
-                  No variants added to this product
-                </p>
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">Status:</span> Available for Import
-              </p>
-              <p className="text-xs text-gray-500">
-                Vendors can import this product to their stores and create hosted links
-              </p>
-            </div>
-            
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <button
-                onClick={() => handleEditProduct(product.id)}
-                className="w-full bg-indigo-600 text-white px-3 py-2 rounded-md hover:bg-indigo-700 transition-colors duration-200"
-              >
-                ✏️ Edit Product
-              </button>
+                </tbody>
+              </table>
             </div>
           </Card>
-            ))}
-          </div>
         </>
       )}
 
@@ -1488,20 +1546,25 @@ export default function SupplierProductsPage() {
         const matchesSearch = searchTerm === '' || 
           product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (product.brandName && product.brandName.toLowerCase().includes(searchTerm.toLowerCase()));
+          (product.brandName && product.brandName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (product.category?.name && product.category.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (product.tags && product.tags.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase())));
         
         const matchesStatus = statusFilter === 'all' || 
           (statusFilter === 'active' && product.isActive) ||
           (statusFilter === 'inactive' && !product.isActive);
         
-              const matchesCategory = categoryFilter === 'all' || 
-                (product.category?.id === categoryFilter);
+        const matchesCategory = categoryFilter === 'all' || 
+          (product.category?.id === categoryFilter);
         
-        return matchesSearch && matchesStatus && matchesCategory;
+        const matchesTag = tagFilter === 'all' || 
+          (product.tags && product.tags.some(tag => tag.id === tagFilter));
+        
+        return matchesSearch && matchesStatus && matchesCategory && matchesTag;
       }).length === 0 && products.length > 0 && (
         <Card>
           <p className="text-center text-gray-500 py-8">
-            {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all'
+            {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all' || tagFilter !== 'all'
               ? 'No products match your search criteria.' 
               : 'No products found.'}
           </p>

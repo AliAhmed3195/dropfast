@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Loading } from '@/components/ui/Loading';
 import OrderCurrencyDisplay from '@/components/OrderCurrencyDisplay';
+import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Order {
   id: string;
@@ -355,16 +356,24 @@ export default function SupplierOrdersPage() {
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-12 w-12">
-                          <img
-                            className="h-12 w-12 rounded-md object-cover"
-                            src={order.product.image || order.product.images?.[0]?.url || '/placeholder-product.jpg'}
-                            alt={order.product.name}
+                        <div className="w-12 h-12 mr-3">
+                          <ProductImageSlider
+                            images={order.product.images?.map((img: any) => ({
+                              id: img.id || '',
+                              url: img.url || img,
+                              alt: img.alt,
+                              isMain: img.isMain || false,
+                              order: img.order || 0
+                            })) || []}
+                            fallbackImage={order.product.image}
+                            productName={order.product.name}
+                            className="w-12 h-12 object-cover rounded-md"
                           />
                         </div>
-                        <div className="ml-4">
+                        <div>
                           <div className="text-sm font-medium text-gray-900">{order.product.name}</div>
-                          <div className="text-sm text-gray-500">Order #{order.id.slice(-8)}</div>
+                          <div className="text-sm text-gray-500">Qty: {order.quantity}</div>
+                          <div className="text-xs text-gray-400">#{order.id.slice(-8)}</div>
                         </div>
                       </div>
                     </td>

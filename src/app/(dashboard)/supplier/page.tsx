@@ -144,14 +144,14 @@ export default function SupplierDashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
         <SalesChart data={salesData} loading={chartsLoading} />
         <OrdersChart data={ordersData} loading={chartsLoading} />
       </div>
 
       {/* Stripe Status */}
       {user && (
-        <div className="mb-6">
+        <div className="mt-6">
           <StripeStatusCard user={user} showDetails={true} />
         </div>
       )}

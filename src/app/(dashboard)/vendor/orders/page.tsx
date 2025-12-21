@@ -91,13 +91,25 @@ export default function VendorOrdersPage() {
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-800';
       case 'PAID':
-        return 'bg-blue-100 text-blue-800';
-      case 'SHIPPED':
-        return 'bg-purple-100 text-purple-800';
-      case 'DELIVERED':
         return 'bg-green-100 text-green-800';
+      case 'PENDING_VENDOR_APPROVAL':
+        return 'bg-orange-100 text-orange-800';
+      case 'AWAITING_SUPPLIER_CONFIRMATION':
+        return 'bg-amber-100 text-amber-800';
+      case 'CONFIRMED':
+        return 'bg-teal-100 text-teal-800';
+      case 'PACKED':
+        return 'bg-cyan-100 text-cyan-800';
+      case 'HANDED_TO_COURIER':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'SHIPPED':
+        return 'bg-blue-100 text-blue-800';
+      case 'DELIVERED':
+        return 'bg-purple-100 text-purple-800';
       case 'CANCELLED':
         return 'bg-red-100 text-red-800';
+      case 'REFUNDED':
+        return 'bg-pink-100 text-pink-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -124,11 +136,12 @@ export default function VendorOrdersPage() {
 
   const filteredAndSortedOrders = orders
     .filter(order => {
-      const matchesSearch = 
+      const matchesSearch = searchTerm === '' ||
         order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (order.customer?.name || 'Guest').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (order.customer?.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+        (order.customer?.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.store.name.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
       
@@ -242,9 +255,15 @@ export default function VendorOrdersPage() {
               <option value="all">All Status</option>
               <option value="PENDING">Pending</option>
               <option value="PAID">Paid</option>
+              <option value="PENDING_VENDOR_APPROVAL">Pending Vendor Approval</option>
+              <option value="AWAITING_SUPPLIER_CONFIRMATION">Awaiting Supplier Confirmation</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="PACKED">Packed</option>
+              <option value="HANDED_TO_COURIER">Handed to Courier</option>
               <option value="SHIPPED">Shipped</option>
               <option value="DELIVERED">Delivered</option>
               <option value="CANCELLED">Cancelled</option>
+              <option value="REFUNDED">Refunded</option>
             </select>
           </div>
           <div className="flex items-end">

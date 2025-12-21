@@ -13,6 +13,16 @@ interface DashboardStats {
   totalOrders: number;
 }
 
+interface SalesData {
+  name: string;
+  sales: number;
+}
+
+interface OrdersData {
+  name: string;
+  orders: number;
+}
+
 interface User {
   id: string;
   name: string;
@@ -35,9 +45,13 @@ export default function VendorDashboard() {
     totalOrders: 0,
   });
   const [user, setUser] = useState<User | null>(null);
+  const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [ordersData, setOrdersData] = useState<OrdersData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(true);
   const hasFetchedStats = useRef(false);
   const hasFetchedUser = useRef(false);
+  const hasFetchedCharts = useRef(false);
 
   const fetchStats = useCallback(async () => {
     if (hasFetchedStats.current) return;
@@ -107,15 +121,9 @@ export default function VendorDashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <h2 className="text-xl mb-2">Store Sales</h2>
-          <SalesChart />
-        </Card>
-        <Card>
-          <h2 className="text-xl mb-2">Customer Orders</h2>
-          <OrdersChart />
-        </Card>
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
+        <SalesChart data={salesData} loading={chartsLoading} />
+        <OrdersChart data={ordersData} loading={chartsLoading} />
       </div>
 
       {/* Stripe Status */}

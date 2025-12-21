@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/Card';
 import { Loading } from '@/components/ui/Loading';
 import ProductImageSlider from '../../../../components/ProductImageSlider';
 
@@ -43,6 +44,8 @@ interface Product {
   updatedAt: string;
   isImported: boolean;
   featured?: boolean;
+  sku?: string;
+  brandName?: string;
   importedStores: Array<{
     id: string;
     name: string;
@@ -73,6 +76,12 @@ export default function VendorProductsPage() {
   const [importing, setImporting] = useState<string | null>(null);
   const [markup, setMarkup] = useState<{ [productId: string]: number }>({});
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [tags, setTags] = useState<Array<{id: string; name: string; color?: string}>>([]);
+  const hasFetchedTags = useRef(false);
 
   const hasFetchedCurrency = useRef(false);
   const hasFetchedProducts = useRef(false);
@@ -130,6 +139,22 @@ export default function VendorProductsPage() {
     } catch (error) {
       console.error('Error fetching stores:', error);
       hasFetchedStores.current = false;
+    }
+  }, []);
+
+  const fetchTags = useCallback(async () => {
+    if (hasFetchedTags.current) return;
+    hasFetchedTags.current = true;
+    
+    try {
+      const response = await fetch('/api/tags');
+      if (response.ok) {
+        const data = await response.json();
+        setTags(data.tags || data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      hasFetchedTags.current = false;
     }
   }, []);
 
@@ -192,6 +217,13 @@ export default function VendorProductsPage() {
       setConverting(false);
     }
   }, [userCurrency]);
+
+  useEffect(() => {
+    fetchUserCurrency();
+    fetchProducts();
+    fetchStores();
+    fetchTags();
+  }, [fetchUserCurrency, fetchProducts, fetchStores, fetchTags]);
 
   const convertPrice = (usdPrice: number | null, originalPrice?: number) => {
     const priceToUse = usdPrice || originalPrice || 0;
@@ -261,6 +293,7 @@ export default function VendorProductsPage() {
         const data = await response.json();
         alert(data.message || 'Product imported successfully!');
         // Refresh the products list to update import status
+        hasFetchedProducts.current = false;
         fetchProducts();
       } else {
         const error = await response.text();
@@ -326,30 +359,6 @@ export default function VendorProductsPage() {
           </div>
         )}
 
-        <div className="p-4 bg-blue-50 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <label className="text-sm font-medium text-gray-700">
-                Show:
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={showOnlyAvailable}
-                  onChange={(e) => setShowOnlyAvailable(e.target.checked)}
-                  className="mr-2"
-                />
-                <span className="text-sm text-gray-700">Only Available Products</span>
-              </label>
-            </div>
-            <div className="text-sm text-gray-600">
-              {showOnlyAvailable 
-                ? `Showing ${products.filter(p => !p.isImported).length} available products`
-                : `Showing ${products.length} total products`
-              }
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="mb-4 p-4 bg-blue-50 rounded-lg">
@@ -360,126 +369,231 @@ export default function VendorProductsPage() {
         </p>
       </div>
 
-      {(() => {
-        const filteredProducts = showOnlyAvailable 
-          ? products.filter(p => !p.isImported)
-          : products;
-        
-        return filteredProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-500 text-lg">
-              {showOnlyAvailable 
-                ? 'No available products for import' 
-                : 'No products found'
-              }
+      {/* Filters */}
+      <Card className="mb-6">
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Search Products
+              </label>
+              <input
+                type="text"
+                placeholder="Search by name, SKU, or brand..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter by Category
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="all">All Categories</option>
+                {Array.from(new Set(products.map(p => p.category?.name).filter(Boolean))).map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter by Supplier
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                value={supplierFilter}
+                onChange={(e) => setSupplierFilter(e.target.value)}
+              >
+                <option value="all">All Suppliers</option>
+                {Array.from(new Set(products.map(p => p.supplier.name))).map(supplier => (
+                  <option key={supplier} value={supplier}>{supplier}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showOnlyAvailable}
+                  onChange={(e) => setShowOnlyAvailable(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className="text-sm text-gray-700">Only Available Products</span>
+              </label>
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => {
-            const convertedPrice = convertPrice(product.lockedUSDPrice, product.price);
-            const isNew = new Date(product.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            const hasLockedUSDPrice = product.lockedUSDPrice !== null;
-            
-            return (
-              <div key={product.id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 group relative flex flex-col h-full">
-                {/* Product Image */}
-                <div className="relative overflow-hidden rounded-t-lg">
-                  {product.images && product.images.length > 0 ? (
-                    <ProductImageSlider 
-                      images={product.images} 
-                      productName={product.name || 'Product'}
-                    />
-                  ) : (
-                    <div className="h-48 bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-500">No Image</span>
-                    </div>
-                  )}
-                  
-                  {/* Status Badges */}
-                  <div className="absolute top-4 left-4 flex flex-col gap-2">
-                    <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                      {product.category?.name || 'N/A'}
-                    </span>
-                    {isNew && (
-                      <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                        🆕 New
-                      </span>
-                    )}
-                    {product.featured && (
-                      <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                        ⭐ Featured
-                      </span>
-                    )}
-                  </div>
-                </div>
+        </div>
+      </Card>
 
-                {/* Product Info */}
-                <div className="p-6 flex flex-col flex-grow">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
-                  
-                  {/* Additional Info */}
-                  <div className="mb-3 text-xs text-gray-500">
-                    <div className="flex justify-between">
-                      <span>Supplier: {product.supplier.name}</span>
-                      <span>Subcategory: {product.subcategory?.name || 'N/A'}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Price Display */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <div className="text-sm text-gray-500">
-                        {hasLockedUSDPrice ? 'Original (USD)' : 'Price (USD)'}
-                      </div>
-                      <div className="text-lg font-bold text-gray-900">
-                        {hasLockedUSDPrice 
-                          ? formatPrice(product.lockedUSDPrice!, 'USD')
-                          : formatPrice(product.price, 'USD')
-                        }
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-500">Your Currency</div>
-                      <div className="text-xl font-bold text-indigo-600">
-                        {formatPrice(convertedPrice, userCurrency)}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {hasLockedUSDPrice 
-                          ? (() => {
-                              const rate = exchangeRates[userCurrency];
-                              if (rate) {
-                                return `Rate: ${rate.toFixed(4)} (Live)`;
-                              } else {
-                                const fallbackRates: { [key: string]: number } = {
-                                  'EUR': 0.85, 'GBP': 0.73, 'PKR': 280.0, 'CAD': 1.35,
-                                  'AUD': 1.50, 'JPY': 150.0, 'INR': 83.0,
-                                };
-                                const fallbackRate = fallbackRates[userCurrency] || 1;
-                                return `Rate: ${fallbackRate.toFixed(4)} (Fallback)`;
-                              }
-                            })()
-                          : 'Using original price'
-                        }
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons - This will be pushed to bottom */}
-                  <div className="flex space-x-2 mt-auto">
-                    <button
-                      onClick={() => router.push(`/vendor/products/${product.id}`)}
-                      className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-center"
-                    >
-                      View Details
-                    </button>
-                  </div>
-                </div>
+      {(() => {
+        const filteredProducts = products.filter(product => {
+          const productTags = product.tags || [];
+          const tagNames = productTags.map(t => t.tag?.name || '').filter(Boolean);
+          
+          const matchesSearch = searchTerm === '' || 
+            product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (product.brandName && product.brandName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (product.category?.name && product.category.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            tagNames.some(tagName => tagName.toLowerCase().includes(searchTerm.toLowerCase()));
+          
+          const matchesCategory = categoryFilter === 'all' || 
+            product.category?.name === categoryFilter;
+          
+          const matchesTag = tagFilter === 'all' || 
+            (productTags && productTags.some(t => (t.tag?.id || '') === tagFilter));
+          
+          const matchesSupplier = supplierFilter === 'all' || 
+            product.supplier.name === supplierFilter;
+          
+          const matchesAvailable = !showOnlyAvailable || !product.isImported;
+          
+          return matchesSearch && matchesCategory && matchesTag && matchesSupplier && matchesAvailable;
+        });
+        
+        return filteredProducts.length === 0 ? (
+          <Card>
+            <div className="text-center py-12">
+              <div className="text-gray-500 text-lg">
+                {showOnlyAvailable 
+                  ? 'No available products for import' 
+                  : 'No products found'
+                }
               </div>
-            );
-          })}
-          </div>
+            </div>
+          </Card>
+        ) : (
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Product
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Category
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Supplier
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Price (USD)
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Price ({userCurrency})
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredProducts.map((product) => {
+                    const convertedPrice = convertPrice(product.lockedUSDPrice, product.price);
+                    const isNew = new Date(product.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                    const hasLockedUSDPrice = product.lockedUSDPrice !== null;
+                    
+                    return (
+                      <tr key={product.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-12 h-12 mr-3">
+                              {product.images && product.images.length > 0 ? (
+                                <ProductImageSlider 
+                                  images={product.images} 
+                                  productName={product.name || 'Product'}
+                                  className="w-12 h-12 object-cover rounded-md"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-200 flex items-center justify-center rounded-md">
+                                  <span className="text-gray-400 text-xs">No Image</span>
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                              <div className="text-sm text-gray-500 line-clamp-2 max-w-xs">{product.description}</div>
+                              <div className="flex gap-2 mt-1">
+                                {isNew && (
+                                  <span className="bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-medium">
+                                    🆕 New
+                                  </span>
+                                )}
+                                {product.featured && (
+                                  <span className="bg-yellow-500 text-white px-2 py-0.5 rounded-full text-xs font-medium">
+                                    ⭐ Featured
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                            {product.category?.name || 'Uncategorized'}
+                          </span>
+                          {product.subcategory && (
+                            <div className="text-xs text-gray-500 mt-1">{product.subcategory.name}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{product.supplier.name}</div>
+                          <div className="text-xs text-gray-500">{product.supplier.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {hasLockedUSDPrice 
+                              ? formatPrice(product.lockedUSDPrice!, 'USD')
+                              : formatPrice(product.price, 'USD')
+                            }
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-bold text-indigo-600">
+                            {formatPrice(convertedPrice, userCurrency)}
+                          </div>
+                          {hasLockedUSDPrice && (
+                            <div className="text-xs text-gray-500">
+                              {exchangeRates[userCurrency] 
+                                ? `Rate: ${exchangeRates[userCurrency].toFixed(4)}`
+                                : 'Rate: N/A'
+                              }
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            product.isImported 
+                              ? 'bg-gray-100 text-gray-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {product.isImported ? 'Imported' : 'Available'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={() => router.push(`/vendor/products/${product.id}`)}
+                            className="px-3 py-1 text-xs rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         );
       })()}
 
