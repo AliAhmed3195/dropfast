@@ -13,6 +13,16 @@ interface DashboardStats {
   activeProducts: number;
 }
 
+interface SalesData {
+  name: string;
+  sales: number;
+}
+
+interface OrdersData {
+  name: string;
+  orders: number;
+}
+
 interface User {
   id: string;
   name: string;
@@ -35,9 +45,13 @@ export default function SupplierDashboard() {
     activeProducts: 0,
   });
   const [user, setUser] = useState<User | null>(null);
+  const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [ordersData, setOrdersData] = useState<OrdersData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(true);
   const hasFetchedStats = useRef(false);
   const hasFetchedUser = useRef(false);
+  const hasFetchedCharts = useRef(false);
 
   const fetchStats = useCallback(async () => {
     if (hasFetchedStats.current) return;
@@ -70,10 +84,33 @@ export default function SupplierDashboard() {
     }
   }, []);
 
+  const fetchSalesOrders = useCallback(async () => {
+    if (hasFetchedCharts.current) return;
+    hasFetchedCharts.current = true;
+    
+    try {
+      const response = await fetch('/api/supplier/dashboard/sales-orders');
+      if (response.ok) {
+        const data = await response.json();
+        setSalesData(data.sales || []);
+        setOrdersData(data.orders || []);
+      } else {
+        console.error('Error fetching sales/orders data:', response.statusText);
+        hasFetchedCharts.current = false;
+      }
+    } catch (error) {
+      console.error('Error fetching sales/orders data:', error);
+      hasFetchedCharts.current = false;
+    } finally {
+      setChartsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
     fetchUser();
-  }, [fetchStats, fetchUser]);
+    fetchSalesOrders();
+  }, [fetchStats, fetchUser, fetchSalesOrders]);
 
   if (loading) {
     return <Loading message="Loading dashboard..." />;
@@ -108,14 +145,8 @@ export default function SupplierDashboard() {
 
       {/* Charts */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <h2 className="text-xl mb-2">My Sales</h2>
-          <SalesChart />
-        </Card>
-        <Card>
-          <h2 className="text-xl mb-2">Orders</h2>
-          <OrdersChart />
-        </Card>
+        <SalesChart data={salesData} loading={chartsLoading} />
+        <OrdersChart data={ordersData} loading={chartsLoading} />
       </div>
 
       {/* Stripe Status */}
@@ -124,33 +155,6 @@ export default function SupplierDashboard() {
           <StripeStatusCard user={user} showDetails={true} />
         </div>
       )}
-
-      {/* Quick Actions */}
-      <div className="mt-6">
-        <Card>
-          <h2 className="text-xl mb-4">Quick Actions</h2>
-          <div className="flex flex-wrap gap-4">
-            <a
-              href="/supplier/products"
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
-            >
-              Manage Products
-            </a>
-            <a
-              href="/supplier/products"
-              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
-            >
-              Add New Product
-            </a>
-            <a
-              href="/supplier/orders"
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-            >
-              View Orders
-            </a>
-          </div>
-        </Card>
-      </div>
     </div>
   );
 }

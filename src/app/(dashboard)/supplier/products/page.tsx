@@ -87,6 +87,9 @@ export default function SupplierProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // all, active, inactive
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -1256,9 +1259,100 @@ export default function SupplierProductsPage() {
         </Card>
       )}
 
+      {/* Filters and Search */}
+      {!showAddForm && (
+        <Card className="mb-6">
+          <div className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Search */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Search Products
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by name, SKU, or brand..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {products.map((product) => (
+              {/* Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Filter by Status
+                </label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All Products</option>
+                  <option value="active">Active Products</option>
+                  <option value="inactive">Inactive Products</option>
+                </select>
+              </div>
+
+              {/* Category Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Filter by Category
+                </label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                >
+                  <option value="all">All Categories</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Products List - Only show when form is not visible */}
+      {!showAddForm && (
+        <>
+          <div className="mb-4 text-sm text-gray-600">
+            Total Products: {products.length} | Filtered: {products.filter(product => {
+              const matchesSearch = searchTerm === '' || 
+                product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (product.brandName && product.brandName.toLowerCase().includes(searchTerm.toLowerCase()));
+              
+              const matchesStatus = statusFilter === 'all' || 
+                (statusFilter === 'active' && product.isActive) ||
+                (statusFilter === 'inactive' && !product.isActive);
+              
+              const matchesCategory = categoryFilter === 'all' || 
+                product.category?.id === categoryFilter;
+              
+              return matchesSearch && matchesStatus && matchesCategory;
+            }).length}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {products.filter(product => {
+              const matchesSearch = searchTerm === '' || 
+                product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (product.brandName && product.brandName.toLowerCase().includes(searchTerm.toLowerCase()));
+              
+              const matchesStatus = statusFilter === 'all' || 
+                (statusFilter === 'active' && product.isActive) ||
+                (statusFilter === 'inactive' && !product.isActive);
+              
+              const matchesCategory = categoryFilter === 'all' || 
+                product.category?.id === categoryFilter;
+              
+              return matchesSearch && matchesStatus && matchesCategory;
+            }).map((product) => (
           <Card key={product.id}>
             <ProductImageSlider
               images={product.images || []}
@@ -1379,12 +1473,38 @@ export default function SupplierProductsPage() {
               </button>
             </div>
           </Card>
-        ))}
-      </div>
+            ))}
+          </div>
+        </>
+      )}
 
-      {products.length === 0 && (
+      {!showAddForm && products.length === 0 && (
         <Card>
           <p className="text-center text-gray-500">No products found. Add your first product!</p>
+        </Card>
+      )}
+
+      {!showAddForm && products.filter(product => {
+        const matchesSearch = searchTerm === '' || 
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (product.brandName && product.brandName.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        const matchesStatus = statusFilter === 'all' || 
+          (statusFilter === 'active' && product.isActive) ||
+          (statusFilter === 'inactive' && !product.isActive);
+        
+              const matchesCategory = categoryFilter === 'all' || 
+                (product.category?.id === categoryFilter);
+        
+        return matchesSearch && matchesStatus && matchesCategory;
+      }).length === 0 && products.length > 0 && (
+        <Card>
+          <p className="text-center text-gray-500 py-8">
+            {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all'
+              ? 'No products match your search criteria.' 
+              : 'No products found.'}
+          </p>
         </Card>
       )}
     </div>

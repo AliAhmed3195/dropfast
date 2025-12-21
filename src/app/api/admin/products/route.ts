@@ -19,6 +19,12 @@ export async function GET() {
             email: true,
           },
         },
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         store: {
           select: {
             id: true,
@@ -35,6 +41,13 @@ export async function GET() {
             id: true,
             quantity: true,
             createdAt: true,
+            status: true,
+          },
+          where: {
+            // Only count completed/delivered orders for sales
+            status: {
+              notIn: ['CANCELLED', 'REFUNDED'],
+            },
           },
         },
         images: {

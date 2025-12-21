@@ -130,9 +130,25 @@ export default function AdminTagsPage() {
       {showAddForm && (
         <Card className="mb-6">
           <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingTag ? 'Edit Tag' : 'Add New Tag'}
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">
+                {editingTag ? 'Edit Tag' : 'Add New Tag'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setEditingTag(null);
+                  setFormData({ name: '', color: '#3B82F6' });
+                }}
+                className="text-gray-600 hover:text-gray-800 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Tags List
+              </button>
+            </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -190,8 +206,9 @@ export default function AdminTagsPage() {
         </Card>
       )}
 
-      {/* Tags List */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Tags List - Only show when form is not visible */}
+      {!showAddForm && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {tags.map((tag) => (
           <Card key={tag.id}>
             <div className="p-6">
@@ -235,9 +252,10 @@ export default function AdminTagsPage() {
             </div>
           </Card>
         ))}
-      </div>
+        </div>
+      )}
 
-      {tags.length === 0 && (
+      {!showAddForm && tags.length === 0 && (
         <Card>
           <p className="text-center text-gray-500 py-8">No tags found. Create your first tag!</p>
         </Card>

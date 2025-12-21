@@ -11,7 +11,11 @@ interface Product {
   description: string;
   price: number;
   image: string;
-  category: string;
+  category: {
+    id: string;
+    name: string;
+  } | null;
+  categoryId?: string | null;
   isActive: boolean;
   featured: boolean;
   markup: number;
@@ -202,27 +206,32 @@ export default function AdminProductsPage() {
   };
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.category.toLowerCase().includes(searchTerm.toLowerCase());
+    // Search matching - handle category as object or string
+    const categoryName = product.category?.name || product.category || '';
+    const matchesSearch = searchTerm === '' || 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      categoryName.toString().toLowerCase().includes(searchTerm.toLowerCase());
     
+    // Apply filter
     switch (filter) {
       case 'active':
-        return matchesSearch && product.isActive;
+        return matchesSearch && product.isActive === true;
       case 'inactive':
-        return matchesSearch && !product.isActive;
+        return matchesSearch && product.isActive === false;
       case 'featured':
-        return matchesSearch && product.featured;
+        return matchesSearch && product.featured === true;
       case 'best-selling':
         return matchesSearch && (product.totalSales || 0) > 0;
       case 'new-arrivals':
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        return matchesSearch && new Date(product.createdAt) >= thirtyDaysAgo;
+        const productDate = new Date(product.createdAt);
+        return matchesSearch && productDate >= thirtyDaysAgo;
       case 'with-store':
-        return matchesSearch && product.store;
+        return matchesSearch && product.store !== null && product.store !== undefined;
       case 'without-store':
-        return matchesSearch && !product.store;
+        return matchesSearch && (product.store === null || product.store === undefined);
       default:
         return matchesSearch;
     }
@@ -235,7 +244,8 @@ export default function AdminProductsPage() {
     if (filter === 'new-arrivals') {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     }
-    return 0;
+    // Default sort by creation date (newest first)
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   if (loading) {
@@ -395,7 +405,7 @@ export default function AdminProductsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                      {product.category}
+                      {product.category?.name || 'Uncategorized'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -567,7 +577,7 @@ export default function AdminProductsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Category</label>
-                      <p className="text-gray-900">{selectedProduct.category}</p>
+                      <p className="text-gray-900">{selectedProduct.category?.name || 'Uncategorized'}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Price</label>

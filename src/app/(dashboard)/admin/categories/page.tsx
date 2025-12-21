@@ -163,9 +163,25 @@ export default function AdminCategoriesPage() {
       {showAddForm && (
         <Card className="mb-6">
           <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingCategory ? 'Edit Category' : 'Add New Category'}
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">
+                {editingCategory ? 'Edit Category' : 'Add New Category'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setEditingCategory(null);
+                  setFormData({ name: '', description: '', order: 0 });
+                }}
+                className="text-gray-600 hover:text-gray-800 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Categories List
+              </button>
+            </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -225,9 +241,10 @@ export default function AdminCategoriesPage() {
         </Card>
       )}
 
-      {/* Categories List */}
-      <div className="grid gap-4">
-        {categories.map((category) => (
+      {/* Categories List - Only show when form is not visible */}
+      {!showAddForm && (
+        <div className="grid gap-4">
+          {categories.map((category) => (
           <Card key={category.id}>
             <div className="p-6">
               <div className="flex justify-between items-start">
@@ -282,9 +299,10 @@ export default function AdminCategoriesPage() {
             </div>
           </Card>
         ))}
-      </div>
+        </div>
+      )}
 
-      {categories.length === 0 && (
+      {!showAddForm && categories.length === 0 && (
         <Card>
           <p className="text-center text-gray-500 py-8">No categories found. Create your first category!</p>
         </Card>

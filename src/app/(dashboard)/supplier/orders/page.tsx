@@ -180,15 +180,22 @@ export default function SupplierOrdersPage() {
 
   const filteredAndSortedOrders = orders
     .filter(order => {
+      // Search matching
       const customerName = order.customer ? order.customer.name : 'Guest Customer';
       const customerEmail = order.customer ? order.customer.email : 'N/A (Guest)';
+      const orderId = order.id.toLowerCase();
       
-      const matchesSearch = order.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           order.store.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = searchTerm === '' || 
+        order.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        orderId.includes(searchTerm.toLowerCase());
       
-      if (statusFilter === 'all') return matchesSearch;
+      // Filter by status
+      if (statusFilter === 'all') {
+        return matchesSearch;
+      }
       return matchesSearch && order.status === statusFilter;
     })
     .sort((a, b) => {
@@ -271,9 +278,15 @@ export default function SupplierOrdersPage() {
             <option value="all">All Status</option>
             <option value="PENDING">Pending</option>
             <option value="PAID">Paid</option>
+            <option value="PENDING_VENDOR_APPROVAL">Pending Vendor Approval</option>
+            <option value="AWAITING_SUPPLIER_CONFIRMATION">Awaiting Supplier Confirmation</option>
+            <option value="CONFIRMED">Confirmed</option>
+            <option value="PACKED">Packed</option>
+            <option value="HANDED_TO_COURIER">Handed to Courier</option>
             <option value="SHIPPED">Shipped</option>
             <option value="DELIVERED">Delivered</option>
             <option value="CANCELLED">Cancelled</option>
+            <option value="REFUNDED">Refunded</option>
           </select>
                 </div>
               </div>
