@@ -58,9 +58,32 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const fetchSalesOrders = useCallback(async () => {
+    if (hasFetchedCharts.current) return;
+    hasFetchedCharts.current = true;
+    
+    try {
+      const response = await fetch('/api/admin/dashboard/sales-orders');
+      if (response.ok) {
+        const data = await response.json();
+        setSalesData(data.sales || []);
+        setOrdersData(data.orders || []);
+      } else {
+        console.error('Error fetching sales/orders data:', response.statusText);
+        hasFetchedCharts.current = false; // Reset on error to allow retry
+      }
+    } catch (error) {
+      console.error('Error fetching sales/orders data:', error);
+      hasFetchedCharts.current = false; // Reset on error to allow retry
+    } finally {
+      setChartsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+    fetchSalesOrders();
+  }, [fetchStats, fetchSalesOrders]);
 
   if (loading) {
     return <Loading message="Loading dashboard..." />;
