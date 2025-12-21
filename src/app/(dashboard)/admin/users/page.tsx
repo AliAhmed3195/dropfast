@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import { Loading } from '@/components/ui/Loading';
 import StripeStatusCard from '@/components/StripeStatusCard';
 import StripeRequirementsModal from '@/components/StripeRequirementsModal';
 
@@ -410,7 +411,7 @@ export default function AdminUsersPage() {
   };
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <Loading message="Loading users..." />;
   }
 
   return (

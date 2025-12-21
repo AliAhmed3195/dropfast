@@ -158,7 +158,7 @@ export async function POST(
         invoice,
         {
           ...product.store,
-          invoiceTemplate: (product.store as any).template || 'default'
+          invoiceTemplate: product.store?.invoiceTemplate || 'default'
         }
       );
       await sendEmail({

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from "@/components/ui/Card";
+import { Loading } from "@/components/ui/Loading";
 import { SalesChart, OrdersChart } from "@/components/charts/SalesChart";
 import StripeStatusCard from '@/components/StripeStatusCard';
 
@@ -75,7 +76,7 @@ export default function VendorDashboard() {
   }, [fetchStats, fetchUser]);
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <Loading message="Loading dashboard..." />;
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
+import { Loading } from '@/components/ui/Loading';
 
 interface Tag {
   id: string;
@@ -106,7 +107,7 @@ export default function AdminTagsPage() {
   };
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <Loading message="Loading tags..." />;
   }
 
   return (

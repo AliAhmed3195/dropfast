@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loading } from '@/components/ui/Loading';
 import ProductImageSlider from '@/components/ProductImageSlider';
 
 type ProductImage = {
@@ -160,14 +161,7 @@ export default function AdminOrderDetailsPage({ params }: { params: { id: string
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading order details...</p>
-        </div>
-      </div>
-    );
+    return <Loading message="Loading order details..." fullScreen />;
   }
 
   if (error) {

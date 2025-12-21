@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loading } from '@/components/ui/Loading';
 
 interface OnboardingStatus {
   accountId: string;
@@ -76,14 +77,7 @@ export default function BankDetailsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-2xl mx-auto p-6">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading bank details...</p>
-        </div>
-      </div>
-    );
+    return <Loading message="Loading bank details..." />;
   }
 
   if (!status) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
+import { Loading } from '@/components/ui/Loading';
 import InvoiceRenderer from '@/components/invoices/InvoiceRenderer';
 
 interface Store {
@@ -113,7 +114,7 @@ export default function VendorInvoiceTemplatesPage() {
   };
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <Loading message="Loading stores..." />;
   }
 
   if (stores.length === 0) {

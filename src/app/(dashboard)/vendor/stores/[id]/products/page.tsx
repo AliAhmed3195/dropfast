@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import { Loading } from '@/components/ui/Loading';
 import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Product {
@@ -78,7 +79,7 @@ export default function StoreProductsPage() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <Loading message="Loading products..." fullScreen />;
   }
 
   if (!store) {

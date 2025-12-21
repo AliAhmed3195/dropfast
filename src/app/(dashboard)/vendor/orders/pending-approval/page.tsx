@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loading } from '@/components/ui/Loading';
 import ProductImageSlider from '@/components/ProductImageSlider';
 
 interface Order {
@@ -205,15 +206,7 @@ export default function PendingApprovalOrdersPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <Loading message="Loading pending orders..." fullScreen />;
   }
 
   return (

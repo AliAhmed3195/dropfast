@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import { Loading } from '@/components/ui/Loading';
 
 interface Product {
   id: string;
@@ -208,13 +209,7 @@ export default function EditProductPage() {
   };
 
   if (loading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-        </div>
-      </div>
-    );
+    return <Loading message="Loading product details..." />;
   }
 
   if (!product) {

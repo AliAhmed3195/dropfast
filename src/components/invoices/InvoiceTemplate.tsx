@@ -198,6 +198,104 @@ export function InvoiceTemplate({ invoice, template = 'default' }: InvoiceTempla
     );
   }
 
+  if (template === 'professional') {
+    return (
+      <div className="max-w-5xl mx-auto bg-white p-10 border border-gray-200">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-10">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">INVOICE</h1>
+            <div className="space-y-1">
+              <p className="text-gray-600">Invoice Number: <span className="font-semibold">#{invoice.invoiceNumber}</span></p>
+              <p className="text-gray-600">Date: <span className="font-semibold">{formatDate(invoice.createdAt)}</span></p>
+            </div>
+          </div>
+          <div className="text-right">
+            {invoice.store.logo && (
+              <img src={invoice.store.logo} alt={invoice.store.name} className="h-20 mb-4" />
+            )}
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{invoice.store.name}</h2>
+            <div className="text-gray-600 space-y-1">
+              {invoice.store.address && <p>{invoice.store.address}</p>}
+              {invoice.store.phone && <p>Phone: {invoice.store.phone}</p>}
+              {invoice.store.email && <p>Email: {invoice.store.email}</p>}
+              {invoice.store.taxNumber && <p>Tax ID: {invoice.store.taxNumber}</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Customer Info */}
+        <div className="mb-8 bg-gray-50 p-4 rounded">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">BILL TO:</h3>
+          <p className="text-gray-900 font-medium">{invoice.customer.name}</p>
+          <p className="text-gray-600">{invoice.customer.email}</p>
+        </div>
+
+        {/* Items Table */}
+        <div className="mb-8">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-100 border-b-2 border-gray-300">
+                <th className="text-left py-4 px-4 font-semibold text-gray-900">Description</th>
+                <th className="text-center py-4 px-4 font-semibold text-gray-900">Quantity</th>
+                <th className="text-right py-4 px-4 font-semibold text-gray-900">Unit Price</th>
+                <th className="text-right py-4 px-4 font-semibold text-gray-900">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-gray-200">
+                <td className="py-4 px-4">
+                  <p className="font-medium text-gray-900">{invoice.order.product.name}</p>
+                  <p className="text-sm text-gray-600">{invoice.order.product.description}</p>
+                </td>
+                <td className="text-center py-4 px-4 text-gray-900">{invoice.order.quantity}</td>
+                <td className="text-right py-4 px-4 text-gray-900">${invoice.order.product.price.toFixed(2)}</td>
+                <td className="text-right py-4 px-4 font-semibold text-gray-900">
+                  ${(invoice.order.product.price * invoice.order.quantity).toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Totals */}
+        <div className="flex justify-end mb-8">
+          <div className="w-80">
+            <div className="flex justify-between py-2 border-b border-gray-200">
+              <span className="text-gray-600">Subtotal:</span>
+              <span className="text-gray-900 font-medium">${invoice.subtotal.toFixed(2)}</span>
+            </div>
+            {invoice.tax > 0 && (
+              <div className="flex justify-between py-2 border-b border-gray-200">
+                <span className="text-gray-600">Tax:</span>
+                <span className="text-gray-900 font-medium">${invoice.tax.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between py-3 border-t-2 border-gray-400 font-bold text-xl mt-2">
+              <span className="text-gray-900">Total:</span>
+              <span className="text-gray-900">${invoice.total.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Status */}
+        <div className="mb-8 text-center">
+          <span className={`inline-block px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(invoice.status)}`}>
+            {invoice.status.toUpperCase()}
+          </span>
+        </div>
+
+        {/* Footer */}
+        <div className="pt-8 border-t-2 border-gray-300 text-center text-gray-600">
+          <p className="font-medium">Thank you for your business!</p>
+          {invoice.store.taxNumber && (
+            <p className="mt-2 text-sm">Tax ID: {invoice.store.taxNumber}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Default template
   return (
     <div className="max-w-4xl mx-auto bg-white p-8 border border-gray-200">

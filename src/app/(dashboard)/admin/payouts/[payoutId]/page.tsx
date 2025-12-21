@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loading } from '@/components/ui/Loading';
 
 interface PayoutDetails {
   id: string;
@@ -159,23 +160,7 @@ export default function PayoutDetailsPage({ params }: { params: { payoutId: stri
   };
 
   if (loading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="h-64 bg-gray-200 rounded"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
-            </div>
-            <div className="space-y-4">
-              <div className="h-32 bg-gray-200 rounded"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <Loading message="Loading payout details..." />;
   }
 
   if (error || !payout) {

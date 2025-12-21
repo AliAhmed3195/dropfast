@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface SalesData {
@@ -8,41 +8,26 @@ interface SalesData {
   sales: number;
 }
 
-export function SalesChart() {
+interface SalesChartProps {
+  data?: SalesData[];
+  loading?: boolean;
+}
+
+export function SalesChart({ data: propData, loading: propLoading }: SalesChartProps) {
   const [data, setData] = useState<SalesData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
-  const hasFetched = useRef(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const fetchData = useCallback(async () => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
-    try {
-      const response = await fetch('/api/admin/dashboard/sales-orders');
-      if (response.ok) {
-        const result = await response.json();
-        setData(result.sales || []);
-      } else {
-        setData([]);
-      }
-    } catch (error) {
-      console.error('Error fetching sales data:', error);
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    if (isClient) {
-      fetchData();
+    if (propData !== undefined) {
+      setData(propData);
+      setLoading(propLoading ?? false);
     }
-  }, [isClient, fetchData]);
+  }, [propData, propLoading]);
 
   if (!isClient || loading) {
     return (
@@ -123,41 +108,26 @@ interface OrdersData {
   orders: number;
 }
 
-export function OrdersChart() {
+interface OrdersChartProps {
+  data?: OrdersData[];
+  loading?: boolean;
+}
+
+export function OrdersChart({ data: propData, loading: propLoading }: OrdersChartProps) {
   const [data, setData] = useState<OrdersData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
-  const hasFetched = useRef(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const fetchData = useCallback(async () => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
-    try {
-      const response = await fetch('/api/admin/dashboard/sales-orders');
-      if (response.ok) {
-        const result = await response.json();
-        setData(result.orders || []);
-      } else {
-        setData([]);
-      }
-    } catch (error) {
-      console.error('Error fetching orders data:', error);
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    if (isClient) {
-      fetchData();
+    if (propData !== undefined) {
+      setData(propData);
+      setLoading(propLoading ?? false);
     }
-  }, [isClient, fetchData]);
+  }, [propData, propLoading]);
 
   if (!isClient || loading) {
     return (

@@ -14,11 +14,11 @@ export default function InvoiceRenderer({ templateName, invoiceData }: InvoiceRe
   const renderTemplate = () => {
     // Extract data from the unified invoiceData structure
     const invoice = {
-      invoiceNumber: invoiceData.id,
+      invoiceNumber: invoiceData.invoiceNumber || invoiceData.id || 'INV-001',
       subtotal: invoiceData.subtotal,
       tax: invoiceData.tax,
       total: invoiceData.total,
-      createdAt: invoiceData.date
+      createdAt: invoiceData.date || invoiceData.createdAt || new Date().toISOString()
     };
     
     const order = {

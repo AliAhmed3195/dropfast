@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
+import { Loading } from '@/components/ui/Loading';
 import { useRouter } from 'next/navigation';
 
 interface Category {
@@ -28,7 +29,6 @@ export default function AdminCategoriesPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    image: '',
     order: 0,
   });
   const router = useRouter();
@@ -74,7 +74,7 @@ export default function AdminCategoriesPage() {
         fetchCategories();
         setShowAddForm(false);
         setEditingCategory(null);
-        setFormData({ name: '', description: '', image: '', order: 0 });
+        setFormData({ name: '', description: '', order: 0 });
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to save category');
@@ -90,7 +90,6 @@ export default function AdminCategoriesPage() {
     setFormData({
       name: category.name,
       description: category.description || '',
-      image: category.image || '',
       order: category.order,
     });
     setShowAddForm(true);
@@ -141,7 +140,7 @@ export default function AdminCategoriesPage() {
   };
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <Loading message="Loading categories..." />;
   }
 
   return (
@@ -152,7 +151,7 @@ export default function AdminCategoriesPage() {
           onClick={() => {
             setShowAddForm(true);
             setEditingCategory(null);
-            setFormData({ name: '', description: '', image: '', order: 0 });
+            setFormData({ name: '', description: '', order: 0 });
           }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
         >
@@ -191,29 +190,16 @@ export default function AdminCategoriesPage() {
                   rows={3}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Image URL
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Display Order
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.order}
-                    onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Display Order
+                </label>
+                <input
+                  type="number"
+                  value={formData.order}
+                  onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
               </div>
               <div className="flex gap-2">
                 <button
@@ -227,7 +213,7 @@ export default function AdminCategoriesPage() {
                   onClick={() => {
                     setShowAddForm(false);
                     setEditingCategory(null);
-                    setFormData({ name: '', description: '', image: '', order: 0 });
+                    setFormData({ name: '', description: '', order: 0 });
                   }}
                   className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
                 >

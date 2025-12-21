@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import { Loading } from '@/components/ui/Loading';
 import ProductImageSlider from '@/components/ProductImageSlider';
 import VendorProfitCalculator from '@/components/VendorProfitCalculator';
 
@@ -242,7 +243,7 @@ export default function VendorImportPage() {
   };
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <Loading message="Loading products..." />;
   }
 
   return (

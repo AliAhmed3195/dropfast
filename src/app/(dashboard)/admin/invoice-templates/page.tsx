@@ -15,6 +15,7 @@ interface InvoiceTemplate {
 
 const mockInvoiceData = {
   id: 'INV-001',
+  invoiceNumber: 'INV-001',
   orderId: 'ORD-12345',
   date: new Date().toLocaleDateString(),
   dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
@@ -109,7 +110,7 @@ export default function AdminInvoiceTemplatesPage() {
       </div>
 
       {/* Template Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2">
         {templates.map((template) => (
           <Card key={template.id}>
             <div className="p-6">
@@ -136,11 +137,17 @@ export default function AdminInvoiceTemplatesPage() {
 
               {/* Template Preview */}
               <div className="mb-4">
-                <div className="border rounded-lg p-4 bg-gray-50 min-h-[200px]">
-                  <InvoiceRenderer 
-                    templateName={template.preview} 
-                    invoiceData={mockInvoiceData}
-                  />
+                <div className="border rounded-lg bg-gray-50 min-h-[300px] max-h-[400px] overflow-hidden relative">
+                  <div className="absolute inset-0 overflow-auto p-3">
+                    <div className="transform scale-[0.45] origin-top-left" style={{ width: '222%', minHeight: '222%' }}>
+                      <div className="bg-white shadow-sm">
+                        <InvoiceRenderer 
+                          templateName={template.preview} 
+                          invoiceData={mockInvoiceData}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

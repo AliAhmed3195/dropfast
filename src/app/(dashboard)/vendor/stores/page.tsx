@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
+import { Loading } from '@/components/ui/Loading';
 
 interface Store {
   id: string;
@@ -274,7 +275,7 @@ export default function VendorStoresPage() {
   };
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <Loading message="Loading stores..." />;
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
+import { Loading } from '@/components/ui/Loading';
 import InvoiceRenderer from '@/components/invoices/InvoiceRenderer';
 import TemplateSelector from '@/components/invoices/TemplateSelector';
 
@@ -83,7 +84,7 @@ export default function InvoicePreviewPage() {
   };
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <Loading message="Loading stores..." />;
   }
 
   if (stores.length === 0) {
@@ -159,15 +160,34 @@ export default function InvoicePreviewPage() {
                 templateName={selectedTemplate}
                 invoiceData={{
                   id: mockInvoice.id,
+                  invoiceNumber: mockInvoice.invoiceNumber,
                   subtotal: mockInvoice.subtotal,
                   tax: mockInvoice.tax,
                   total: mockInvoice.total,
                   date: mockInvoice.createdAt,
                   orderId: mockOrder.id,
+                  store: selectedStore ? {
+                    name: selectedStore.name,
+                    logo: selectedStore.logo,
+                    address: selectedStore.address,
+                    phone: selectedStore.phone,
+                    email: selectedStore.email,
+                    taxNumber: selectedStore.taxNumber
+                  } : {
+                    name: 'Sample Store',
+                    email: 'store@example.com',
+                    phone: '+1 (555) 123-4567',
+                    address: '123 Business St',
+                    logo: '/logo-placeholder.png',
+                    taxNumber: 'TAX-123456'
+                  },
+                  customer: mockCustomer,
                   items: [{
                     name: mockOrder.product.name,
+                    description: 'Sample product description',
                     quantity: mockOrder.quantity,
-                    price: mockOrder.productPrice
+                    price: mockOrder.productPrice,
+                    total: mockOrder.totalAmount
                   }]
                 }}
               />
