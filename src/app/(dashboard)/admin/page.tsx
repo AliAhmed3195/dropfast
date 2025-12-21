@@ -149,65 +149,10 @@ export default function AdminDashboard() {
         </div>
       </Card>
 
-      {/* Catalog Management */}
-      <Card className="mb-6">
-        <div className="p-4">
-          <h2 className="text-xl font-semibold mb-4">Catalog Management</h2>
-          <div className="grid gap-4 md:grid-cols-3">
-            <a
-              href="/admin/products"
-              className="bg-blue-100 text-blue-800 px-4 py-3 rounded-md hover:bg-blue-200 text-center transition-colors border border-blue-200"
-            >
-              <div className="font-medium">Categories</div>
-              <div className="text-sm opacity-75">Manage via Products page</div>
-            </a>
-            <a
-              href="/admin/products"
-              className="bg-purple-100 text-purple-800 px-4 py-3 rounded-md hover:bg-purple-200 text-center transition-colors border border-purple-200"
-            >
-              <div className="font-medium">Tags</div>
-              <div className="text-sm opacity-75">Manage via Products page</div>
-            </a>
-            <button
-              onClick={async () => {
-                if (confirm('This will seed sample catalog data. Continue?')) {
-                  try {
-                    const response = await fetch('/api/admin/seed-catalog', { method: 'POST' });
-                    const data = await response.json();
-                    if (response.ok) {
-                      alert('Catalog initialized successfully!');
-                      window.location.reload();
-                    } else {
-                      alert(data.error || 'Failed to initialize catalog');
-                    }
-                  } catch (error) {
-                    alert('Error initializing catalog');
-                  }
-                }
-              }}
-              className="bg-green-100 text-green-800 px-4 py-3 rounded-md hover:bg-green-200 text-center transition-colors border border-green-200 w-full"
-            >
-              <div className="font-medium">Initialize Data</div>
-              <div className="text-sm opacity-75">Seed sample catalog</div>
-            </button>
-          </div>
-        </div>
-      </Card>
-
       {/* Charts */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <div className="p-4">
-            <h2 className="text-xl mb-2">Sales Overview</h2>
-            <SalesChart />
-          </div>
-        </Card>
-        <Card>
-          <div className="p-4">
-            <h2 className="text-xl mb-2">Orders Overview</h2>
-            <OrdersChart />
-          </div>
-        </Card>
+      <div className="grid gap-6 md:grid-cols-2">
+        <SalesChart />
+        <OrdersChart />
       </div>
     </div>
   );

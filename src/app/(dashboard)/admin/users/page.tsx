@@ -16,9 +16,17 @@ interface User {
   business?: {
     id: string;
     businessName: string;
+    businessType?: string;
+    registrationNumber?: string;
+    vatGstNumber?: string;
     preferredCurrency: string;
     type: string;
     country?: string;
+    addressStreet?: string;
+    addressCity?: string;
+    addressState?: string;
+    addressCountry?: string;
+    postalCode?: string;
     stripeAccount?: {
       expressAccountId?: string;
       stripeAccountId?: string;
@@ -421,7 +429,23 @@ export default function AdminUsersPage() {
       {/* Edit User Form */}
       {editingUser && (
         <Card className="mb-6">
-          <h2 className="text-xl font-semibold mb-4">Edit User</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Edit User</h2>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingUser(null);
+                setBusinessFormData({});
+                setAddBusiness(false);
+              }}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md hover:bg-gray-100"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Back to Users List</span>
+            </button>
+          </div>
           <form onSubmit={handleUpdateUser} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -500,64 +524,151 @@ export default function AdminUsersPage() {
                 </div>
                 
                 {addBusiness && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Business Name {addBusiness && '*'}
-                      </label>
-                      <input
-                        type="text"
-                        required={addBusiness}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        value={businessFormData.businessName || ''}
-                        onChange={(e) => setBusinessFormData({ ...businessFormData, businessName: e.target.value })}
-                      />
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Business Name {addBusiness && '*'}
+                        </label>
+                        <input
+                          type="text"
+                          required={addBusiness}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          value={businessFormData.businessName || ''}
+                          onChange={(e) => setBusinessFormData({ ...businessFormData, businessName: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Business Type {addBusiness && '*'}
+                        </label>
+                        <select
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          value={businessFormData.businessType || 'INDIVIDUAL'}
+                          onChange={(e) => setBusinessFormData({ ...businessFormData, businessType: e.target.value as 'INDIVIDUAL' | 'COMPANY' })}
+                        >
+                          <option value="INDIVIDUAL">Individual</option>
+                          <option value="COMPANY">Company</option>
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Business Type {addBusiness && '*'}
-                      </label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        value={businessFormData.businessType || 'INDIVIDUAL'}
-                        onChange={(e) => setBusinessFormData({ ...businessFormData, businessType: e.target.value as 'INDIVIDUAL' | 'COMPANY' })}
-                      >
-                        <option value="INDIVIDUAL">Individual</option>
-                        <option value="COMPANY">Company</option>
-                      </select>
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Registration Number
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          value={businessFormData.registrationNumber || ''}
+                          onChange={(e) => setBusinessFormData({ ...businessFormData, registrationNumber: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          VAT/GST Number
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          value={businessFormData.vatGstNumber || ''}
+                          onChange={(e) => setBusinessFormData({ ...businessFormData, vatGstNumber: e.target.value })}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Country {addBusiness && '*'}
-                      </label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        value={businessFormData.country || 'US'}
-                        onChange={(e) => setBusinessFormData({ ...businessFormData, country: e.target.value })}
-                      >
-                        <option value="US">United States</option>
-                        <option value="CA">Canada</option>
-                        <option value="GB">United Kingdom</option>
-                        <option value="PK">Pakistan</option>
-                        <option value="IN">India</option>
-                      </select>
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Country {addBusiness && '*'}
+                        </label>
+                        <select
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          value={businessFormData.country || 'US'}
+                          onChange={(e) => setBusinessFormData({ ...businessFormData, country: e.target.value })}
+                        >
+                          <option value="US">United States</option>
+                          <option value="CA">Canada</option>
+                          <option value="GB">United Kingdom</option>
+                          <option value="PK">Pakistan</option>
+                          <option value="IN">India</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Preferred Currency {addBusiness && '*'}
+                        </label>
+                        <select
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          value={businessFormData.preferredCurrency || 'USD'}
+                          onChange={(e) => setBusinessFormData({ ...businessFormData, preferredCurrency: e.target.value })}
+                        >
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="GBP">GBP</option>
+                          <option value="PKR">PKR</option>
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Preferred Currency {addBusiness && '*'}
-                      </label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        value={businessFormData.preferredCurrency || 'USD'}
-                        onChange={(e) => setBusinessFormData({ ...businessFormData, preferredCurrency: e.target.value })}
-                      >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="PKR">PKR</option>
-                      </select>
+                    <div className="mt-4">
+                      <h4 className="text-md font-medium text-gray-900 mb-3">Business Address</h4>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Street Address {addBusiness && '*'}
+                          </label>
+                          <input
+                            type="text"
+                            required={addBusiness}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            value={businessFormData.addressStreet || ''}
+                            onChange={(e) => setBusinessFormData({ ...businessFormData, addressStreet: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              City {addBusiness && '*'}
+                            </label>
+                            <input
+                              type="text"
+                              required={addBusiness}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                              value={businessFormData.addressCity || ''}
+                              onChange={(e) => setBusinessFormData({ ...businessFormData, addressCity: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              State/Province {addBusiness && '*'}
+                            </label>
+                            <input
+                              type="text"
+                              required={addBusiness}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                              value={businessFormData.addressState || ''}
+                              onChange={(e) => setBusinessFormData({ ...businessFormData, addressState: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Country {addBusiness && '*'}
+                            </label>
+                            <select
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                              value={businessFormData.addressCountry || businessFormData.country || 'US'}
+                              onChange={(e) => setBusinessFormData({ ...businessFormData, addressCountry: e.target.value })}
+                            >
+                              <option value="US">United States</option>
+                              <option value="CA">Canada</option>
+                              <option value="GB">United Kingdom</option>
+                              <option value="PK">Pakistan</option>
+                              <option value="IN">India</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             )}
@@ -585,8 +696,9 @@ export default function AdminUsersPage() {
         </Card>
       )}
 
-      {/* Users Table */}
-      <Card>
+      {/* Users Table - Only show when not editing */}
+      {!editingUser && (
+        <Card>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -658,7 +770,28 @@ export default function AdminUsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => setEditingUser(user)}
+                        onClick={() => {
+                          setEditingUser(user);
+                          // Initialize business form data if user has business
+                          if (user.business) {
+                            setBusinessFormData({
+                              businessName: user.business.businessName || '',
+                              businessType: (user.business.businessType as 'INDIVIDUAL' | 'COMPANY') || 'INDIVIDUAL',
+                              registrationNumber: user.business.registrationNumber || '',
+                              vatGstNumber: user.business.vatGstNumber || '',
+                              country: user.business.country || 'US',
+                              preferredCurrency: user.business.preferredCurrency || 'USD',
+                              addressStreet: user.business.addressStreet || '',
+                              addressCity: user.business.addressCity || '',
+                              addressState: user.business.addressState || '',
+                              addressCountry: user.business.addressCountry || user.business.country || 'US',
+                            });
+                            setAddBusiness(true);
+                          } else {
+                            setBusinessFormData({});
+                            setAddBusiness(false);
+                          }
+                        }}
                         className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50"
                         title="Edit User"
                       >
@@ -772,6 +905,7 @@ export default function AdminUsersPage() {
                       onClick={() => {
                         setSelectedUser(user);
                         setShowDetails(true);
+                        setExpressAccountData(null); // Clear express account data to show user details
                       }}
                       className="text-indigo-600 hover:text-indigo-900 p-1 rounded-full hover:bg-indigo-50"
                       title="View Details"
@@ -788,11 +922,194 @@ export default function AdminUsersPage() {
           </table>
         </div>
       </Card>
+      )}
 
-      {users.length === 0 && (
+      {!editingUser && users.length === 0 && (
         <Card>
           <p className="text-center text-gray-500">No users found.</p>
         </Card>
+      )}
+
+      {/* User Details Modal */}
+      {showDetails && selectedUser && !expressAccountData && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  User Details
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowDetails(false);
+                    setSelectedUser(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <div>
+                  <h4 className="text-md font-semibold text-gray-900 mb-3">Basic Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Name</label>
+                      <p className="mt-1 text-sm text-gray-900">{selectedUser.name}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Email</label>
+                      <p className="mt-1 text-sm text-gray-900">{selectedUser.email}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Role</label>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {selectedUser.role === 'VENDOR_USER' ? 'Vendor' : 
+                         selectedUser.role === 'SUPPLIER_USER' ? 'Supplier' : 
+                         selectedUser.role === 'ADMIN' ? 'Admin' : 'Customer'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Status</label>
+                      <p className={`mt-1 text-sm font-medium ${
+                        selectedUser.status === 'ACTIVE' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {selectedUser.status}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Created At</label>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {new Date(selectedUser.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Business Information */}
+                {selectedUser.business && (
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-900 mb-3">Business Information</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Business Name</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedUser.business.businessName}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Business Type</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedUser.business.businessType || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Registration Number</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedUser.business.registrationNumber || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">VAT/GST Number</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedUser.business.vatGstNumber || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Country</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedUser.business.country || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Preferred Currency</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedUser.business.preferredCurrency || 'USD'}</p>
+                      </div>
+                      {selectedUser.business.addressStreet && (
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700">Address</label>
+                          <p className="mt-1 text-sm text-gray-900">
+                            {selectedUser.business.addressStreet}
+                            {selectedUser.business.addressCity && `, ${selectedUser.business.addressCity}`}
+                            {selectedUser.business.addressState && `, ${selectedUser.business.addressState}`}
+                            {selectedUser.business.addressCountry && `, ${selectedUser.business.addressCountry}`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Stripe Account Information */}
+                {selectedUser.business?.stripeAccount && (
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-900 mb-3">Stripe Account</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Express Account ID</label>
+                        <p className="mt-1 text-sm text-gray-900 font-mono">
+                          {selectedUser.business.stripeAccount.expressAccountId || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Stripe Account ID</label>
+                        <p className="mt-1 text-sm text-gray-900 font-mono">
+                          {selectedUser.business.stripeAccount.stripeAccountId || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Account Status</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedUser.business.stripeAccount.stripeAccountStatus || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Bank Status</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedUser.business.stripeAccount.bankStatus || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Charges Enabled</label>
+                        <p className={`mt-1 text-sm font-medium ${
+                          selectedUser.business.stripeAccount.stripeChargesEnabled ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {selectedUser.business.stripeAccount.stripeChargesEnabled ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Payouts Enabled</label>
+                        <p className={`mt-1 text-sm font-medium ${
+                          selectedUser.business.stripeAccount.stripePayoutsEnabled ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {selectedUser.business.stripeAccount.stripePayoutsEnabled ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!selectedUser.business && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+                    <p className="text-sm text-gray-600">No business information available for this user.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowDetails(false);
+                    setSelectedUser(null);
+                  }}
+                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Express Account Details Modal */}

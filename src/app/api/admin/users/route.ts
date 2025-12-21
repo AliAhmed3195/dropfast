@@ -21,9 +21,17 @@ export async function GET() {
           select: {
             id: true,
             businessName: true,
+            businessType: true,
+            registrationNumber: true,
+            vatGstNumber: true,
             preferredCurrency: true,
             type: true,
             country: true,
+            addressStreet: true,
+            addressCity: true,
+            addressState: true,
+            addressCountry: true,
+            postalCode: true,
             stripeAccount: {
               select: {
                 expressAccountId: true,
