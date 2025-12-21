@@ -19,10 +19,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const userId = params.id;
     console.log('User ID:', userId);
 
-    // Get user with business info
+    // Get user with business and stripeAccount info
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { business: true }
+      include: { 
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        }
+      }
     });
 
     if (!user) {
@@ -33,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log('User found:', { id: user.id, name: user.name, businessId: user.business?.id });
 
     // Check if user has any Stripe account (Express or Connect)
-    const accountId = user.business?.expressAccountId || user.business?.stripeAccountId;
+    const accountId = user.business?.stripeAccount?.expressAccountId || user.business?.stripeAccount?.stripeAccountId;
     console.log('Account ID:', accountId);
     
     if (!accountId) {
@@ -50,15 +56,27 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log('Requirements retrieved successfully');
 
     console.log('Updating database with requirements...');
-    // Update database with latest requirements
-    await prisma.business.update({
-      where: { id: user.business.id },
-      data: {
-        stripeRequirements: requirements,
-        stripeMissingFields: [...requirements.currentlyDue, ...requirements.pastDue],
-        stripeLastRequirementsCheck: new Date()
-      }
-    });
+    // Update StripeAccount with latest requirements
+    if (user.business.stripeAccount) {
+      await prisma.stripeAccount.update({
+        where: { id: user.business.stripeAccount.id },
+        data: {
+          stripeRequirements: requirements as any,
+          stripeMissingFields: [...requirements.currentlyDue, ...requirements.pastDue] as any,
+          stripeLastRequirementsCheck: new Date()
+        }
+      });
+    } else {
+      // Create StripeAccount if it doesn't exist
+      await prisma.stripeAccount.create({
+        data: {
+          businessId: user.business.id,
+          stripeRequirements: requirements as any,
+          stripeMissingFields: [...requirements.currentlyDue, ...requirements.pastDue] as any,
+          stripeLastRequirementsCheck: new Date()
+        }
+      });
+    }
     console.log('Database updated successfully');
 
     return NextResponse.json({

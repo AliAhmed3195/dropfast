@@ -24,13 +24,17 @@ export async function GET() {
             preferredCurrency: true,
             type: true,
             country: true,
-            expressAccountId: true,
-            stripeAccountId: true,
-            stripeAccountStatus: true,
-            stripePayoutsEnabled: true,
-            stripeChargesEnabled: true,
-            bankStatus: true,
-            stripeLastUpdated: true
+            stripeAccount: {
+              select: {
+                expressAccountId: true,
+                stripeAccountId: true,
+                stripeAccountStatus: true,
+                stripePayoutsEnabled: true,
+                stripeChargesEnabled: true,
+                bankStatus: true,
+                stripeLastUpdated: true
+              }
+            }
           }
         },
         createdAt: true,

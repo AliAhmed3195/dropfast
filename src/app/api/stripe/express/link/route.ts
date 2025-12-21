@@ -10,10 +10,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's business
+    // Get user's business with stripeAccount
     const user = await prisma.user.findUnique({
       where: { id: session.id },
-      include: { business: true }
+      include: { 
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        }
+      }
     });
 
     if (!user?.business) {
@@ -23,7 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!user.business.expressAccountId) {
+    if (!user.business.stripeAccount?.expressAccountId) {
       return NextResponse.json(
         { error: 'Express account not found. Please create an account first.' },
         { status: 400 }
@@ -32,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Generate new onboarding link for existing account
     const accountLink = await stripeExpressService.createAccountLink(
-      user.business.expressAccountId,
+      user.business.stripeAccount.expressAccountId,
       'account_onboarding'
     );
 

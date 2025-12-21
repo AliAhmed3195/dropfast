@@ -132,14 +132,20 @@ export class StripeRequirementsService {
     onboardingLink?: string;
   }> {
     try {
-      // Get user with business info
+      // Get user with business and stripeAccount info
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { business: true }
+        include: { 
+          business: {
+            include: {
+              stripeAccount: true
+            }
+          }
+        }
       });
 
       // Check if user has any Stripe account (Express or Connect)
-      const accountId = user?.business?.expressAccountId || user?.business?.stripeAccountId;
+      const accountId = user?.business?.stripeAccount?.expressAccountId || user?.business?.stripeAccount?.stripeAccountId;
       
       if (!user || !accountId) {
         throw new Error('User or Stripe account not found');
@@ -169,15 +175,27 @@ export class StripeRequirementsService {
         emailSent = true;
       }
 
-      // Update database with requirements info
-      await prisma.business.update({
-        where: { id: user.business.id },
-        data: {
-          stripeRequirements: requirements,
-          stripeMissingFields: [...requirements.currentlyDue, ...requirements.pastDue],
-          stripeLastRequirementsCheck: new Date()
-        }
-      });
+      // Update StripeAccount with requirements info
+      if (user.business.stripeAccount) {
+        await prisma.stripeAccount.update({
+          where: { id: user.business.stripeAccount.id },
+          data: {
+            stripeRequirements: requirements as any,
+            stripeMissingFields: [...requirements.currentlyDue, ...requirements.pastDue] as any,
+            stripeLastRequirementsCheck: new Date()
+          }
+        });
+      } else if (user.business) {
+        // Create StripeAccount if it doesn't exist
+        await prisma.stripeAccount.create({
+          data: {
+            businessId: user.business.id,
+            stripeRequirements: requirements as any,
+            stripeMissingFields: [...requirements.currentlyDue, ...requirements.pastDue] as any,
+            stripeLastRequirementsCheck: new Date()
+          }
+        });
+      }
 
       return {
         requirements,

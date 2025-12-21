@@ -68,21 +68,31 @@ export async function POST(request: NextRequest) {
  */
 async function handleAccountUpdated(account: Stripe.Account) {
   try {
-    // Find user by stripeAccountId or expressAccountId
-    const user = await prisma.user.findFirst({
-      where: { 
-        business: { 
-          OR: [
-            { stripeAccountId: account.id },
-            { expressAccountId: account.id }
-          ]
-        } 
+    // Find user by stripeAccountId or expressAccountId in StripeAccount table
+    const stripeAccount = await prisma.stripeAccount.findFirst({
+      where: {
+        OR: [
+          { stripeAccountId: account.id },
+          { expressAccountId: account.id }
+        ]
       },
-      include: { business: true }
+      include: {
+        business: {
+          include: {
+            users: true
+          }
+        }
+      }
     });
     
+    if (!stripeAccount) {
+      console.log(`No StripeAccount found for account: ${account.id}`);
+      return;
+    }
+    
+    const user = stripeAccount.business.users[0];
     if (!user) {
-      console.log(`No user found for account: ${account.id}`);
+      console.log(`No user found for business: ${stripeAccount.businessId}`);
       return;
     }
     
@@ -90,26 +100,26 @@ async function handleAccountUpdated(account: Stripe.Account) {
     const accountStatus = determineAccountStatus(account);
     const verificationLevel = determineVerificationLevel(account);
     
-    // Update database
+    // Update StripeAccount
     const updateData: any = {
       stripeAccountStatus: accountStatus,
       stripeVerificationLevel: verificationLevel,
       stripePayoutsEnabled: account.payouts_enabled,
       stripeChargesEnabled: account.charges_enabled,
-      stripeCapabilities: account.capabilities,
-      stripeRequirements: account.requirements,
+      stripeCapabilities: account.capabilities as any,
+      stripeRequirements: account.requirements as any,
       stripeLastUpdated: new Date()
     };
 
     // If this is an Express account, also update the expressAccountId field
-    if (account.id === user.business.expressAccountId) {
+    if (account.id === stripeAccount.expressAccountId) {
       updateData.expressAccountId = account.id;
-    } else if (account.id === user.business.stripeAccountId) {
+    } else if (account.id === stripeAccount.stripeAccountId) {
       updateData.stripeAccountId = account.id;
     }
 
-    await prisma.business.update({
-      where: { id: user.business.id },
+    await prisma.stripeAccount.update({
+      where: { id: stripeAccount.id },
       data: updateData
     });
     
@@ -126,33 +136,41 @@ async function handleCapabilitiesUpdated(capability: Stripe.Capability) {
   try {
     const accountId = capability.account as string;
     
-    // Find user by account ID (stripeAccountId or expressAccountId)
-    const user = await prisma.user.findFirst({
-      where: { 
-        business: { 
-          OR: [
-            { stripeAccountId: accountId },
-            { expressAccountId: accountId }
-          ]
-        } 
+    // Find StripeAccount by account ID
+    const stripeAccount = await prisma.stripeAccount.findFirst({
+      where: {
+        OR: [
+          { stripeAccountId: accountId },
+          { expressAccountId: accountId }
+        ]
       },
-      include: { business: true }
+      include: {
+        business: {
+          include: {
+            users: true
+          }
+        }
+      }
     });
     
-    if (!user) return;
+    if (!stripeAccount) return;
     
     // Update payout status based on transfers capability
     const payoutEnabled = capability.status === 'active' && capability.id === 'transfers';
     
-    await prisma.business.update({
-      where: { id: user.business.id },
+    await prisma.stripeAccount.update({
+      where: { id: stripeAccount.id },
       data: {
         stripePayoutsEnabled: payoutEnabled,
+        stripeCapabilities: capability as any,
         stripeLastUpdated: new Date()
       }
     });
     
-    console.log(`Updated payout status for user ${user.id}: ${payoutEnabled}`);
+    const user = stripeAccount.business.users[0];
+    if (user) {
+      console.log(`Updated payout status for user ${user.id}: ${payoutEnabled}`);
+    }
   } catch (error) {
     console.error('Error handling capabilities update:', error);
   }
@@ -165,33 +183,40 @@ async function handleExternalAccountUpdated(externalAccount: Stripe.ExternalAcco
   try {
     const accountId = externalAccount.account as string;
     
-    // Find user by account ID (stripeAccountId or expressAccountId)
-    const user = await prisma.user.findFirst({
-      where: { 
-        business: { 
-          OR: [
-            { stripeAccountId: accountId },
-            { expressAccountId: accountId }
-          ]
-        } 
+    // Find StripeAccount by account ID
+    const stripeAccount = await prisma.stripeAccount.findFirst({
+      where: {
+        OR: [
+          { stripeAccountId: accountId },
+          { expressAccountId: accountId }
+        ]
       },
-      include: { business: true }
+      include: {
+        business: {
+          include: {
+            users: true
+          }
+        }
+      }
     });
     
-    if (!user) return;
+    if (!stripeAccount) return;
     
     // Determine bank status
     const bankStatus = determineBankStatus(externalAccount);
     
-    await prisma.business.update({
-      where: { id: user.business.id },
+    await prisma.stripeAccount.update({
+      where: { id: stripeAccount.id },
       data: {
         bankStatus: bankStatus,
         stripeLastUpdated: new Date()
       }
     });
     
-    console.log(`Updated bank status for user ${user.id}: ${bankStatus}`);
+    const user = stripeAccount.business.users[0];
+    if (user) {
+      console.log(`Updated bank status for user ${user.id}: ${bankStatus}`);
+    }
   } catch (error) {
     console.error('Error handling external account update:', error);
   }

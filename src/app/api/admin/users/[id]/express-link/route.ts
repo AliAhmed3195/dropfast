@@ -15,17 +15,23 @@ export async function POST(
 
     const userId = params.id;
 
-    // Get user with business details
+    // Get user with business and stripeAccount details
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { business: true }
+      include: { 
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        }
+      }
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (!user.business?.expressAccountId) {
+    if (!user.business?.stripeAccount?.expressAccountId) {
       return NextResponse.json(
         { error: 'No Express account found for this user. Create account first.' },
         { status: 400 }
@@ -34,7 +40,7 @@ export async function POST(
 
     // Generate new onboarding link
     const onboardingLink = await stripeExpressService.createAccountLink(
-      user.business.expressAccountId,
+      user.business.stripeAccount.expressAccountId,
       'account_onboarding'
     );
 
@@ -45,7 +51,7 @@ export async function POST(
         userId: userId,
         userEmail: user.email,
         userName: user.name,
-        accountId: user.business.expressAccountId,
+        accountId: user.business.stripeAccount.expressAccountId,
         onboardingLink: onboardingLink,
         instructions: [
           'Share this new link with the user',

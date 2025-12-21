@@ -15,10 +15,16 @@ export async function POST(
 
     const userId = params.id;
 
-    // Get user with business details
+    // Get user with business and stripeAccount details
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { business: true }
+      include: { 
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        }
+      }
     });
 
     if (!user) {
@@ -33,10 +39,10 @@ export async function POST(
     }
 
     // Check if Express account already exists
-    if (user.business.expressAccountId) {
+    if (user.business.stripeAccount?.expressAccountId) {
       // Instead of error, generate new onboarding link for existing account
       const onboardingLink = await stripeExpressService.createAccountLink(
-        user.business.expressAccountId,
+        user.business.stripeAccount.expressAccountId,
         'account_onboarding'
       );
 
@@ -48,7 +54,7 @@ export async function POST(
           userEmail: user.email,
           userName: user.name,
           businessCountry: user.business.country,
-          accountId: user.business.expressAccountId,
+          accountId: user.business.stripeAccount.expressAccountId,
           onboardingLink: onboardingLink,
           nextSteps: [
             'Share the new onboarding link with the user',
@@ -74,11 +80,17 @@ export async function POST(
       user.business.country
     );
 
-    // Update business with Express account ID
-    await prisma.business.update({
-      where: { id: user.business.id },
-      data: { 
+    // Create or update StripeAccount with Express account ID
+    await prisma.stripeAccount.upsert({
+      where: { businessId: user.business.id },
+      create: {
+        businessId: user.business.id,
         expressAccountId: result.accountId,
+        stripeAccountStatus: 'pending'
+      },
+      update: {
+        expressAccountId: result.accountId,
+        stripeAccountStatus: 'pending'
       }
     });
 
@@ -121,17 +133,23 @@ export async function GET(
 
     const userId = params.id;
 
-    // Get user with business details
+    // Get user with business and stripeAccount details
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { business: true }
+      include: { 
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        }
+      }
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (!user.business?.expressAccountId) {
+    if (!user.business?.stripeAccount?.expressAccountId) {
       return NextResponse.json(
         { error: 'No Express account found for this user' },
         { status: 404 }
@@ -139,7 +157,7 @@ export async function GET(
     }
 
     // Get account status
-    const status = await stripeExpressService.getAccountStatus(user.business.expressAccountId);
+    const status = await stripeExpressService.getAccountStatus(user.business.stripeAccount.expressAccountId);
 
     return NextResponse.json({
       success: true,
@@ -148,8 +166,8 @@ export async function GET(
         userEmail: user.email,
         userName: user.name,
         businessCountry: user.business.country,
-        accountId: user.business.expressAccountId,
-        onboardingStatus: user.business.stripeAccountStatus,
+        accountId: user.business.stripeAccount.expressAccountId,
+        onboardingStatus: user.business.stripeAccount.stripeAccountStatus,
         stripeStatus: status,
         isOnboardingComplete: status.details_submitted && status.payouts_enabled
       }

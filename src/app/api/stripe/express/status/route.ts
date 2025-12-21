@@ -10,13 +10,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's business
+    // Get user's business with stripeAccount
     const user = await prisma.user.findUnique({
       where: { id: session.id },
-      include: { business: true }
+      include: { 
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        }
+      }
     });
 
-    if (!user?.business?.expressAccountId) {
+    if (!user?.business?.stripeAccount?.expressAccountId) {
       return NextResponse.json(
         { error: 'Express account not found' },
         { status: 404 }
@@ -24,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get account status from Stripe
-    const status = await stripeExpressService.getAccountStatus(user.business.expressAccountId);
+    const status = await stripeExpressService.getAccountStatus(user.business.stripeAccount.expressAccountId);
 
     // Update local status
     let onboardingStatus = 'pending';
@@ -34,15 +40,15 @@ export async function GET(request: NextRequest) {
       onboardingStatus = 'submitted';
     }
 
-    // Update business status
-    await prisma.business.update({
-      where: { id: user.business.id },
+    // Update StripeAccount status
+    await prisma.stripeAccount.update({
+      where: { businessId: user.business.id },
       data: { stripeAccountStatus: onboardingStatus }
     });
 
     return NextResponse.json({
       success: true,
-      accountId: user.business.expressAccountId,
+      accountId: user.business.stripeAccount.expressAccountId,
       status: {
         charges_enabled: status.charges_enabled,
         payouts_enabled: status.payouts_enabled,

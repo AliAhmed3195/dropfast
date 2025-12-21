@@ -28,6 +28,17 @@ export async function GET() {
             preferredCurrency: true,
             country: true,
             kycStatus: true,
+            stripeAccount: {
+              select: {
+                expressAccountId: true,
+                stripeAccountId: true,
+                stripeAccountStatus: true,
+                stripePayoutsEnabled: true,
+                stripeChargesEnabled: true,
+                bankStatus: true,
+                stripeLastUpdated: true
+              }
+            }
           }
         }
       },

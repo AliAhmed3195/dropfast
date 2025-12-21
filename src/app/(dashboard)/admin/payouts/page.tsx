@@ -51,13 +51,15 @@ interface Payout {
       businessName: string;
       // Currency is always USD
       kycStatus: string;
-      expressAccountId?: string;
-      stripeAccountId?: string;
-      stripeAccountStatus?: string;
-      stripePayoutsEnabled?: boolean;
-      stripeChargesEnabled?: boolean;
-      bankStatus?: string;
-      stripeLastUpdated?: string;
+      stripeAccount?: {
+        expressAccountId?: string;
+        stripeAccountId?: string;
+        stripeAccountStatus?: string;
+        stripePayoutsEnabled?: boolean;
+        stripeChargesEnabled?: boolean;
+        bankStatus?: string;
+        stripeLastUpdated?: string;
+      };
     };
   };
   vendor: {
@@ -73,13 +75,15 @@ interface Payout {
       businessName: string;
       // Currency is always USD
       kycStatus: string;
-      expressAccountId?: string;
-      stripeAccountId?: string;
-      stripeAccountStatus?: string;
-      stripePayoutsEnabled?: boolean;
-      stripeChargesEnabled?: boolean;
-      bankStatus?: string;
-      stripeLastUpdated?: string;
+      stripeAccount?: {
+        expressAccountId?: string;
+        stripeAccountId?: string;
+        stripeAccountStatus?: string;
+        stripePayoutsEnabled?: boolean;
+        stripeChargesEnabled?: boolean;
+        bankStatus?: string;
+        stripeLastUpdated?: string;
+      };
     };
   };
   order: {

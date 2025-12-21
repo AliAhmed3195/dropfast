@@ -47,16 +47,28 @@ export class PayoutService {
       // Get supplier and vendor Stripe Connect accounts
       const supplier = await prisma.user.findUnique({
         where: { id: payoutData.supplierId },
-        include: { business: true },
+        include: { 
+          business: {
+            include: {
+              stripeAccount: true
+            }
+          }
+        },
       });
 
       const vendor = await prisma.user.findUnique({
         where: { id: payoutData.vendorId },
-        include: { business: true },
+        include: { 
+          business: {
+            include: {
+              stripeAccount: true
+            }
+          }
+        },
       });
 
-      const supplierStripeAccountId = supplier?.business?.stripeAccountId;
-      const vendorStripeAccountId = vendor?.business?.stripeAccountId;
+      const supplierStripeAccountId = supplier?.business?.stripeAccount?.stripeAccountId;
+      const vendorStripeAccountId = vendor?.business?.stripeAccount?.stripeAccountId;
       if (!supplierStripeAccountId || !vendorStripeAccountId) {
         throw new Error('Missing Stripe Connect accounts for supplier or vendor');
       }

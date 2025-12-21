@@ -30,14 +30,26 @@ export async function POST(request: NextRequest) {
             product: {
               include: {
                 supplier: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             },
             store: {
               include: {
                 owner: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -62,11 +74,11 @@ export async function POST(request: NextRequest) {
       const batchPromises = batch.map(async (payout) => {
         try {
           // Check if required Stripe accounts exist
-          if (!payout.order.product.supplier.business?.stripeAccountId) {
+          if (!payout.order.product.supplier.business?.stripeAccount?.stripeAccountId) {
             throw new Error('Supplier does not have a Stripe Connect account');
           }
 
-          if (!payout.order.store.owner.business?.stripeAccountId) {
+          if (!payout.order.store.owner.business?.stripeAccount?.stripeAccountId) {
             throw new Error('Vendor does not have a Stripe Connect account');
           }
 

@@ -10,10 +10,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's business
+    // Get user's business with stripeAccount
     const user = await prisma.user.findUnique({
       where: { id: session.id },
-      include: { business: true }
+      include: { 
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        }
+      }
     });
 
     if (!user?.business) {
@@ -24,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if Express account already exists
-    if (user.business.expressAccountId) {
+    if (user.business.stripeAccount?.expressAccountId) {
       return NextResponse.json(
         { error: 'Express account already exists' },
         { status: 400 }
@@ -38,10 +44,15 @@ export async function POST(request: NextRequest) {
       user.business.country || 'US'
     );
 
-    // Update business with Express account ID
-    await prisma.business.update({
-      where: { id: user.business.id },
-      data: { 
+    // Create or update StripeAccount with Express account ID
+    await prisma.stripeAccount.upsert({
+      where: { businessId: user.business.id },
+      create: {
+        businessId: user.business.id,
+        expressAccountId: result.accountId,
+        stripeAccountStatus: 'pending'
+      },
+      update: {
         expressAccountId: result.accountId,
         stripeAccountStatus: 'pending'
       }

@@ -373,11 +373,17 @@ export class StripeConnectService {
         type: 'account_onboarding',
       });
 
-      // Update business with Stripe account details
-      await prisma.business.update({
-        where: { id: params.businessId },
-        data: { 
+      // Create or update StripeAccount with Stripe account details
+      await prisma.stripeAccount.upsert({
+        where: { businessId: params.businessId },
+        create: {
+          businessId: params.businessId,
           stripeAccountId: account.id,
+          stripeAccountStatus: 'pending'
+        },
+        update: {
+          stripeAccountId: account.id,
+          stripeAccountStatus: 'pending'
         }
       });
 

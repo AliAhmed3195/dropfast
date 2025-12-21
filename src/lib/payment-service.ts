@@ -97,8 +97,8 @@ export class PaymentService {
       }
 
       // Check Stripe accounts
-      const supplierStripeAccountId = (order.product as any)?.supplier?.business?.stripeAccountId;
-      const vendorStripeAccountId = (order.store as any)?.owner?.business?.stripeAccountId;
+      const supplierStripeAccountId = (order.product as any)?.supplier?.business?.stripeAccount?.stripeAccountId;
+      const vendorStripeAccountId = (order.store as any)?.owner?.business?.stripeAccount?.stripeAccountId;
       if (!supplierStripeAccountId || !vendorStripeAccountId) {
         throw new Error('Missing Stripe Connect accounts');
       }

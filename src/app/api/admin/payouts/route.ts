@@ -90,13 +90,17 @@ export async function GET(request: NextRequest) {
                 businessName: true,
                 preferredCurrency: true,
                 kycStatus: true,
-                expressAccountId: true,
-                stripeAccountId: true,
-                stripeAccountStatus: true,
-                stripePayoutsEnabled: true,
-                stripeChargesEnabled: true,
-                bankStatus: true,
-                stripeLastUpdated: true
+                stripeAccount: {
+                  select: {
+                    expressAccountId: true,
+                    stripeAccountId: true,
+                    stripeAccountStatus: true,
+                    stripePayoutsEnabled: true,
+                    stripeChargesEnabled: true,
+                    bankStatus: true,
+                    stripeLastUpdated: true
+                  }
+                }
               }
             }
           }
@@ -118,13 +122,17 @@ export async function GET(request: NextRequest) {
                 businessName: true,
                 preferredCurrency: true,
                 kycStatus: true,
-                expressAccountId: true,
-                stripeAccountId: true,
-                stripeAccountStatus: true,
-                stripePayoutsEnabled: true,
-                stripeChargesEnabled: true,
-                bankStatus: true,
-                stripeLastUpdated: true
+                stripeAccount: {
+                  select: {
+                    expressAccountId: true,
+                    stripeAccountId: true,
+                    stripeAccountStatus: true,
+                    stripePayoutsEnabled: true,
+                    stripeChargesEnabled: true,
+                    bankStatus: true,
+                    stripeLastUpdated: true
+                  }
+                }
               }
             }
           }

@@ -266,14 +266,26 @@ export class AutomatedPayoutProcessor {
             product: {
               include: {
                 supplier: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             },
             store: {
               include: {
                 owner: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -302,14 +314,26 @@ export class AutomatedPayoutProcessor {
             product: {
               include: {
                 supplier: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             },
             store: {
               include: {
                 owner: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -344,26 +368,26 @@ export class AutomatedPayoutProcessor {
       }
 
       // Check Stripe accounts
-      if (!payout.order.product.supplier.business?.stripeAccountId) {
+      if (!payout.order.product.supplier.business?.stripeAccount?.stripeAccountId) {
         return { isValid: false, error: 'Supplier does not have a Stripe Connect account' };
       }
 
-      if (!payout.order.store.owner.business?.stripeAccountStatus || 
-          payout.order.store.owner.business.stripeAccountStatus !== 'verified') {
+      if (!payout.order.store.owner.business?.stripeAccount?.stripeAccountStatus || 
+          payout.order.store.owner.business.stripeAccount.stripeAccountStatus !== 'verified') {
         return { isValid: false, error: 'Vendor Stripe account is not verified' };
       }
 
-      if (!payout.order.product.supplier.business?.stripeAccountStatus || 
-          payout.order.product.supplier.business.stripeAccountStatus !== 'verified') {
+      if (!payout.order.product.supplier.business?.stripeAccount?.stripeAccountStatus || 
+          payout.order.product.supplier.business.stripeAccount.stripeAccountStatus !== 'verified') {
         return { isValid: false, error: 'Supplier Stripe account is not verified' };
       }
 
       // Check payout capabilities
-      if (!payout.order.store.owner.business?.stripePayoutsEnabled) {
+      if (!payout.order.store.owner.business?.stripeAccount?.stripePayoutsEnabled) {
         return { isValid: false, error: 'Vendor payouts are not enabled' };
       }
 
-      if (!payout.order.product.supplier.business?.stripePayoutsEnabled) {
+      if (!payout.order.product.supplier.business?.stripeAccount?.stripePayoutsEnabled) {
         return { isValid: false, error: 'Supplier payouts are not enabled' };
       }
 

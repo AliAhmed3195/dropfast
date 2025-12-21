@@ -91,284 +91,302 @@ enum InvoiceStatus {
 }
 
 model User {
-  id          String      @id @default(cuid())
-  name        String
-  email       String      @unique
-  password    String
-  role        Role
-  businessId  String?     // FK to Business (NULL for admin)
-  business    Business?   @relation(fields: [businessId], references: [id])
-  phone       String?
-  dob         DateTime?   // For KYC
-  status      UserStatus  @default(ACTIVE)
-  
+  id         String     @id @default(cuid())
+  name       String
+  email      String     @unique
+  password   String
+  role       Role
+  businessId String? // FK to Business (NULL for admin)
+  business   Business?  @relation(fields: [businessId], references: [id])
+  phone      String?
+  dob        DateTime? // For KYC
+  status     UserStatus @default(ACTIVE)
+
   // Password Reset Fields
-  resetToken        String?   @unique
-  resetTokenExpiry  DateTime?
-  
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt @default(now())
-  
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
   // Relations
-  orders      Order[]
-  invoices    Invoice[]
-  bankDetails BankDetails?
-  stores      Store[]
-  supplierProducts Product[] @relation("SupplierProducts")
-  supplierPayouts Payout[] @relation("SupplierPayouts")
-  vendorPayouts   Payout[] @relation("VendorPayouts")
+  orders              Order[]
+  invoices            Invoice[]
+  bankDetails         BankDetails?
+  stores              Store[]
+  supplierProducts    Product[]            @relation("SupplierProducts")
+  supplierPayouts     Payout[]             @relation("SupplierPayouts")
+  vendorPayouts       Payout[]             @relation("VendorPayouts")
   payoutNotifications PayoutNotification[]
-  stripeKycDetails   StripeKycDetails?
+  stripeKycDetails    StripeKycDetails?
 }
 
 model StripeKycDetails {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Basic Info
-  countryCode           String
-  accountType           String   // 'individual' | 'company'
-  firstName             String
-  lastName              String
-  email                 String
-  phone                 String
-  
+  countryCode String
+  accountType String // 'individual' | 'company'
+  firstName   String
+  lastName    String
+  email       String
+  phone       String
+
   // Date of Birth
-  dobDay                Int
-  dobMonth              Int
-  dobYear               Int
-  
+  dobDay   Int
+  dobMonth Int
+  dobYear  Int
+
   // National ID
-  nationalId            String
-  
+  nationalId String
+
   // Address
-  addressLine1          String
-  addressLine2          String?
-  city                  String
-  state                 String
-  postalCode            String
-  
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  postalCode   String
+
   // Business Info (nullable for individuals)
-  businessName          String?
-  businessTaxId         String?
-  
+  businessName  String?
+  businessTaxId String?
+
   // Additional Requirements
-  extraRequirements     Json?
-  
+  extraRequirements Json?
+
   // Stripe Account
-  stripeAccountId       String?
-  stripeAccountStatus   String?  // 'pending', 'verified', 'failed'
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
+  stripeAccountId     String?
+  stripeAccountStatus String? // 'pending', 'verified', 'failed'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("stripe_kyc_details")
 }
 
 model Business {
-  id                  String                @id @default(cuid())
-  type                BusinessType
-  businessName        String
-  businessType        BusinessBusinessType
-  registrationNumber  String?
-  vatGstNumber        String?
-  ntn                 String?              // National Tax Number (Pakistan)
-  country             String
-  addressStreet       String
-  addressCity         String
-  addressState        String
-  addressCountry      String
-  postalCode          String?              // Country-specific postal code
-  kycStatus           KycStatus            @default(PENDING)
-  preferredCurrency   String               @default("USD") // UI reference currency
-  stripeAccountId     String?              // Stripe Connected Account ID
-  // Express Stripe fields
-  expressAccountId        String?          // Express account ID
-  
-  // Webhook integration fields
-  stripeAccountStatus     String?          // 'pending', 'verified', 'restricted', 'rejected'
-  stripeCapabilities      Json?            // Store capabilities status
-  stripeRequirements      Json?            // Store requirements
-  stripeMissingFields     Json?            // Store missing fields array
-  stripeLastRequirementsCheck DateTime?    // Last requirements check timestamp
-  stripeLastUpdated       DateTime?        // Last webhook update
-  stripeVerificationLevel String?          // 'unverified', 'pending', 'verified'
-  stripePayoutsEnabled    Boolean?         // Payouts status
-  stripeChargesEnabled    Boolean?         // Charges status
-  bankStatus              String?          // 'pending', 'verified', 'rejected'
-  
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt @default(now())
-  
+  id                 String               @id @default(cuid())
+  type               BusinessType
+  businessName       String
+  businessType       BusinessBusinessType
+  registrationNumber String?
+  vatGstNumber       String?
+  ntn                String? // National Tax Number (Pakistan)
+  country            String
+  addressStreet      String
+  addressCity        String
+  addressState       String
+  addressCountry     String
+  postalCode         String? // Country-specific postal code
+  kycStatus          KycStatus            @default(PENDING)
+  preferredCurrency  String               @default("USD") // UI reference currency
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
   // Relations
-  users               User[]
-  stores              Store[]
-  products            Product[]
-  bankDetails         BankDetails[]
-  supplierPayouts     Payout[]             @relation("SupplierPayouts")
-  vendorPayouts       Payout[]             @relation("VendorPayouts")
+  users           User[]
+  stores          Store[]
+  products        Product[]
+  bankDetails     BankDetails[]
+  supplierPayouts Payout[]       @relation("SupplierPayouts")
+  vendorPayouts   Payout[]       @relation("VendorPayouts")
+  stripeAccount   StripeAccount? @relation("BusinessStripeAccount") // One-to-One relationship
+}
+
+model StripeAccount {
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  business   Business @relation("BusinessStripeAccount", fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Stripe Account IDs
+  stripeAccountId  String? // Stripe Connected Account ID
+  expressAccountId String? // Stripe Express Account ID
+
+  // Account Status
+  stripeAccountStatus     String? // 'pending', 'verified', 'restricted', 'rejected'
+  stripeVerificationLevel String? // 'unverified', 'pending', 'verified'
+
+  // Capabilities & Requirements
+  stripeCapabilities          Json? // Store capabilities status
+  stripeRequirements          Json? // Store requirements
+  stripeMissingFields         Json? // Store missing fields array
+  stripeLastRequirementsCheck DateTime? // Last requirements check timestamp
+
+  // Status Flags
+  stripePayoutsEnabled Boolean? // Payouts status
+  stripeChargesEnabled Boolean? // Charges status
+  bankStatus           String? // 'pending', 'verified', 'rejected'
+
+  // Timestamps
+  stripeLastUpdated DateTime? // Last webhook update
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
+
+  @@map("stripe_accounts")
 }
 
 model BankDetails {
-  id                    String    @id @default(cuid())
-  userId                String?   @unique // For individual users
-  user                  User?     @relation(fields: [userId], references: [id])
-  businessId            String?   // For business accounts
-  business              Business? @relation(fields: [businessId], references: [id])
-  
+  id         String    @id @default(cuid())
+  userId     String?   @unique // For individual users
+  user       User?     @relation(fields: [userId], references: [id])
+  businessId String? // For business accounts
+  business   Business? @relation(fields: [businessId], references: [id])
+
   // Country and Stripe Integration
-  countryCode           String    // e.g. "US", "UK", "PK", "DE"
-  fields                Json      // Dynamic fields based on country
-  stripeAccountId       String?   // Stripe Connected Account ID
-  kycStatus             KycStatus @default(PENDING)
-  
+  countryCode     String // e.g. "US", "UK", "PK", "DE"
+  fields          Json // Dynamic fields based on country
+  stripeAccountId String? // Stripe Connected Account ID
+  kycStatus       KycStatus @default(PENDING)
+
   // Legacy fields (keeping for backward compatibility)
-  bankName              String?
-  accountHolderName     String?
-  accountNumber         String?
-  routingNumber         String?
-  swiftCode             String?
-  iban                  String?
-  bankAddress           String?
-  bankCity              String?
-  bankCountry           String?
-  bankPostalCode        String?
-  
+  bankName          String?
+  accountHolderName String?
+  accountNumber     String?
+  routingNumber     String?
+  swiftCode         String?
+  iban              String?
+  bankAddress       String?
+  bankCity          String?
+  bankCountry       String?
+  bankPostalCode    String?
+
   // Verification
-  isVerified            Boolean   @default(false)
-  verifiedAt            DateTime?
-  verifiedBy            String?
-  
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt @default(now())
+  isVerified Boolean   @default(false)
+  verifiedAt DateTime?
+  verifiedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model Template {
-  id            String   @id @default(cuid())
-  name          String   @unique
-  slug          String   @unique // URL-friendly identifier (e.g. 'modern', 'minimal')
-  description   String?
-  version       Int      @default(1) // Template version for versioning
-  pages         Json     // Multi-page structure (landing, productDetail, contact, about, etc.)
-  theme         Json     // Theme configuration (colors, layout, styles) - renamed from baseConfig
-  editableFields Json    // Which fields vendor can customize (logo, banner, colors, etc.)
-  previewImage  String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt @default(now())
-  
+  id             String   @id @default(cuid())
+  name           String   @unique
+  slug           String   @unique // URL-friendly identifier (e.g. 'modern', 'minimal')
+  description    String?
+  version        Int      @default(1) // Template version for versioning
+  pages          Json // Multi-page structure (landing, productDetail, contact, about, etc.)
+  theme          Json // Theme configuration (colors, layout, styles) - renamed from baseConfig
+  editableFields Json // Which fields vendor can customize (logo, banner, colors, etc.)
+  previewImage   String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
   // Relations
-  stores        Store[]
+  stores Store[]
 }
 
 model Store {
-  id              String   @id @default(cuid())
-  name            String
-  slug            String   @unique
-  description     String?
-  template        Template? @relation(fields: [templateId], references: [id])
-  templateId      String?  // FK to Template (nullable temporarily for migration)
-  templateVersion Int?     // Locked template version (for versioning)
-  overrides       Json?    // Vendor customizations only (logo, banner, primaryColor)
-  status          String?  @default("published") // 'draft' | 'published'
-  isActive        Boolean  @default(true)
-  owner           User     @relation(fields: [ownerId], references: [id])
-  ownerId         String
-  businessId  String?
-  business    Business? @relation(fields: [businessId], references: [id])
-  products    Product[]
-  orders      Order[]
-  invoices    Invoice[]
-  storeProducts StoreProduct[]
+  id                String         @id @default(cuid())
+  name              String
+  slug              String         @unique
+  description       String?
+  template          Template?      @relation(fields: [templateId], references: [id])
+  templateId        String? // FK to Template (nullable temporarily for migration)
+  templateVersion   Int? // Locked template version (for versioning)
+  overrides         Json? // Vendor customizations only (logo, banner, primaryColor)
+  status            String?        @default("published") // 'draft' | 'published'
+  isActive          Boolean        @default(true)
+  owner             User           @relation(fields: [ownerId], references: [id])
+  ownerId           String
+  businessId        String?
+  business          Business?      @relation(fields: [businessId], references: [id])
+  products          Product[]
+  orders            Order[]
+  invoices          Invoice[]
+  storeProducts     StoreProduct[]
   // Store branding for invoices
-  logo        String?
-  banner      String?
-  address     String?
-  phone       String?
-  email       String?
-  taxNumber   String?
-  invoiceTemplate String @default("default")
+  logo              String?
+  banner            String?
+  address           String?
+  phone             String?
+  email             String?
+  taxNumber         String?
+  invoiceTemplate   String         @default("default")
   // Currency is always USD
-  currency    String   @default("USD")
+  currency          String         @default("USD")
   // Vendor approval settings
-  autoForwardOrders Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt @default(now())
+  autoForwardOrders Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @default(now()) @updatedAt
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  price       Float
-  image       String?  // Main/primary image (for backward compatibility)
-  isActive    Boolean  @default(true)
-  featured    Boolean  @default(false) // Featured product flag
-  markup      Float    @default(0) // Vendor markup percentage
-  supplier    User     @relation("SupplierProducts", fields: [supplierId], references: [id])
-  supplierId  String
-  businessId  String?
-  business    Business? @relation(fields: [businessId], references: [id])
-  store       Store?   @relation(fields: [storeId], references: [id])
-  storeId     String?
-  orders      Order[]
-  storeProducts StoreProduct[]
-  hostedLink  String?  @unique // Generated hosted link for checkout
-  variants    Json?    // Store variants as JSON
+  id                     String         @id @default(cuid())
+  name                   String
+  description            String?
+  price                  Float
+  image                  String? // Main/primary image (for backward compatibility)
+  isActive               Boolean        @default(true)
+  featured               Boolean        @default(false) // Featured product flag
+  markup                 Float          @default(0) // Vendor markup percentage
+  supplier               User           @relation("SupplierProducts", fields: [supplierId], references: [id])
+  supplierId             String
+  businessId             String?
+  business               Business?      @relation(fields: [businessId], references: [id])
+  store                  Store?         @relation(fields: [storeId], references: [id])
+  storeId                String?
+  orders                 Order[]
+  storeProducts          StoreProduct[]
+  hostedLink             String?        @unique // Generated hosted link for checkout
+  variants               Json? // Store variants as JSON
   // New fields for enhanced product management
-  sku         String?  // Stock Keeping Unit
-  brandName   String?  // Brand name of the product
-  minQuantity Int?     // Minimum quantity for purchasing
-  suggestedAmount Float? // Suggested selling price for vendors
+  sku                    String? // Stock Keeping Unit
+  brandName              String? // Brand name of the product
+  minQuantity            Int? // Minimum quantity for purchasing
+  suggestedAmount        Float? // Suggested selling price for vendors
   // SEO fields
-  metaTitle       String? // Meta title for SEO
-  metaDescription String? // Meta description for SEO
-  metaTags        String? // Meta tags for SEO (comma-separated)
+  metaTitle              String? // Meta title for SEO
+  metaDescription        String? // Meta description for SEO
+  metaTags               String? // Meta tags for SEO (comma-separated)
   // Product categorization - NEW CATALOG SYSTEM
-  category    Category? @relation(fields: [categoryId], references: [id])
-  categoryId  String?
-  subcategory Subcategory? @relation(fields: [subcategoryId], references: [id])
-  subcategoryId String?
-  tags        ProductTag[] // Many-to-many relationship with tags
+  category               Category?      @relation(fields: [categoryId], references: [id])
+  categoryId             String?
+  subcategory            Subcategory?   @relation(fields: [subcategoryId], references: [id])
+  subcategoryId          String?
+  tags                   ProductTag[] // Many-to-many relationship with tags
   // Inventory tracking
-  totalQuantity   Int @default(0) // Total quantity in stock
-  availableQuantity Int @default(0) // Available quantity for sale
+  totalQuantity          Int            @default(0) // Total quantity in stock
+  availableQuantity      Int            @default(0) // Available quantity for sale
   // Shipping information
-  shippingInfo Json? // Store shipping information as JSON
+  shippingInfo           Json? // Store shipping information as JSON
   // Product images relationship
-  images      ProductImage[]
+  images                 ProductImage[]
   // Currency is always USD
-  currency    String   @default("USD")
-  lockedUSDPrice Float? // Locked USD price at creation
+  currency               String         @default("USD")
+  lockedUSDPrice         Float? // Locked USD price at creation
   exchangeRateAtCreation Float? // Exchange rate used at creation
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt @default(now())
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @default(now()) @updatedAt
 }
 
 model ProductImage {
   id        String   @id @default(cuid())
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId String
-  url       String   // Image URL
-  alt       String?  // Alt text for accessibility
+  url       String // Image URL
+  alt       String? // Alt text for accessibility
   isMain    Boolean  @default(false) // Main/primary image flag
   order     Int      @default(0) // Display order
   createdAt DateTime @default(now())
 }
 
 model Category {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  slug         String        @unique
-  description  String?
-  image        String?       // Category image/icon
-  isActive     Boolean       @default(true)
-  order        Int           @default(0) // Display order
+  id            String        @id @default(cuid())
+  name          String        @unique
+  slug          String        @unique
+  description   String?
+  image         String? // Category image/icon
+  isActive      Boolean       @default(true)
+  order         Int           @default(0) // Display order
   subcategories Subcategory[]
-  products     Product[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt @default(now())
+  products      Product[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
 }
 
 model Subcategory {
@@ -376,27 +394,27 @@ model Subcategory {
   name        String
   slug        String
   description String?
-  image       String?   // Subcategory image/icon
+  image       String? // Subcategory image/icon
   isActive    Boolean   @default(true)
   order       Int       @default(0) // Display order
   category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   categoryId  String
   products    Product[]
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
 
   @@unique([categoryId, slug])
 }
 
 model Tag {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  slug      String    @unique
-  color     String?   // Tag color for UI
-  isActive  Boolean   @default(true)
+  id        String       @id @default(cuid())
+  name      String       @unique
+  slug      String       @unique
+  color     String? // Tag color for UI
+  isActive  Boolean      @default(true)
   products  ProductTag[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt @default(now())
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @default(now()) @updatedAt
 }
 
 model ProductTag {
@@ -411,214 +429,214 @@ model ProductTag {
 }
 
 model Order {
-  id            String   @id @default(cuid())
-  product       Product  @relation(fields: [productId], references: [id])
-  productId     String
-  store         Store    @relation(fields: [storeId], references: [id])
-  storeId       String
-  customer      User?    @relation(fields: [customerId], references: [id])
-  customerId    String?
-  quantity      Int      @default(1)
-  productPrice  Float    // Original supplier price
-  markupAmount  Float    // Vendor markup amount
-  totalAmount   Float    // Final amount paid by customer
-  selectedVariants String? // JSON string of selected variants
-  status        OrderStatus @default(PENDING)
-  paymentId     String?  // Payment gateway transaction ID
-  invoice       Invoice?
-  payout        Payout?
+  id                           String               @id @default(cuid())
+  product                      Product              @relation(fields: [productId], references: [id])
+  productId                    String
+  store                        Store                @relation(fields: [storeId], references: [id])
+  storeId                      String
+  customer                     User?                @relation(fields: [customerId], references: [id])
+  customerId                   String?
+  quantity                     Int                  @default(1)
+  productPrice                 Float // Original supplier price
+  markupAmount                 Float // Vendor markup amount
+  totalAmount                  Float // Final amount paid by customer
+  selectedVariants             String? // JSON string of selected variants
+  status                       OrderStatus          @default(PENDING)
+  paymentId                    String? // Payment gateway transaction ID
+  invoice                      Invoice?
+  payout                       Payout?
   // Currency is always USD
-  storeProductId String?
-  storeProduct   StoreProduct? @relation(fields: [storeProductId], references: [id])
-  lockedUSDPrice Float?
-  lockedLocalPrice Float?
-  displayPrice  Float?
-  displayCurrency String?
-  settlementCurrency String @default("USD")
-  shippingAddress Json?
-  billingAddress Json?
-  notes         String?
+  storeProductId               String?
+  storeProduct                 StoreProduct?        @relation(fields: [storeProductId], references: [id])
+  lockedUSDPrice               Float?
+  lockedLocalPrice             Float?
+  displayPrice                 Float?
+  displayCurrency              String?
+  settlementCurrency           String               @default("USD")
+  shippingAddress              Json?
+  billingAddress               Json?
+  notes                        String?
   // Vendor approval workflow
-  requiresVendorApproval Boolean @default(false)
-  vendorApprovedAt      DateTime?
-  vendorApprovedBy      String?
-  vendorRejectedAt      DateTime?
-  vendorRejectedBy      String?
-  vendorRejectionReason String?
+  requiresVendorApproval       Boolean              @default(false)
+  vendorApprovedAt             DateTime?
+  vendorApprovedBy             String?
+  vendorRejectedAt             DateTime?
+  vendorRejectedBy             String?
+  vendorRejectionReason        String?
   // Markup details
-  markupPercentage        Float?   // Store percentage (20%)
+  markupPercentage             Float? // Store percentage (20%)
   markupAmountInVendorCurrency Float? // USD amount
-  markupType              String?  // "percentage" or "fixed"
-  vendorCurrency          String?  // Always "USD"
-  supplierCurrency        String?  // Always "USD"
+  markupType                   String? // "percentage" or "fixed"
+  vendorCurrency               String? // Always "USD"
+  supplierCurrency             String? // Always "USD"
   // Order status history
-  statusHistory OrderStatusHistory[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  statusHistory                OrderStatusHistory[]
+  createdAt                    DateTime             @default(now())
+  updatedAt                    DateTime             @updatedAt
 }
 
 model OrderStatusHistory {
-  id          String      @id @default(cuid())
-  orderId     String
-  order       Order       @relation(fields: [orderId], references: [id])
-  status      OrderStatus
-  reason      String?
-  changedBy   String      // User ID who changed the status
-  changedAt   DateTime    @default(now())
-  notes       String?
-  metadata    Json?       // Additional data about the status change
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id])
+  status    OrderStatus
+  reason    String?
+  changedBy String // User ID who changed the status
+  changedAt DateTime    @default(now())
+  notes     String?
+  metadata  Json? // Additional data about the status change
 }
 
 model Invoice {
-  id            String   @id @default(cuid())
-  invoiceNumber String   @unique
-  order         Order    @relation(fields: [orderId], references: [id])
-  orderId       String   @unique
-  store         Store    @relation(fields: [storeId], references: [id])
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  order         Order         @relation(fields: [orderId], references: [id])
+  orderId       String        @unique
+  store         Store         @relation(fields: [storeId], references: [id])
   storeId       String
-  customer      User     @relation(fields: [customerId], references: [id])
+  customer      User          @relation(fields: [customerId], references: [id])
   customerId    String
   subtotal      Float
-  tax           Float    @default(0)
+  tax           Float         @default(0)
   total         Float
   status        InvoiceStatus @default(PENDING)
-  template      String   @default("default")
+  template      String        @default("default")
   notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 model StoreProduct {
-  id                    String   @id @default(cuid())
-  productId             String
-  storeId               String
-  lockedUSDPrice        Float    // Locked USD price (base for all calculations)
-  lockedLocalPrice      Float    // Locked local price in store currency
-  localCurrency         String   // Store currency
-  exchangeRateAtImport  Float    // Exchange rate at import time
-  markup                Float    @default(0) // Vendor markup percentage OR fixed amount
-  markupType            String   @default("percentage") // "percentage" or "fixed"
-  markupAmountInUSD     Float?   // Locked USD markup amount
+  id                          String    @id @default(cuid())
+  productId                   String
+  storeId                     String
+  lockedUSDPrice              Float // Locked USD price (base for all calculations)
+  lockedLocalPrice            Float // Locked local price in store currency
+  localCurrency               String // Store currency
+  exchangeRateAtImport        Float // Exchange rate at import time
+  markup                      Float     @default(0) // Vendor markup percentage OR fixed amount
+  markupType                  String    @default("percentage") // "percentage" or "fixed"
+  markupAmountInUSD           Float? // Locked USD markup amount
   markupAmountInLocalCurrency Float? // Locked local currency markup amount
-  markupLockedAt        DateTime? // When markup was locked
-  markupExchangeRate    Float?    // Exchange rate used for markup locking
-  finalPrice            Float    // Final price after markup
-  isActive              Boolean  @default(true)
-  product               Product  @relation(fields: [productId], references: [id])
-  store                 Store    @relation(fields: [storeId], references: [id])
-  orders                Order[]
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  markupLockedAt              DateTime? // When markup was locked
+  markupExchangeRate          Float? // Exchange rate used for markup locking
+  finalPrice                  Float // Final price after markup
+  isActive                    Boolean   @default(true)
+  product                     Product   @relation(fields: [productId], references: [id])
+  store                       Store     @relation(fields: [storeId], references: [id])
+  orders                      Order[]
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   @@unique([productId, storeId])
   @@map("store_products")
 }
 
 model Payout {
-  id                    String   @id @default(cuid())
-  orderId               String   @unique
-  order                 Order    @relation(fields: [orderId], references: [id])
-  
+  id      String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
+
   // Parties
-  supplierId            String
-  supplier              User     @relation("SupplierPayouts", fields: [supplierId], references: [id])
-  supplierBusinessId    String?
-  supplierBusiness      Business? @relation("SupplierPayouts", fields: [supplierBusinessId], references: [id])
-  vendorId              String
-  vendor                User     @relation("VendorPayouts", fields: [vendorId], references: [id])
-  vendorBusinessId      String?
-  vendorBusiness        Business? @relation("VendorPayouts", fields: [vendorBusinessId], references: [id])
-  
+  supplierId         String
+  supplier           User      @relation("SupplierPayouts", fields: [supplierId], references: [id])
+  supplierBusinessId String?
+  supplierBusiness   Business? @relation("SupplierPayouts", fields: [supplierBusinessId], references: [id])
+  vendorId           String
+  vendor             User      @relation("VendorPayouts", fields: [vendorId], references: [id])
+  vendorBusinessId   String?
+  vendorBusiness     Business? @relation("VendorPayouts", fields: [vendorBusinessId], references: [id])
+
   // Enhanced Financial Breakdown (in USD - base currency)
-  grossAmount           Float    @default(0) // Original order total (gross amount)
-  stripeProcessingFee   Float    @default(0) // Stripe's processing fee
-  platformFee           Float    @default(0) // Platform service fee
-  supplierAmount        Float    @default(0) // Base cost to supplier (no deductions)
-  grossVendorAmount     Float    @default(0) // Vendor amount before payout fee
-  stripePayoutFee       Float    @default(0) // Country-based Stripe payout fee
-  netVendorAmount       Float    @default(0) // Final vendor amount after payout fee
-  platformRevenue       Float    @default(0) // Platform's total revenue (platform fee)
-  
+  grossAmount         Float @default(0) // Original order total (gross amount)
+  stripeProcessingFee Float @default(0) // Stripe's processing fee
+  platformFee         Float @default(0) // Platform service fee
+  supplierAmount      Float @default(0) // Base cost to supplier (no deductions)
+  grossVendorAmount   Float @default(0) // Vendor amount before payout fee
+  stripePayoutFee     Float @default(0) // Country-based Stripe payout fee
+  netVendorAmount     Float @default(0) // Final vendor amount after payout fee
+  platformRevenue     Float @default(0) // Platform's total revenue (platform fee)
+
   // Legacy fields (for backward compatibility)
-  orderTotal            Float?   // Original order total (deprecated)
-  vendorGrossAmount     Float?   // Vendor's gross amount (deprecated)
-  transactionFee        Float?   // Payment processing fee (deprecated)
-  currencyConversionFee Float    @default(0) // Multi-currency conversion fee
-  
+  orderTotal            Float? // Original order total (deprecated)
+  vendorGrossAmount     Float? // Vendor's gross amount (deprecated)
+  transactionFee        Float? // Payment processing fee (deprecated)
+  currencyConversionFee Float  @default(0) // Multi-currency conversion fee
+
   // Final Amounts (in USD)
-  finalSupplierAmount   Float?   // What supplier actually receives (deprecated)
-  finalVendorAmount     Float?   // What vendor actually receives (deprecated)
-  
+  finalSupplierAmount Float? // What supplier actually receives (deprecated)
+  finalVendorAmount   Float? // What vendor actually receives (deprecated)
+
   // Stripe Transfer Tracking
-  supplierTransferId    String?  // Stripe transfer ID to supplier
-  vendorTransferId      String?  // Stripe transfer ID to vendor
+  supplierTransferId     String? // Stripe transfer ID to supplier
+  vendorTransferId       String? // Stripe transfer ID to vendor
   supplierTransferStatus String? // Transfer status to supplier
-  vendorTransferStatus  String?  // Transfer status to vendor
-  
+  vendorTransferStatus   String? // Transfer status to vendor
+
   // Fee Breakdown and Tracking
-  feeBreakdown          Json?    // Detailed fee calculation breakdown
-  countryPayoutFee      Float?   // Actual country payout fee used
-  stripePayoutFeeUsed   Float?   // Actual Stripe payout fee charged
-  
+  feeBreakdown        Json? // Detailed fee calculation breakdown
+  countryPayoutFee    Float? // Actual country payout fee used
+  stripePayoutFeeUsed Float? // Actual Stripe payout fee charged
+
   // Currency Information (Always USD)
-  baseCurrency          String   @default("USD")
-  supplierCurrency      String   @default("USD") // Always USD
-  vendorCurrency        String   @default("USD") // Always USD
-  exchangeRateAtPayout  Float?   // Exchange rate used for conversion
-  
+  baseCurrency         String @default("USD")
+  supplierCurrency     String @default("USD") // Always USD
+  vendorCurrency       String @default("USD") // Always USD
+  exchangeRateAtPayout Float? // Exchange rate used for conversion
+
   // Payout Locking
-  isLocked              Boolean  @default(false) // Whether payout amounts are locked
-  lockedAt              DateTime? // When amounts were locked
-  lockedExchangeRate    Float?   // Exchange rate at locking time
-  lockedSupplierAmount  Float?   // Locked supplier amount in supplier currency
-  lockedVendorAmount    Float?   // Locked vendor amount in vendor currency
-  
+  isLocked             Boolean   @default(false) // Whether payout amounts are locked
+  lockedAt             DateTime? // When amounts were locked
+  lockedExchangeRate   Float? // Exchange rate at locking time
+  lockedSupplierAmount Float? // Locked supplier amount in supplier currency
+  lockedVendorAmount   Float? // Locked vendor amount in vendor currency
+
   // Payout Details
-  status                PayoutStatus @default(PENDING)
-  payoutMethod          PayoutMethod @default(STRIPE_CONNECT)
-  payoutDate            DateTime?
-  processedAt           DateTime?
-  
+  status       PayoutStatus @default(PENDING)
+  payoutMethod PayoutMethod @default(STRIPE_CONNECT)
+  payoutDate   DateTime?
+  processedAt  DateTime?
+
   // External References
-  stripeTransferId      String?
-  stripePayoutId        String?
-  bankReference         String?
-  wiseTransferId        String?
-  
+  stripeTransferId String?
+  stripePayoutId   String?
+  bankReference    String?
+  wiseTransferId   String?
+
   // Approval Workflow
-  requiresApproval      Boolean  @default(false)
-  approvedBy            String?
-  approvedAt            DateTime?
-  approvalNotes         String?
-  
+  requiresApproval Boolean   @default(false)
+  approvedBy       String?
+  approvedAt       DateTime?
+  approvalNotes    String?
+
   // Tracking
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  statusHistory         PayoutStatusHistory[]
-  notifications         PayoutNotification[]
+  statusHistory PayoutStatusHistory[]
+  notifications PayoutNotification[]
 }
 
 model PayoutStatusHistory {
-  id          String   @id @default(cuid())
-  payoutId    String
-  payout      Payout   @relation(fields: [payoutId], references: [id])
-  status      PayoutStatus
-  reason      String?
-  changedBy   String
-  changedAt   DateTime @default(now())
-  notes       String?
+  id        String       @id @default(cuid())
+  payoutId  String
+  payout    Payout       @relation(fields: [payoutId], references: [id])
+  status    PayoutStatus
+  reason    String?
+  changedBy String
+  changedAt DateTime     @default(now())
+  notes     String?
 }
 
 model PayoutNotification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   payoutId  String
-  payout    Payout   @relation(fields: [payoutId], references: [id])
+  payout    Payout           @relation(fields: [payoutId], references: [id])
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
   type      NotificationType
   message   String
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
 }

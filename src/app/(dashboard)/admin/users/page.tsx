@@ -19,11 +19,14 @@ interface User {
     preferredCurrency: string;
     type: string;
     country?: string;
-    expressAccountId?: string;
-    stripeAccountStatus?: string;
-    stripePayoutsEnabled?: boolean;
-    bankStatus?: string;
-    stripeChargesEnabled?: boolean;
+    stripeAccount?: {
+      expressAccountId?: string;
+      stripeAccountId?: string;
+      stripeAccountStatus?: string;
+      stripePayoutsEnabled?: boolean;
+      bankStatus?: string;
+      stripeChargesEnabled?: boolean;
+    };
   };
   createdAt: string;
 }
@@ -67,11 +70,11 @@ export default function AdminUsersPage() {
   }, [fetchUsers]);
 
   const getStripeStatusBadge = (user: User) => {
-    const stripeAccountStatus = user.business?.stripeAccountStatus;
-    const stripePayoutsEnabled = user.business?.stripePayoutsEnabled;
-    const bankStatus = user.business?.bankStatus;
-    const expressAccountId = user.business?.expressAccountId;
-    const stripeAccountId = (user.business as any)?.stripeAccountId;
+    const stripeAccountStatus = user.business?.stripeAccount?.stripeAccountStatus;
+    const stripePayoutsEnabled = user.business?.stripeAccount?.stripePayoutsEnabled;
+    const bankStatus = user.business?.stripeAccount?.bankStatus;
+    const expressAccountId = user.business?.stripeAccount?.expressAccountId;
+    const stripeAccountId = user.business?.stripeAccount?.stripeAccountId;
     
     // Check if user has any Stripe account
     const hasStripeAccount = expressAccountId || stripeAccountId;
@@ -571,7 +574,7 @@ export default function AdminUsersPage() {
                       {/* Express Account Management for VENDOR_USER and SUPPLIER_USER */}
                       {(user.role === 'VENDOR_USER' || user.role === 'SUPPLIER_USER') && (
                         <>
-                          {!user.business?.expressAccountId ? (
+                          {!user.business?.stripeAccount?.expressAccountId ? (
                             <button
                               onClick={() => createExpressAccount(user.id)}
                               disabled={expressLoading}

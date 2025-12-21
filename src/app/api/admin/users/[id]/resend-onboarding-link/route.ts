@@ -18,10 +18,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const userId = params.id;
     const { linkType = 'express' } = await request.json(); // 'express' or 'connect'
 
-    // Get user with business info
+    // Get user with business and stripeAccount info
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { business: true }
+      include: { 
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        }
+      }
     });
 
     if (!user) {
@@ -37,19 +43,19 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     let onboardingLink: string;
     let accountId: string;
 
-    if (linkType === 'express' && user.business.expressAccountId) {
+    if (linkType === 'express' && user.business.stripeAccount?.expressAccountId) {
       // Generate new Express onboarding link
       onboardingLink = await stripeExpressService.createAccountLink(
-        user.business.expressAccountId,
+        user.business.stripeAccount.expressAccountId,
         'account_onboarding'
       );
-      accountId = user.business.expressAccountId;
-    } else if (linkType === 'connect' && user.business.stripeAccountId) {
+      accountId = user.business.stripeAccount.expressAccountId;
+    } else if (linkType === 'connect' && user.business.stripeAccount?.stripeAccountId) {
       // Generate new Connect onboarding link
       onboardingLink = await stripeRequirementsService.generateOnboardingLink(
-        user.business.stripeAccountId
+        user.business.stripeAccount.stripeAccountId
       );
-      accountId = user.business.stripeAccountId;
+      accountId = user.business.stripeAccount.stripeAccountId;
     } else {
       return NextResponse.json({ 
         error: `No ${linkType} account found for this user` 
@@ -64,13 +70,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       'pending'
     );
 
-    // Update database with link sent timestamp
-    await prisma.business.update({
-      where: { id: user.business.id },
-      data: {
-        stripeLastUpdated: new Date()
-      }
-    });
+    // Update StripeAccount with link sent timestamp
+    if (user.business.stripeAccount) {
+      await prisma.stripeAccount.update({
+        where: { id: user.business.stripeAccount.id },
+        data: {
+          stripeLastUpdated: new Date()
+        }
+      });
+    }
 
     return NextResponse.json({
       success: true,

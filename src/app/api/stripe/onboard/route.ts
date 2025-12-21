@@ -20,11 +20,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user's business and KYC details
+    // Get user's business with stripeAccount and KYC details
     const user = await prisma.user.findUnique({
       where: { id: session.id },
       include: { 
-        business: true,
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        },
         stripeKycDetails: true
       }
     });
@@ -45,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let stripeAccountId = user.business.stripeAccountId;
+    let stripeAccountId = user.business.stripeAccount?.stripeAccountId;
 
     // Create Stripe connected account if it doesn't exist
     if (!stripeAccountId) {
@@ -163,35 +167,40 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Update business with Stripe account ID, KYC status, NTN, and postal code
+    // Update Business with KYC status, NTN, and postal code
     await prisma.business.update({
       where: { id: user.business.id },
       data: { 
         kycStatus: 'PENDING',
-        stripeAccountId: stripeAccountId,
         ...(ntn && { ntn: ntn }), // Update NTN if provided
         ...(postalCode && { postalCode: postalCode }) // Update postal code if provided
       }
     });
 
-    console.log('Bank details saved to database with Stripe integration');
-
-    // Get updated business info to return enhanced details
-    const updatedBusiness = await prisma.business.findUnique({
-      where: { id: user.business.id },
-      select: {
-        stripeAccountId: true,
-        kycStatus: true,
-        stripeLastUpdated: true,
+    // Create or update StripeAccount with Stripe account ID
+    const updatedStripeAccount = await prisma.stripeAccount.upsert({
+      where: { businessId: user.business.id },
+      create: {
+        businessId: user.business.id,
+        stripeAccountId: stripeAccountId,
+        stripeAccountStatus: 'pending',
+        stripeLastUpdated: new Date()
+      },
+      update: {
+        stripeAccountId: stripeAccountId,
+        stripeAccountStatus: 'pending',
+        stripeLastUpdated: new Date()
       }
     });
+
+    console.log('Bank details saved to database with Stripe integration');
 
     return NextResponse.json({
       success: true,
       message: 'Bank details submitted successfully and sent to Stripe for verification',
       stripeAccountId,
       kycStatus: 'PENDING',
-      accountCreatedAt: updatedBusiness?.stripeLastUpdated,
+      accountCreatedAt: updatedStripeAccount?.stripeLastUpdated,
       nextSteps: 'Your bank account is being verified by Stripe. You will receive updates on the verification status.',
       additionalInfo: {
         country: countryCode,

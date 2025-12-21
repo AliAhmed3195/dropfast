@@ -24,14 +24,26 @@ export async function POST(
             product: {
               include: {
                 supplier: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             },
             store: {
               include: {
                 owner: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -53,13 +65,13 @@ export async function POST(
     }
 
     // Check if required Stripe accounts exist
-    if (!payout.order.product.supplier.business?.stripeAccountId) {
+    if (!payout.order.product.supplier.business?.stripeAccount?.stripeAccountId) {
       return NextResponse.json({ 
         error: 'Supplier does not have a Stripe Connect account' 
       }, { status: 400 });
     }
 
-    if (!payout.order.store.owner.business?.stripeAccountId) {
+    if (!payout.order.store.owner.business?.stripeAccount?.stripeAccountId) {
       return NextResponse.json({ 
         error: 'Vendor does not have a Stripe Connect account' 
       }, { status: 400 });

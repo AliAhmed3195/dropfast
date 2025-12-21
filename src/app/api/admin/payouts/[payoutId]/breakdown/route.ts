@@ -24,14 +24,26 @@ export async function GET(
             product: {
               include: {
                 supplier: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             },
             store: {
               include: {
                 owner: {
-                  include: { business: true }
+                  include: { 
+                    business: {
+                      include: {
+                        stripeAccount: true
+                      }
+                    }
+                  }
                 }
               }
             },
@@ -105,8 +117,8 @@ export async function GET(
             email: order.product.supplier.email,
             country: order.product.supplier.business?.country || 'US',
             currency: order.product.supplier.business?.preferredCurrency || 'USD',
-            stripeAccountId: order.product.supplier.business?.stripeAccountId,
-            stripeAccountStatus: order.product.supplier.business?.stripeAccountStatus
+            stripeAccountId: order.product.supplier.business?.stripeAccount?.stripeAccountId,
+            stripeAccountStatus: order.product.supplier.business?.stripeAccount?.stripeAccountStatus
           },
           vendor: {
             id: order.store.owner.id,
@@ -114,8 +126,8 @@ export async function GET(
             email: order.store.owner.email,
             country: order.store.owner.business?.country || 'US',
             currency: order.store.owner.business?.preferredCurrency || 'USD',
-            stripeAccountId: order.store.owner.business?.stripeAccountId,
-            stripeAccountStatus: order.store.owner.business?.stripeAccountStatus
+            stripeAccountId: order.store.owner.business?.stripeAccount?.stripeAccountId,
+            stripeAccountStatus: order.store.owner.business?.stripeAccount?.stripeAccountStatus
           },
           customer: {
             country: (order.customer as any)?.country || 'US'

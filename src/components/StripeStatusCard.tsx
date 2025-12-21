@@ -7,14 +7,18 @@ interface User {
   name: string;
   email: string;
   business?: {
-    stripeAccountStatus?: string;
-    stripeVerificationLevel?: string;
-    stripePayoutsEnabled?: boolean;
-    stripeChargesEnabled?: boolean;
-    bankStatus?: string;
-    stripeCapabilities?: any;
-    stripeRequirements?: any;
-    stripeLastUpdated?: string;
+    stripeAccount?: {
+      stripeAccountStatus?: string;
+      stripeVerificationLevel?: string;
+      stripePayoutsEnabled?: boolean;
+      stripeChargesEnabled?: boolean;
+      bankStatus?: string;
+      stripeCapabilities?: any;
+      stripeRequirements?: any;
+      stripeLastUpdated?: string;
+      expressAccountId?: string;
+      stripeAccountId?: string;
+    };
   };
 }
 
@@ -29,15 +33,16 @@ export const StripeStatusCard: React.FC<StripeStatusCardProps> = ({
   showDetails = false, 
   compact = false 
 }) => {
-  const stripeAccountStatus = user.business?.stripeAccountStatus;
-  const stripePayoutsEnabled = user.business?.stripePayoutsEnabled;
-  const bankStatus = user.business?.bankStatus;
-  const stripeChargesEnabled = user.business?.stripeChargesEnabled;
+  const stripeAccount = user.business?.stripeAccount;
+  const stripeAccountStatus = stripeAccount?.stripeAccountStatus;
+  const stripePayoutsEnabled = stripeAccount?.stripePayoutsEnabled;
+  const bankStatus = stripeAccount?.bankStatus;
+  const stripeChargesEnabled = stripeAccount?.stripeChargesEnabled;
   
   // Determine overall status
   const getOverallStatus = () => {
-    const expressAccountId = (user.business as any)?.expressAccountId;
-    const stripeAccountId = (user.business as any)?.stripeAccountId;
+    const expressAccountId = stripeAccount?.expressAccountId;
+    const stripeAccountId = stripeAccount?.stripeAccountId;
     const hasStripeAccount = expressAccountId || stripeAccountId;
     
     if (stripeAccountStatus === 'verified' && stripePayoutsEnabled && bankStatus === 'verified') {
@@ -146,11 +151,11 @@ export const StripeStatusCard: React.FC<StripeStatusCardProps> = ({
             </span>
           </div>
           
-          {user.business?.stripeLastUpdated && (
+          {user.business?.stripeAccount?.stripeLastUpdated && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">Last Updated:</span>
               <span className="text-gray-500">
-                {new Date(user.business.stripeLastUpdated).toLocaleDateString()}
+                {new Date(user.business.stripeAccount.stripeLastUpdated).toLocaleDateString()}
               </span>
             </div>
           )}

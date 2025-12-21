@@ -17,10 +17,12 @@ interface User {
   name: string;
   email: string;
   business?: {
-    stripeAccountStatus?: string;
-    stripePayoutsEnabled?: boolean;
-    bankStatus?: string;
-    stripeChargesEnabled?: boolean;
+    stripeAccount?: {
+      stripeAccountStatus?: string;
+      stripePayoutsEnabled?: boolean;
+      bankStatus?: string;
+      stripeChargesEnabled?: boolean;
+    };
   };
 }
 

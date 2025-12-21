@@ -33,10 +33,16 @@ export async function POST(request: NextRequest) {
     }
 
 
-    // Get user's business
+    // Get user's business with stripeAccount
     const user = await prisma.user.findUnique({
       where: { id: session.id },
-      include: { business: true }
+      include: { 
+        business: {
+          include: {
+            stripeAccount: true
+          }
+        }
+      }
     });
 
     if (!user?.business) {
