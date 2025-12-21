@@ -31,10 +31,25 @@ interface User {
   createdAt: string;
 }
 
+interface BusinessFormData {
+  businessName?: string;
+  businessType?: 'INDIVIDUAL' | 'COMPANY';
+  registrationNumber?: string;
+  vatGstNumber?: string;
+  country?: string;
+  preferredCurrency?: string;
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressCountry?: string;
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [businessFormData, setBusinessFormData] = useState<BusinessFormData>({});
+  const [addBusiness, setAddBusiness] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [expressAccountData, setExpressAccountData] = useState<any>(null);
@@ -297,21 +312,42 @@ export default function AdminUsersPage() {
     if (!editingUser) return;
 
     try {
+      const updateData: any = {
+        name: editingUser.name,
+        email: editingUser.email,
+        role: editingUser.role,
+        status: editingUser.status,
+        isActive: editingUser.status === 'ACTIVE',
+      };
+
+      // Add business data if it's a vendor/supplier and addBusiness is checked
+      if ((editingUser.role === 'VENDOR_USER' || editingUser.role === 'SUPPLIER_USER') && addBusiness) {
+        updateData.addBusiness = true;
+        updateData.businessName = businessFormData.businessName;
+        updateData.businessType = businessFormData.businessType;
+        updateData.registrationNumber = businessFormData.registrationNumber;
+        updateData.vatGstNumber = businessFormData.vatGstNumber;
+        updateData.country = businessFormData.country;
+        updateData.preferredCurrency = businessFormData.preferredCurrency;
+        updateData.addressStreet = businessFormData.addressStreet;
+        updateData.addressCity = businessFormData.addressCity;
+        updateData.addressState = businessFormData.addressState;
+        updateData.addressCountry = businessFormData.addressCountry;
+      }
+
       const response = await fetch(`/api/admin/users/${editingUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: editingUser.name,
-          email: editingUser.email,
-          role: editingUser.role,
-          status: editingUser.status,
-        }),
+        body: JSON.stringify(updateData),
       });
 
       if (response.ok) {
         setEditingUser(null);
+        setBusinessFormData({});
+        setAddBusiness(false);
+        hasFetchedUsers.current = false;
         fetchUsers();
       } else {
         const error = await response.json();
@@ -442,6 +478,90 @@ export default function AdminUsersPage() {
                 </select>
               </div>
             </div>
+            {/* Business Information - Only for VENDOR_USER and SUPPLIER_USER */}
+            {(editingUser.role === 'VENDOR_USER' || editingUser.role === 'SUPPLIER_USER') && (
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Business Information</h3>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={addBusiness}
+                      onChange={(e) => {
+                        setAddBusiness(e.target.checked);
+                        if (!e.target.checked) {
+                          setBusinessFormData({});
+                        }
+                      }}
+                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">Add/Update Company Details</span>
+                  </label>
+                </div>
+                
+                {addBusiness && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Business Name {addBusiness && '*'}
+                      </label>
+                      <input
+                        type="text"
+                        required={addBusiness}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        value={businessFormData.businessName || ''}
+                        onChange={(e) => setBusinessFormData({ ...businessFormData, businessName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Business Type {addBusiness && '*'}
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        value={businessFormData.businessType || 'INDIVIDUAL'}
+                        onChange={(e) => setBusinessFormData({ ...businessFormData, businessType: e.target.value as 'INDIVIDUAL' | 'COMPANY' })}
+                      >
+                        <option value="INDIVIDUAL">Individual</option>
+                        <option value="COMPANY">Company</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Country {addBusiness && '*'}
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        value={businessFormData.country || 'US'}
+                        onChange={(e) => setBusinessFormData({ ...businessFormData, country: e.target.value })}
+                      >
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="GB">United Kingdom</option>
+                        <option value="PK">Pakistan</option>
+                        <option value="IN">India</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Preferred Currency {addBusiness && '*'}
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        value={businessFormData.preferredCurrency || 'USD'}
+                        onChange={(e) => setBusinessFormData({ ...businessFormData, preferredCurrency: e.target.value })}
+                      >
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="PKR">PKR</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -451,7 +571,11 @@ export default function AdminUsersPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setEditingUser(null)}
+                onClick={() => {
+                  setEditingUser(null);
+                  setBusinessFormData({});
+                  setAddBusiness(false);
+                }}
                 className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
               >
                 Cancel

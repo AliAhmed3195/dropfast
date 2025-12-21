@@ -68,7 +68,8 @@ export async function POST(request: NextRequest) {
       role, 
       phone,
       dob,
-      // Business fields
+      // Business fields (optional)
+      addBusiness,
       businessName,
       businessType,
       registrationNumber,
@@ -105,15 +106,17 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Create user with business if needed
+    // Create user with optional business
     let user;
+    let businessId: string | null = null;
     
-    if (role === 'VENDOR_USER' || role === 'SUPPLIER_USER') {
+    // For VENDOR_USER and SUPPLIER_USER, create business only if addBusiness is true and business details provided
+    if ((role === 'VENDOR_USER' || role === 'SUPPLIER_USER') && addBusiness && businessName) {
       // Create business first
       const business = await prisma.business.create({
         data: {
           type: role === 'VENDOR_USER' ? 'VENDOR' : 'SUPPLIER',
-          businessName: businessName || name,
+          businessName: businessName,
           businessType: businessType || 'INDIVIDUAL',
           registrationNumber: registrationNumber || null,
           vatGstNumber: vatGstNumber || null,
@@ -122,61 +125,41 @@ export async function POST(request: NextRequest) {
           addressCity: addressCity || 'TBD',
           addressState: addressState || 'TBD',
           postalCode: 'TBD',
-          addressCountry: addressCountry || 'US',
+          addressCountry: addressCountry || country || 'US',
           kycStatus: 'PENDING',
-          preferredCurrency: preferredCurrency || 'USD' // Add this field for UI reference
+          preferredCurrency: preferredCurrency || 'USD'
         }
       });
-
-      // Create user with business reference
-      user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          role,
-          businessId: business.id,
-          phone: phone || null,
-          dob: dob ? new Date(dob) : null,
-          status: 'ACTIVE'
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          status: true,
-          business: {
-            select: {
-              id: true,
-              businessName: true
-            }
-          },
-          createdAt: true,
-        },
-      });
-    } else {
-      // Create user without business (ADMIN, CUSTOMER)
-      user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          role,
-          phone: phone || null,
-          dob: dob ? new Date(dob) : null,
-          status: 'ACTIVE'
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          status: true,
-          createdAt: true,
-        },
-      });
+      businessId = business.id;
     }
+
+    // Create user (with or without business)
+    user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        businessId: businessId,
+        phone: phone || null,
+        dob: dob ? new Date(dob) : null,
+        status: 'ACTIVE'
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        business: {
+          select: {
+            id: true,
+            businessName: true
+          }
+        },
+        createdAt: true,
+      },
+    });
 
     // Create KYC details if provided (for VENDOR_USER and SUPPLIER_USER)
     if (kycDetails && (role === 'VENDOR_USER' || role === 'SUPPLIER_USER')) {

@@ -13,7 +13,24 @@ export async function PUT(
     }
 
     const userId = params.id;
-    const { name, email, role, isActive } = await request.json();
+    const { 
+      name, 
+      email, 
+      role, 
+      isActive,
+      // Business update fields
+      addBusiness,
+      businessName,
+      businessType,
+      registrationNumber,
+      vatGstNumber,
+      country,
+      preferredCurrency,
+      addressStreet,
+      addressCity,
+      addressState,
+      addressCountry
+    } = await request.json();
 
     if (!name || !email || !role) {
       return NextResponse.json(
@@ -28,6 +45,9 @@ export async function PUT(
         email,
         id: { not: userId },
       },
+      include: {
+        business: true
+      }
     });
 
     if (existingUser) {
@@ -35,6 +55,63 @@ export async function PUT(
         { error: 'Email already taken by another user' },
         { status: 400 }
       );
+    }
+
+    // Get current user
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { business: true }
+    });
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Handle business update/create for VENDOR_USER and SUPPLIER_USER
+    let businessId = currentUser.businessId;
+    if ((role === 'VENDOR_USER' || role === 'SUPPLIER_USER') && addBusiness && businessName) {
+      if (currentUser.business) {
+        // Update existing business
+        const updatedBusiness = await prisma.business.update({
+          where: { id: currentUser.business.id },
+          data: {
+            businessName,
+            businessType: businessType || 'INDIVIDUAL',
+            registrationNumber: registrationNumber || null,
+            vatGstNumber: vatGstNumber || null,
+            country: country || 'US',
+            addressStreet: addressStreet || 'TBD',
+            addressCity: addressCity || 'TBD',
+            addressState: addressState || 'TBD',
+            addressCountry: addressCountry || country || 'US',
+            preferredCurrency: preferredCurrency || 'USD'
+          }
+        });
+        businessId = updatedBusiness.id;
+      } else {
+        // Create new business
+        const newBusiness = await prisma.business.create({
+          data: {
+            type: role === 'VENDOR_USER' ? 'VENDOR' : 'SUPPLIER',
+            businessName,
+            businessType: businessType || 'INDIVIDUAL',
+            registrationNumber: registrationNumber || null,
+            vatGstNumber: vatGstNumber || null,
+            country: country || 'US',
+            addressStreet: addressStreet || 'TBD',
+            addressCity: addressCity || 'TBD',
+            addressState: addressState || 'TBD',
+            postalCode: 'TBD',
+            addressCountry: addressCountry || country || 'US',
+            kycStatus: 'PENDING',
+            preferredCurrency: preferredCurrency || 'USD'
+          }
+        });
+        businessId = newBusiness.id;
+      }
     }
 
     // Update user
@@ -45,6 +122,7 @@ export async function PUT(
         email,
         role,
         status: isActive !== undefined ? (isActive ? 'ACTIVE' : 'SUSPENDED') : undefined,
+        businessId: businessId,
       },
       select: {
         id: true,
@@ -52,6 +130,12 @@ export async function PUT(
         email: true,
         role: true,
         status: true,
+        business: {
+          select: {
+            id: true,
+            businessName: true
+          }
+        },
         createdAt: true,
       },
     });

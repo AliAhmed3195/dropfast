@@ -65,6 +65,7 @@ export default function AddUserPage() {
     addressState: '',
     addressCountry: 'US'
   });
+  const [addBusiness, setAddBusiness] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showKycModal, setShowKycModal] = useState(false);
@@ -85,6 +86,26 @@ export default function AddUserPage() {
       setFormData(prev => ({
         ...prev,
         [name]: value
+      }));
+    }
+  };
+
+  const handleBusinessToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAddBusiness(e.target.checked);
+    // Reset business fields if unchecked
+    if (!e.target.checked) {
+      setFormData(prev => ({
+        ...prev,
+        businessName: '',
+        businessType: 'INDIVIDUAL',
+        registrationNumber: '',
+        vatGstNumber: '',
+        country: 'US',
+        preferredCurrency: 'USD',
+        addressStreet: '',
+        addressCity: '',
+        addressState: '',
+        addressCountry: 'US'
       }));
     }
   };
@@ -120,7 +141,10 @@ export default function AddUserPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          addBusiness: addBusiness && (formData.role === 'VENDOR_USER' || formData.role === 'SUPPLIER_USER')
+        }),
       });
 
       if (response.ok) {
@@ -433,12 +457,26 @@ export default function AddUserPage() {
             {(formData.role === 'VENDOR_USER' || formData.role === 'SUPPLIER_USER') && (
               <>
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Business Information</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Business Information</h3>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={addBusiness}
+                        onChange={handleBusinessToggle}
+                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">Add Company Details (Optional)</span>
+                    </label>
+                  </div>
+                  
+                  {addBusiness && (
+                    <>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label htmlFor="businessName" className="block text-sm font-medium text-gray-700">
-                        Business/Company Name *
+                        Business/Company Name {addBusiness && '*'}
                       </label>
                       <input
                         type="text"
@@ -446,7 +484,7 @@ export default function AddUserPage() {
                         name="businessName"
                         value={formData.businessName}
                         onChange={handleInputChange}
-                        required
+                        required={addBusiness}
                         className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
@@ -502,14 +540,14 @@ export default function AddUserPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                     <div>
                       <label htmlFor="country" className="block text-sm font-medium text-gray-700">
-                        Country *
+                        Country {addBusiness && '*'}
                       </label>
                       <select
                         id="country"
                         name="country"
                         value={formData.country}
                         onChange={handleInputChange}
-                        required
+                        required={addBusiness}
                         className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="US">United States</option>
@@ -560,7 +598,7 @@ export default function AddUserPage() {
                     <div className="grid grid-cols-1 gap-4">
                       <div>
                         <label htmlFor="addressStreet" className="block text-sm font-medium text-gray-700">
-                          Street Address *
+                          Street Address {addBusiness && '*'}
                         </label>
                         <input
                           type="text"
@@ -568,7 +606,7 @@ export default function AddUserPage() {
                           name="addressStreet"
                           value={formData.addressStreet}
                           onChange={handleInputChange}
-                          required
+                          required={addBusiness}
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
@@ -608,14 +646,14 @@ export default function AddUserPage() {
 
                       <div>
                         <label htmlFor="addressCountry" className="block text-sm font-medium text-gray-700">
-                          Country *
+                          Country {addBusiness && '*'}
                         </label>
                         <select
                           id="addressCountry"
                           name="addressCountry"
                           value={formData.addressCountry}
                           onChange={handleInputChange}
-                          required
+                          required={addBusiness}
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="US">United States</option>
@@ -659,6 +697,14 @@ export default function AddUserPage() {
                       </button>
                     </div>
                   </div>
+                    </>
+                  )}
+                  
+                  {!addBusiness && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-md p-4 text-sm text-gray-600">
+                      <p>💡 You can add company details later by editing this user.</p>
+                    </div>
+                  )}
                 </div>
               </>
             )}
