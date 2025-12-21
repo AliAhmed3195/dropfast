@@ -84,10 +84,33 @@ export default function VendorDashboard() {
     }
   }, []);
 
+  const fetchSalesOrders = useCallback(async () => {
+    if (hasFetchedCharts.current) return;
+    hasFetchedCharts.current = true;
+    
+    try {
+      const response = await fetch('/api/vendor/dashboard/sales-orders');
+      if (response.ok) {
+        const data = await response.json();
+        setSalesData(data.sales || []);
+        setOrdersData(data.orders || []);
+      } else {
+        console.error('Error fetching sales/orders data:', response.statusText);
+        hasFetchedCharts.current = false;
+      }
+    } catch (error) {
+      console.error('Error fetching sales/orders data:', error);
+      hasFetchedCharts.current = false;
+    } finally {
+      setChartsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
     fetchUser();
-  }, [fetchStats, fetchUser]);
+    fetchSalesOrders();
+  }, [fetchStats, fetchUser, fetchSalesOrders]);
 
   if (loading) {
     return <Loading message="Loading dashboard..." />;

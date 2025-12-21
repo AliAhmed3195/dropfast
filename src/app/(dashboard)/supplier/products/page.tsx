@@ -292,6 +292,19 @@ export default function SupplierProductsPage() {
 
 
 
+  // Helper function to normalize image URL (convert absolute to relative if local)
+  const normalizeImageUrl = (url: string): string => {
+    if (!url) return url;
+    // If it's a local upload path, convert to relative
+    if (url.includes('/uploads/')) {
+      const fileName = url.split('/uploads/')[1];
+      if (fileName) {
+        return `/uploads/${fileName}`;
+      }
+    }
+    return url;
+  };
+
   const handleFileUpload = async (file: File) => {
     setUploading(true);
     try {
@@ -306,8 +319,11 @@ export default function SupplierProductsPage() {
       if (response.ok) {
         const data = await response.json();
         console.log('Main image uploaded successfully:', data.url);
-        setNewProduct({ ...newProduct, image: data.url });
-        return data.url;
+        // Normalize URL to relative path for local uploads
+        const normalizedUrl = normalizeImageUrl(data.url);
+        console.log('Normalized URL:', normalizedUrl);
+        setNewProduct({ ...newProduct, image: normalizedUrl });
+        return normalizedUrl;
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to upload image');
@@ -364,9 +380,13 @@ export default function SupplierProductsPage() {
         const uploadedUrls = await Promise.all(uploadPromises);
         console.log('All additional images uploaded:', uploadedUrls);
         
+        // Normalize URLs to relative paths for local uploads
+        const normalizedUrls = uploadedUrls.map(url => normalizeImageUrl(url));
+        console.log('Normalized URLs:', normalizedUrls);
+        
         // Add uploaded URLs to images array
         setNewProduct(prev => {
-          const newImages = [...prev.images, ...uploadedUrls];
+          const newImages = [...prev.images, ...normalizedUrls];
           console.log('Updated images array:', newImages);
           return {
             ...prev,
@@ -742,15 +762,26 @@ export default function SupplierProductsPage() {
                       src={newProduct.image}
                           alt="Main product"
                           className="w-20 h-20 object-cover rounded-md border-2 border-indigo-500"
+                          crossOrigin="anonymous"
                           onError={(e) => {
                             console.error('Image failed to load:', newProduct.image);
-                            e.currentTarget.style.display = 'none';
+                            const img = e.currentTarget;
+                            img.style.display = 'none';
                             // Show fallback
-                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                            if (fallback) fallback.style.display = 'flex';
+                            const fallback = img.nextElementSibling as HTMLElement;
+                            if (fallback) {
+                              fallback.style.display = 'flex';
+                            }
                           }}
                           onLoad={() => {
                             console.log('Main image loaded successfully:', newProduct.image);
+                            const img = document.querySelector(`img[src="${newProduct.image}"]`) as HTMLImageElement;
+                            if (img) {
+                              const fallback = img.nextElementSibling as HTMLElement;
+                              if (fallback) {
+                                fallback.style.display = 'none';
+                              }
+                            }
                           }}
                         />
                         <div className="w-20 h-20 bg-gray-200 rounded-md border-2 border-indigo-500 flex items-center justify-center text-xs text-gray-500 hidden">
@@ -817,15 +848,26 @@ export default function SupplierProductsPage() {
                             src={imageUrl}
                             alt={`Product ${index + 1}`}
                             className="w-20 h-20 object-cover rounded-md border"
+                            crossOrigin="anonymous"
                             onError={(e) => {
                               console.error('Image failed to load:', imageUrl);
-                              e.currentTarget.style.display = 'none';
+                              const img = e.currentTarget;
+                              img.style.display = 'none';
                               // Show fallback
-                              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                              if (fallback) fallback.style.display = 'flex';
+                              const fallback = img.nextElementSibling as HTMLElement;
+                              if (fallback) {
+                                fallback.style.display = 'flex';
+                              }
                             }}
                             onLoad={() => {
                               console.log('Additional image loaded successfully:', imageUrl);
+                              const img = document.querySelector(`img[src="${imageUrl}"]`) as HTMLImageElement;
+                              if (img) {
+                                const fallback = img.nextElementSibling as HTMLElement;
+                                if (fallback) {
+                                  fallback.style.display = 'none';
+                                }
+                              }
                             }}
                           />
                           <div className="w-20 h-20 bg-gray-200 rounded-md border flex items-center justify-center text-xs text-gray-500 hidden">

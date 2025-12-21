@@ -61,6 +61,7 @@ export default function AdminTagsPage() {
       });
 
       if (response.ok) {
+        hasFetchedTags.current = false; // Reset guard to allow refetch
         fetchTags();
         setShowAddForm(false);
         setEditingTag(null);
@@ -95,6 +96,7 @@ export default function AdminTagsPage() {
       });
 
       if (response.ok) {
+        hasFetchedTags.current = false; // Reset guard to allow refetch
         fetchTags();
       } else {
         const error = await response.json();
