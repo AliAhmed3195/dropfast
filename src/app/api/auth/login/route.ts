@@ -13,7 +13,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await authenticateUser(email, password);
+    // Normalize email to lowercase (authenticateUser already handles this, but doing it here too for consistency)
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await authenticateUser(normalizedEmail, password);
 
     if (!user) {
       return NextResponse.json(
