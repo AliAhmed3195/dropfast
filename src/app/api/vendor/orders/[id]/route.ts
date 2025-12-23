@@ -47,6 +47,7 @@ export async function GET(
             id: true,
             name: true,
             slug: true,
+            currency: true,
             owner: {
               select: {
                 id: true,
@@ -74,17 +75,28 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Process order to include guest customer info from shipping address
-    let processedOrder = order;
+    // Process order to include guest customer info from shipping address and currency fields
+    let processedOrder: any = {
+      ...order,
+      // Include all currency/pricing fields
+      lockedUSDPrice: order.lockedUSDPrice,
+      lockedLocalPrice: order.lockedLocalPrice,
+      displayPrice: order.displayPrice,
+      displayCurrency: order.displayCurrency,
+      settlementCurrency: order.settlementCurrency,
+      markupPercentage: order.markupPercentage,
+      markupAmountInVendorCurrency: order.markupAmountInVendorCurrency,
+      markupType: order.markupType,
+      vendorCurrency: order.vendorCurrency,
+      supplierCurrency: order.supplierCurrency,
+    };
+
     if (!order.customer && order.shippingAddress) {
       const shipping = order.shippingAddress as any;
-      processedOrder = {
-        ...order,
-        customer: {
-          id: 'guest',
-          name: `${shipping.firstName || ''} ${shipping.lastName || ''}`.trim() || 'Guest Customer',
-          email: shipping.email || 'N/A (Guest)'
-        }
+      processedOrder.customer = {
+        id: 'guest',
+        name: `${shipping.firstName || ''} ${shipping.lastName || ''}`.trim() || 'Guest Customer',
+        email: shipping.email || 'N/A (Guest)'
       };
     }
 

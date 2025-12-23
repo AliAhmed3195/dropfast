@@ -409,19 +409,26 @@ export default function VendorOrderDetailsPage({ params }: { params: { id: strin
               <h2 className="text-xl font-semibold mb-4">Pricing Breakdown</h2>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Product Price:</span>
-                  <OrderDetailCurrencyDisplay
-                    userRole="VENDOR_USER"
-                    userPreferredCurrency={userCurrency}
-                    amount={order.productPrice * order.quantity}
-                    showSecondary={true}
-                    className="text-right"
-                  />
+                  <span className="text-gray-600">Product Price (Base):</span>
+                  <div className="text-right">
+                    {order.lockedUSDPrice ? (
+                      <>
+                        <div className="font-medium">${(order.lockedUSDPrice * order.quantity).toFixed(2)} USD</div>
+                        {order.displayPrice && order.displayCurrency && (
+                          <div className="text-sm text-gray-500">
+                            {order.displayCurrency} {(order.displayPrice * order.quantity).toFixed(2)}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="font-medium">${(order.productPrice * order.quantity).toFixed(2)} USD</div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Your Markup:</span>
                   <div className="text-right">
-                    {order.markupAmountInVendorCurrency && order.vendorCurrency && order.vendorCurrency !== 'USD' ? (
+                    {order.markupAmountInVendorCurrency && order.vendorCurrency ? (
                       <>
                         <div className="font-medium">
                           {(order.markupAmountInVendorCurrency * order.quantity).toFixed(2)} {order.vendorCurrency}
@@ -444,13 +451,20 @@ export default function VendorOrderDetailsPage({ params }: { params: { id: strin
                 <div className="border-t pt-3">
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total Amount:</span>
-                    <OrderDetailCurrencyDisplay
-                      userRole="VENDOR_USER"
-                      userPreferredCurrency={userCurrency}
-                      amount={(order.productPrice + order.markupAmount) * order.quantity}
-                      showSecondary={true}
-                      className="text-right"
-                    />
+                    <div className="text-right">
+                      <OrderDetailCurrencyDisplay
+                        userRole="VENDOR_USER"
+                        userPreferredCurrency={userCurrency}
+                        amount={(order.productPrice + order.markupAmount) * order.quantity}
+                        showSecondary={true}
+                        className="text-right"
+                      />
+                      {order.lockedLocalPrice && order.displayCurrency && (
+                        <div className="text-sm text-gray-500 mt-1">
+                          {order.displayCurrency} {(order.lockedLocalPrice * order.quantity).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
@@ -462,13 +476,27 @@ export default function VendorOrderDetailsPage({ params }: { params: { id: strin
                       <span>{userCurrency}</span>
                     </div>
                     <div className="flex justify-between">
+                      <span>Display Currency:</span>
+                      <span>{order.displayCurrency || order.store.currency || 'USD'}</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span>Supplier Currency:</span>
                       <span>{order.supplierCurrency || 'USD'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Settlement Currency:</span>
+                      <span>{order.settlementCurrency || 'USD'}</span>
                     </div>
                     {order.markupType && (
                       <div className="flex justify-between">
                         <span>Markup Type:</span>
                         <span className="capitalize">{order.markupType}</span>
+                      </div>
+                    )}
+                    {order.lockedUSDPrice && (
+                      <div className="flex justify-between">
+                        <span>Locked USD Price:</span>
+                        <span>${order.lockedUSDPrice.toFixed(2)}</span>
                       </div>
                     )}
                   </div>

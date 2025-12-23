@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loading } from '@/components/ui/Loading';
+import { Card } from '@/components/ui/Card';
 import ProductImageSlider from '../../../../components/ProductImageSlider';
 
 interface StoreProduct {
@@ -52,13 +53,25 @@ interface StoreProduct {
   updatedAt: string;
 }
 
+interface Store {
+  id: string;
+  name: string;
+  currency: string;
+  isActive: boolean;
+}
+
 export default function ImportedProductsPage() {
   const [storeProducts, setStoreProducts] = useState<StoreProduct[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [markup, setMarkup] = useState<{ [storeProductId: string]: number }>({});
+  const [storeFilter, setStoreFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   const hasFetchedProducts = useRef(false);
+  const hasFetchedStores = useRef(false);
 
   const fetchImportedProducts = useCallback(async () => {
     if (hasFetchedProducts.current) return;
@@ -83,9 +96,26 @@ export default function ImportedProductsPage() {
     }
   }, []);
 
+  const fetchStores = useCallback(async () => {
+    if (hasFetchedStores.current) return;
+    hasFetchedStores.current = true;
+    
+    try {
+      const response = await fetch('/api/stores');
+      if (response.ok) {
+        const data = await response.json();
+        setStores(data.stores || []);
+      }
+    } catch (error) {
+      console.error('Error fetching stores:', error);
+      hasFetchedStores.current = false;
+    }
+  }, []);
+
   useEffect(() => {
     fetchImportedProducts();
-  }, [fetchImportedProducts]);
+    fetchStores();
+  }, [fetchImportedProducts, fetchStores]);
 
   const getCurrencySymbol = (currency: string) => {
     const symbols: { [key: string]: string } = {
@@ -278,6 +308,30 @@ export default function ImportedProductsPage() {
     }
   };
 
+  // Filter products based on filters
+  const filteredProducts = storeProducts.filter(storeProduct => {
+    const matchesStore = !storeFilter || storeProduct.store.id === storeFilter;
+    const matchesStatus = statusFilter === '' || 
+      (statusFilter === 'active' && storeProduct.isActive) ||
+      (statusFilter === 'inactive' && !storeProduct.isActive);
+    const matchesSearch = !searchTerm || 
+      storeProduct.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      storeProduct.product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      storeProduct.product.category?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      storeProduct.product.supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      storeProduct.store.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesStore && matchesStatus && matchesSearch;
+  });
+
+  const clearFilters = () => {
+    setStoreFilter('');
+    setStatusFilter('');
+    setSearchTerm('');
+  };
+
+  const hasActiveFilters = storeFilter || statusFilter || searchTerm;
+
   if (loading) {
     return <Loading message="Loading imported products..." />;
   }
@@ -285,129 +339,236 @@ export default function ImportedProductsPage() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Imported Products
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Imported Products
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Manage your imported products and pricing
+          </p>
+        </div>
         <div className="text-sm text-gray-600">
-          Manage your imported products and pricing
+          Total: {filteredProducts.length} {hasActiveFilters && `(Filtered from ${storeProducts.length})`}
         </div>
       </div>
 
-      {storeProducts.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-gray-500 text-lg">No imported products found</div>
-          <div className="text-gray-400 text-sm mt-2">
-            Import products from the Available Products page to get started
+      {/* Filters */}
+      <Card className="mb-6">
+        <div className="p-4">
+          <h2 className="text-lg font-semibold mb-4">Filters</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Search Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search Products
+              </label>
+              <input
+                type="text"
+                placeholder="Search by name, category, supplier..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Store Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Store
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={storeFilter}
+                onChange={(e) => setStoreFilter(e.target.value)}
+              >
+                <option value="">All Stores</option>
+                {stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name} ({store.currency})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Status
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="active">Active (In Store)</option>
+                <option value="inactive">Inactive (My Products)</option>
+              </select>
+            </div>
+
+            {/* Clear Filters Button */}
+            <div className="flex items-end">
+              <button
+                onClick={clearFilters}
+                disabled={!hasActiveFilters}
+                className="w-full bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-medium disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+              >
+                Clear Filters
+              </button>
+            </div>
           </div>
         </div>
+      </Card>
+
+      {filteredProducts.length === 0 ? (
+        <Card>
+          <div className="text-center py-12">
+            <div className="text-gray-500 text-lg">
+              {hasActiveFilters 
+                ? 'No products match your filters' 
+                : 'No imported products found'
+              }
+            </div>
+            <div className="text-gray-400 text-sm mt-2">
+              {hasActiveFilters 
+                ? 'Try adjusting your filters or clear them to see all products'
+                : 'Import products from the Available Products page to get started'
+              }
+            </div>
+          </div>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {storeProducts.map((storeProduct) => {
-            const isNew = new Date(storeProduct.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            
-            return (
-              <div key={storeProduct.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative">
-                  {storeProduct.product?.images && storeProduct.product.images.length > 0 ? (
-                    <ProductImageSlider 
-                      images={storeProduct.product.images} 
-                      productName={storeProduct.product?.name || 'Product'}
-                    />
-                  ) : (
-                    <div className="h-48 bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-500">No Image</span>
-                    </div>
-                  )}
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Product
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Store
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Supplier
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Base Price (USD)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Locked Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Markup %
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Final Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredProducts.map((storeProduct) => {
+                  const isNew = new Date(storeProduct.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
                   
-                  {isNew && (
-                    <div className="absolute top-2 left-2">
-                      <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                        New
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Store Status and Toggle */}
-                  <div className="absolute top-2 right-2 flex flex-col gap-1">
-                    {storeProduct.isActive ? (
-                      <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                        In Store
-                      </span>
-                    ) : (
-                      <span className="bg-gray-500 text-white text-xs px-2 py-1 rounded-full">
-                        My Products
-                      </span>
-                    )}
-                    
-                    <button
-                      onClick={() => handleToggleStatus(storeProduct.id, storeProduct.isActive)}
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        storeProduct.isActive 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {storeProduct.isActive ? 'Active' : 'Inactive'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-gray-900 line-clamp-2">
-                      {storeProduct.product?.name || 'Unknown Product'}
-                    </h3>
-                  </div>
-
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                    {storeProduct.product?.description || 'No description available'}
-                  </p>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Store:</span>
-                      <span className="font-medium">
-                        {storeProduct.store.name} ({storeProduct.store.currency})
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Category:</span>
-                      <span className="font-medium">
-                        {storeProduct.product?.category?.name || 'N/A'}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Supplier:</span>
-                      <span className="font-medium">
-                        {storeProduct.product?.supplier?.name || 'Unknown Supplier'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-3">
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm text-gray-500">Base Price (USD)</div>
-                          <div className="text-lg font-bold text-gray-900">
-                            {formatPrice(storeProduct.lockedUSDPrice, 'USD')}
+                  return (
+                    <tr key={storeProduct.id} className="hover:bg-gray-50">
+                      {/* Product */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-12 h-12 mr-3 flex-shrink-0">
+                            {storeProduct.product?.images && storeProduct.product.images.length > 0 ? (
+                              <ProductImageSlider 
+                                images={storeProduct.product.images} 
+                                productName={storeProduct.product?.name || 'Product'}
+                                className="w-12 h-12 object-cover rounded-md"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 bg-gray-200 flex items-center justify-center rounded-md">
+                                <span className="text-gray-400 text-xs">No Image</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900 line-clamp-1">
+                              {storeProduct.product?.name || 'Unknown Product'}
+                            </div>
+                            <div className="text-xs text-gray-500 line-clamp-1 max-w-xs">
+                              {storeProduct.product?.description || 'No description'}
+                            </div>
+                            <div className="flex gap-1 mt-1">
+                              {isNew && (
+                                <span className="bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                  New
+                                </span>
+                              )}
+                              {storeProduct.product?.tags && storeProduct.product.tags.length > 0 && (
+                                <span className="text-xs text-gray-500">
+                                  {storeProduct.product.tags.length} tag{storeProduct.product.tags.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div>
-                          <div className="text-sm text-gray-500">Locked Price</div>
-                          <div className="text-lg font-bold text-blue-600">
-                            {formatPrice(storeProduct.lockedLocalPrice, storeProduct.localCurrency)}
-                          </div>
-                        </div>
-                      </div>
+                      </td>
 
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">
-                          Markup Percentage (%)
-                        </label>
-                        <div className="flex space-x-2">
+                      {/* Store */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {storeProduct.store.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {storeProduct.store.currency}
+                        </div>
+                      </td>
+
+                      {/* Category */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {storeProduct.product?.category?.name || 'Uncategorized'}
+                        </div>
+                        {storeProduct.product?.subcategory && (
+                          <div className="text-xs text-gray-500">
+                            {storeProduct.product.subcategory.name}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Supplier */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {storeProduct.product?.supplier?.name || 'Unknown'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {storeProduct.product?.supplier?.email || ''}
+                        </div>
+                      </td>
+
+                      {/* Base Price (USD) */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatPrice(storeProduct.lockedUSDPrice, 'USD')}
+                        </div>
+                      </td>
+
+                      {/* Locked Price */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-blue-600">
+                          {formatPrice(storeProduct.lockedLocalPrice, storeProduct.localCurrency)}
+                        </div>
+                      </td>
+
+                      {/* Markup */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
                           <input
                             type="number"
                             min="0"
@@ -415,80 +576,85 @@ export default function ImportedProductsPage() {
                             step="0.1"
                             value={markup[storeProduct.id] || 0}
                             onChange={(e) => handleMarkupChange(storeProduct.id, e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-20 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="0"
                           />
                           <button
                             onClick={() => handleUpdateMarkup(storeProduct.id)}
                             disabled={updating === storeProduct.id}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            title="Update Markup"
                           >
-                            {updating === storeProduct.id ? 'Updating...' : 'Update'}
+                            {updating === storeProduct.id ? '...' : '✓'}
                           </button>
                         </div>
-                      </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Current: {storeProduct.markup}%
+                        </div>
+                      </td>
 
-                      <div className="bg-gray-50 p-3 rounded-md">
-                        <div className="text-sm text-gray-600 mb-1">Final Price:</div>
-                        <div className="text-lg font-bold text-green-600">
+                      {/* Final Price */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-green-600">
                           {formatPrice(storeProduct.finalPrice, storeProduct.localCurrency)}
                         </div>
                         <div className="text-xs text-gray-500">
-                          Base: {formatPrice(storeProduct.lockedLocalPrice, storeProduct.localCurrency)} + {storeProduct.markup}% markup
+                          Base + {storeProduct.markup}%
                         </div>
-                      </div>
-                    </div>
-                  </div>
+                      </td>
 
-                  {storeProduct.product?.tags && storeProduct.product.tags.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {storeProduct.product.tags.slice(0, 3).map((tag, index) => (
-                        <span
-                          key={index}
-                          className="text-xs px-2 py-1 rounded-full"
-                          style={{
-                            backgroundColor: tag.tag.color ? `${tag.tag.color}20` : '#f3f4f6',
-                            color: tag.tag.color || '#374151',
-                          }}
-                        >
-                          {tag.tag.name}
-                        </span>
-                      ))}
-                      {storeProduct.product.tags.length > 3 && (
-                        <span className="text-xs text-gray-500">
-                          +{storeProduct.product.tags.length - 3} more
-                        </span>
-                      )}
-                    </div>
-                  )}
+                      {/* Status */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            storeProduct.isActive 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {storeProduct.isActive ? 'In Store' : 'My Products'}
+                          </span>
+                          <button
+                            onClick={() => handleToggleStatus(storeProduct.id, storeProduct.isActive)}
+                            className={`px-2 py-1 text-xs rounded-md ${
+                              storeProduct.isActive 
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                : 'bg-red-100 text-red-800 hover:bg-red-200'
+                            }`}
+                          >
+                            {storeProduct.isActive ? 'Active' : 'Inactive'}
+                          </button>
+                        </div>
+                      </td>
 
-                  {/* Action Buttons */}
-                  <div className="mt-4 pt-3 border-t">
-                    <div className="flex space-x-2">
-                      {!storeProduct.isActive ? (
-                        <button
-                          onClick={() => handleAddToStore(storeProduct.id)}
-                          disabled={updating === storeProduct.id}
-                          className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                          {updating === storeProduct.id ? 'Adding...' : 'Add to Store'}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleRemoveFromStore(storeProduct.id)}
-                          disabled={updating === storeProduct.id}
-                          className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                          {updating === storeProduct.id ? 'Removing...' : 'Remove from Store'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                      {/* Actions */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex flex-col gap-1">
+                          {!storeProduct.isActive ? (
+                            <button
+                              onClick={() => handleAddToStore(storeProduct.id)}
+                              disabled={updating === storeProduct.id}
+                              className="px-3 py-1 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                              {updating === storeProduct.id ? 'Adding...' : 'Add to Store'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleRemoveFromStore(storeProduct.id)}
+                              disabled={updating === storeProduct.id}
+                              className="px-3 py-1 text-xs bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                              {updating === storeProduct.id ? 'Removing...' : 'Remove'}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </div>
   );

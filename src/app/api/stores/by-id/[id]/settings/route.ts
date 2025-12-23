@@ -32,9 +32,12 @@ async function updateStoreSettings(
         phone: body.phone,
         email: body.email,
         taxNumber: body.taxNumber,
-        invoiceTemplate: body.invoiceTemplate,
+        invoiceTemplate: body.invoiceTemplate, // Store-specific template (each store has its own)
       },
     });
+
+    console.log(`[Store Template Updated] Store: ${store.name} (ID: ${id}), New template: ${body.invoiceTemplate}`);
+    console.log(`[Store Template Info] This template will be used for all future invoices from this store only.`);
 
     return NextResponse.json({ store });
   } catch (error) {

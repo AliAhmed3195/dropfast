@@ -12,6 +12,7 @@ interface Invoice {
   tax: number;
   total: number;
   status: string;
+  template?: string; // Template saved when invoice was created
   createdAt: string;
   order: {
     id: string;
@@ -30,6 +31,7 @@ interface Invoice {
     };
   };
   store: {
+    id: string;
     name: string;
     logo?: string;
     address?: string;
@@ -44,20 +46,60 @@ interface Invoice {
   };
 }
 
+interface Store {
+  id: string;
+  name: string;
+}
+
 export default function VendorInvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    storeId: '',
+    status: '',
+    fromDate: '',
+    toDate: '',
+  });
 
   const hasFetchedInvoices = useRef(false);
+  const hasFetchedStores = useRef(false);
+
+  const fetchStores = useCallback(async () => {
+    if (hasFetchedStores.current) return;
+    hasFetchedStores.current = true;
+    
+    try {
+      const response = await fetch('/api/stores');
+      const data = await response.json();
+      setStores(data.stores || []);
+    } catch (error) {
+      console.error('Error fetching stores:', error);
+      hasFetchedStores.current = false;
+    }
+  }, []);
 
   const fetchInvoices = useCallback(async () => {
-    if (hasFetchedInvoices.current) return;
+    hasFetchedInvoices.current = false; // Allow refetch when filters change
     hasFetchedInvoices.current = true;
     
     try {
-      const response = await fetch('/api/vendor/invoices');
+      setLoading(true);
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (filters.storeId) params.append('storeId', filters.storeId);
+      if (filters.status) params.append('status', filters.status);
+      if (filters.fromDate) params.append('fromDate', filters.fromDate);
+      if (filters.toDate) params.append('toDate', filters.toDate);
+      
+      const queryString = params.toString();
+      const url = `/api/vendor/invoices${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await fetch(url);
       const data = await response.json();
       setInvoices(data.invoices || []);
     } catch (error) {
@@ -66,11 +108,31 @@ export default function VendorInvoicesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters]);
+
+  useEffect(() => {
+    fetchStores();
+  }, [fetchStores]);
 
   useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      storeId: '',
+      status: '',
+      fromDate: '',
+      toDate: '',
+    });
+  };
 
   const handlePreviewInvoice = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
@@ -109,6 +171,88 @@ export default function VendorInvoicesPage() {
         <p className="text-gray-600">Manage and view your invoices</p>
       </div>
 
+      {/* Filters */}
+      <Card className="mb-6">
+        <div className="p-4">
+          <h2 className="text-lg font-semibold mb-4">Filters</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Store Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Store
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={filters.storeId}
+                onChange={(e) => handleFilterChange('storeId', e.target.value)}
+              >
+                <option value="">All Stores</option>
+                {stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="PENDING">Pending</option>
+                <option value="PAID">Paid</option>
+                <option value="OVERDUE">Overdue</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+
+            {/* From Date Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                From Date
+              </label>
+              <input
+                type="date"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={filters.fromDate}
+                onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+              />
+            </div>
+
+            {/* To Date Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                To Date
+              </label>
+              <input
+                type="date"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={filters.toDate}
+                onChange={(e) => handleFilterChange('toDate', e.target.value)}
+                min={filters.fromDate || undefined}
+              />
+            </div>
+
+            {/* Clear Filters Button */}
+            <div className="flex items-end">
+              <button
+                onClick={clearFilters}
+                className="w-full bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-medium"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* Invoice Preview Modal */}
       {showPreview && selectedInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -131,13 +275,23 @@ export default function VendorInvoicesPage() {
               </div>
             </div>
             <div className="p-4">
+              {/* Use invoice.template (saved when invoice was created from store.invoiceTemplate) */}
+              {/* This ensures each invoice uses the template that was selected for its store at creation time */}
               <InvoiceTemplate 
                 invoice={{
                   ...selectedInvoice,
-                  template: selectedInvoice.store.invoiceTemplate || 'default'
+                  template: selectedInvoice.template || selectedInvoice.store?.invoiceTemplate || 'default'
                 }} 
-                template={(selectedInvoice.store.invoiceTemplate || 'default') as 'default' | 'modern' | 'minimal' | 'professional'} 
+                template={(selectedInvoice.template || selectedInvoice.store?.invoiceTemplate || 'default') as 'default' | 'modern' | 'minimal' | 'professional'} 
               />
+              {/* Debug info */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-gray-600">
+                  <p>Store: {selectedInvoice.store?.name}</p>
+                  <p>Template used: {selectedInvoice.template || selectedInvoice.store?.invoiceTemplate || 'default'}</p>
+                  <p>Template source: {selectedInvoice.template ? 'invoice.template (saved at creation)' : 'store.invoiceTemplate (current)'}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -156,7 +310,11 @@ export default function VendorInvoicesPage() {
                   </span>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                  <div>
+                    <p className="font-medium text-gray-900">Store</p>
+                    <p className="text-indigo-600 font-medium">{invoice.store.name}</p>
+                  </div>
                   <div>
                     <p className="font-medium text-gray-900">Customer</p>
                     <p>{invoice.customer.name}</p>
@@ -196,8 +354,22 @@ export default function VendorInvoicesPage() {
 
       {invoices.length === 0 && (
         <Card>
-          <p className="text-center text-gray-500 py-8">No invoices found.</p>
+          <p className="text-center text-gray-500 py-8">
+            {Object.values(filters).some(v => v) 
+              ? 'No invoices found matching your filters.' 
+              : 'No invoices found.'}
+          </p>
         </Card>
+      )}
+
+      {/* Results Count */}
+      {invoices.length > 0 && (
+        <div className="mb-4 text-sm text-gray-600">
+          Showing {invoices.length} invoice{invoices.length !== 1 ? 's' : ''}
+          {filters.storeId && ` for ${stores.find(s => s.id === filters.storeId)?.name || 'selected store'}`}
+          {filters.status && ` with status: ${filters.status}`}
+          {(filters.fromDate || filters.toDate) && ' in selected date range'}
+        </div>
       )}
     </div>
   );

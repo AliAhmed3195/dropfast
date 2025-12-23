@@ -10,7 +10,12 @@ interface Store {
   name: string;
   slug: string;
   description: string;
-  template: string;
+  templateId?: string | null;
+  template?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
   logo?: string;
   banner?: string;
   isActive: boolean;
@@ -67,6 +72,8 @@ export default function VendorStoresPage() {
       const response = await fetch('/api/stores');
       const data = await response.json();
       setStores(data.stores || []);
+      // Reset ref to allow refresh after store creation
+      hasFetchedStores.current = false;
     } catch (error) {
       console.error('Error fetching stores:', error);
       hasFetchedStores.current = false;
@@ -267,10 +274,16 @@ export default function VendorStoresPage() {
       });
 
       if (response.ok) {
+        // Refresh stores list
+        hasFetchedStores.current = false;
         fetchStores();
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to update store status');
       }
     } catch (error) {
       console.error('Error updating store:', error);
+      alert('Failed to update store status');
     }
   };
 
@@ -281,7 +294,12 @@ export default function VendorStoresPage() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">My Stores</h1>
+        <div>
+          <h1 className="text-2xl font-bold">My Stores</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Manage your stores and their settings
+          </p>
+        </div>
         <button
           onClick={() => router.push('/vendor/create-store')}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
@@ -290,7 +308,8 @@ export default function VendorStoresPage() {
         </button>
       </div>
 
-      {showCreateForm && (
+      {/* Inline create form - Deprecated, use /vendor/create-store instead */}
+      {false && showCreateForm && (
         <Card className="mb-6">
           <h2 className="text-xl font-semibold mb-4">Create New Store</h2>
           <form onSubmit={handleCreateStore} className="space-y-4">
@@ -498,7 +517,7 @@ export default function VendorStoresPage() {
                 <span className="font-medium">Slug:</span> {store.slug}
               </p>
               <p className="text-sm">
-                <span className="font-medium">Template:</span> {store.template}
+                <span className="font-medium">Template:</span> {store.template?.name || store.template?.slug || 'Default'}
               </p>
               <p className="text-sm">
                 <span className="font-medium">Created:</span>{' '}

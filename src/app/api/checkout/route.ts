@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { payoutCalculator } from '@/lib/payout-calculator';
+import { sendEmail, generateCustomerInvoiceEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,7 +78,11 @@ export async function POST(request: NextRequest) {
           }
         },
         store: {
-          include: {
+          select: {
+            id: true,
+            name: true,
+            invoiceTemplate: true, // Include invoiceTemplate
+            autoForwardOrders: true,
             owner: {
               include: { business: true }
             }
@@ -212,19 +217,111 @@ export async function POST(request: NextRequest) {
 
     console.log('Order created successfully:', order.id);
 
+    // Create invoice with selected template
+    // Note: customerId can be null for guest orders, but Invoice model requires it
+    // We'll handle this by creating a temporary customer record if needed
+    let finalCustomerId = customerId;
+    if (!finalCustomerId && customerInfo.email) {
+      // Create a guest customer record for invoice
+      const guestCustomer = await prisma.user.create({
+        data: {
+          email: customerInfo.email,
+          name: `${customerInfo.firstName} ${customerInfo.lastName}`,
+          role: 'CUSTOMER',
+          password: '', // Guest customer, no password
+          status: 'ACTIVE'
+        }
+      });
+      finalCustomerId = guestCustomer.id;
+    }
+
+    if (!finalCustomerId) {
+      return NextResponse.json(
+        { error: 'Customer information is required' },
+        { status: 400 }
+      );
+    }
+
+    const invoiceCount = await prisma.invoice.count({
+      where: { storeId: storeProduct.storeId },
+    });
+    const invoiceNumber = `INV-${storeProduct.storeId.slice(-4).toUpperCase()}-${String(invoiceCount + 1).padStart(4, '0')}`;
+    
+    // Use store-specific template (each store has its own invoiceTemplate)
+    const selectedTemplate = storeProduct.store.invoiceTemplate || 'default';
+    console.log(`[Invoice Creation] Store: ${storeProduct.store.name} (ID: ${storeProduct.storeId}), Using template: ${selectedTemplate}`);
+    
+    const invoice = await prisma.invoice.create({
+      data: {
+        invoiceNumber,
+        orderId: order.id,
+        storeId: storeProduct.storeId,
+        customerId: finalCustomerId,
+        subtotal: calculatedTotalAmount,
+        tax: 0,
+        total: calculatedTotalAmount,
+        status: 'PENDING',
+        template: selectedTemplate, // Save store-specific template (vendor selected for this store)
+      },
+    });
+
+    console.log(`[Invoice Created] Invoice: ${invoice.invoiceNumber}, Store: ${storeProduct.store.name}, Template: ${invoice.template}`);
+
+    // Send invoice email to customer with selected template
+    if (customerInfo.email) {
+      try {
+        // Get customer name
+        const customerName = customerInfo.firstName && customerInfo.lastName 
+          ? `${customerInfo.firstName} ${customerInfo.lastName}`
+          : customerInfo.email;
+
+        // Get order with all relations for email
+        const orderForEmail = await prisma.order.findUnique({
+          where: { id: order.id },
+          include: {
+            product: true,
+            customer: true,
+            store: true,
+          },
+        });
+
+        if (orderForEmail) {
+          const customerEmailData = generateCustomerInvoiceEmail(
+            customerName,
+            orderForEmail,
+            invoice,
+            {
+              ...storeProduct.store,
+              invoiceTemplate: invoice.template, // Use template from invoice (selected by vendor)
+            }
+          );
+
+          await sendEmail({
+            to: customerInfo.email,
+            subject: customerEmailData.subject,
+            html: customerEmailData.html,
+            text: customerEmailData.text,
+          });
+
+          console.log('Invoice email sent to customer with template:', invoice.template);
+        }
+      } catch (emailError) {
+        console.error('Error sending invoice email:', emailError);
+        // Don't fail the order if email fails
+      }
+    }
+
     // Payout will be created when supplier confirms the order
     // This ensures payout is only created for confirmed orders
-
-    // In a real application, you would:
-    // 1. Process payment with a payment gateway (Stripe, PayPal, etc.)
-    // 2. Send confirmation emails
-    // 3. Generate invoice
 
     return NextResponse.json({
       success: true,
       orderId: order.id,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceTemplate: invoice.template,
       message: 'Order placed successfully',
-      customerId: customerId
+      customerId: finalCustomerId
     });
 
   } catch (error) {

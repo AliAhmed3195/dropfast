@@ -71,7 +71,10 @@ export async function POST(
       },
       include: {
         store: {
-          include: {
+          select: {
+            id: true,
+            name: true,
+            invoiceTemplate: true, // Include invoiceTemplate
             owner: true, // Vendor
           },
         },
@@ -134,7 +137,10 @@ export async function POST(
       },
     });
 
-    // Create invoice
+    // Create invoice with store-specific template (each store has its own invoiceTemplate)
+    const selectedTemplate = product.store?.invoiceTemplate || 'default';
+    console.log(`[Invoice Creation] Store: ${product.store?.name} (ID: ${product.storeId}), Using template: ${selectedTemplate}`);
+    
     const invoiceNumber = `INV-${Date.now()}`;
     const invoice = await prisma.invoice.create({
       data: {
@@ -146,19 +152,22 @@ export async function POST(
         tax: 0, // You can add tax calculation here
         total: totalAmount,
         status: 'PENDING',
+        template: selectedTemplate, // Save store-specific template (vendor selected for this store)
       },
     });
 
+    console.log(`[Invoice Created] Invoice: ${invoice.invoiceNumber}, Store: ${product.store?.name}, Template: ${invoice.template}`);
+
     // Send emails
     try {
-      // Email to customer (invoice)
+      // Email to customer (invoice) - use template from invoice (saved when invoice was created)
       const customerEmailData = generateCustomerInvoiceEmail(
         customerName,
         order,
         invoice,
         {
           ...product.store,
-          invoiceTemplate: product.store?.invoiceTemplate || 'default'
+          invoiceTemplate: invoice.template || product.store?.invoiceTemplate || 'default' // Prefer invoice.template
         }
       );
       await sendEmail({

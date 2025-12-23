@@ -11,11 +11,11 @@ export async function GET() {
 
     console.log('Fetching available products for vendor:', session.id);
 
-    // First, get basic products without complex relations
+    // Get products with all necessary relations for filtering and display
     const products = await prisma.product.findMany({
       where: {
         isActive: true,
-        storeId: null
+        storeId: null // Only original products, not vendor-created copies
       },
       include: {
         supplier: {
@@ -23,6 +23,32 @@ export async function GET() {
             id: true,
             name: true,
             email: true,
+          }
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
+        subcategory: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
+        tags: {
+          include: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                color: true
+              }
+            }
           }
         },
         images: {
@@ -41,12 +67,58 @@ export async function GET() {
 
     console.log(`Found ${products.length} basic products`);
 
-    // For now, just return products without import status to test
-    const productsWithStatus = products.map(product => ({
-      ...product,
-      isImported: false,
-      importedStores: []
-    }));
+    // Get vendor's stores to check import status
+    const vendorStores = await prisma.store.findMany({
+      where: {
+        ownerId: session.id
+      },
+      select: {
+        id: true,
+        name: true,
+        currency: true
+      }
+    });
+
+    const storeIds = vendorStores.map(s => s.id);
+
+    // Get all StoreProducts for this vendor's stores to check import status
+    const importedStoreProducts = storeIds.length > 0 ? await prisma.storeProduct.findMany({
+      where: {
+        storeId: { in: storeIds },
+        productId: { in: products.map(p => p.id) }
+      },
+      select: {
+        productId: true,
+        storeId: true,
+        store: {
+          select: {
+            id: true,
+            name: true,
+            currency: true
+          }
+        }
+      }
+    }) : [];
+
+    // Create a map of productId -> imported stores
+    const importStatusMap = new Map<string, Array<{ id: string; name: string; currency: string }>>();
+    
+    importedStoreProducts.forEach(sp => {
+      if (!importStatusMap.has(sp.productId)) {
+        importStatusMap.set(sp.productId, []);
+      }
+      importStatusMap.get(sp.productId)!.push(sp.store);
+    });
+
+    // Add import status to each product
+    const productsWithStatus = products.map(product => {
+      const importedStores = importStatusMap.get(product.id) || [];
+      return {
+        ...product,
+        isImported: importedStores.length > 0,
+        importedStores: importedStores
+      };
+    });
 
     console.log(`Processed ${productsWithStatus.length} products with status`);
     console.log(`Products with imports: ${productsWithStatus.filter(p => p.isImported).length}`);

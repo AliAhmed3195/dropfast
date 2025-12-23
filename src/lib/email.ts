@@ -104,11 +104,18 @@ export function generateCustomerInvoiceEmail(customerName: string, orderData: an
     status: 'PAID'
   };
 
-  // Generate HTML template based on store template
+  // Generate HTML template based on invoice template (preferred) or store template
+  // invoiceData.template is the template saved when invoice was created (store-specific template selected by vendor)
+  // Each store has its own invoiceTemplate, so invoices use the template selected for that specific store
   let templateHtml;
-  const templateType = storeData?.invoiceTemplate || storeData?.template || 'default';
-  console.log('Selected template type:', templateType);
-  console.log('Store data:', { invoiceTemplate: storeData?.invoiceTemplate, template: storeData?.template });
+  const templateType = invoiceData?.template || storeData?.invoiceTemplate || storeData?.template || 'default';
+  console.log(`[Email Invoice] Store: ${storeName}, Using template: ${templateType}`);
+  console.log('[Email Template Source]', { 
+    invoiceTemplate: invoiceData?.template, // Template saved when invoice was created (from store.invoiceTemplate)
+    storeInvoiceTemplate: storeData?.invoiceTemplate, // Current store template
+    storeTemplate: storeData?.template,
+    finalTemplate: templateType
+  });
   
   if (templateType === 'modern') {
     templateHtml = generateModernInvoiceTemplate(templateInvoiceData, storeData);
